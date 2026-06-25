@@ -1,0 +1,13 @@
+# Configuración de lint + formato para todo el monorepo Python.
+target-version = "py312"
+line-length = 100
+src = ["services/api/src", "services/orchestrator/src"]
+
+[lint]
+select = ["E", "F", "I", "UP", "B", "SIM", "C4"]
+# E/F: pyflakes+pycodestyle · I: imports · UP: pyupgrade
+# B: bugbear · SIM: simplify · C4: comprehensions
+ignore = []
+
+[lint.isort]
+known-first-party = ["territorio_api", "territorio_pipelines"]

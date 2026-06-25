@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - name: Ruff lint
+        run: uvx ruff check .
+      - name: Ruff format
+        run: uvx ruff format --check .
+
+  test-python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [api, orchestrator]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v4
+      - name: Sync
+        working-directory: services/${{ matrix.service }}
+        run: uv sync
+      - name: Test
+        working-directory: services/${{ matrix.service }}
+        run: uv run pytest -q
+
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Build
+        working-directory: frontend
+        run: |
+          npm install
+          npm run build
+
+  docker:
+    runs-on: ubuntu-latest
+    needs: [lint, test-python]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build images
+        run: docker compose build

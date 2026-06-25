@@ -1,0 +1,32 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.uv/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Dagster
+.dagster/
+dagster_home/
+tmp_dagster_*
+
+# Node / frontend
+node_modules/
+dist/
+*.local
+
+# Env
+.env
+.env.*
+!.env.example
+
+# Datos crudos (landing zone inmutable) — NUNCA se versiona
+raw/*
+!raw/.gitkeep
+
+# Sistema
+.DS_Store
+*.log

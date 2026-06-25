@@ -1,0 +1,31 @@
+.PHONY: help up down logs build test lint fmt hooks
+
+help: ## Muestra esta ayuda
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
+
+up: ## Levanta toda la plataforma (docker compose)
+	docker compose up --build -d
+
+down: ## Para y elimina los contenedores
+	docker compose down
+
+logs: ## Sigue los logs de todos los servicios
+	docker compose logs -f
+
+build: ## Reconstruye las imágenes
+	docker compose build
+
+test: ## Tests de los servicios Python
+	cd services/api && uv run pytest -q
+	cd services/orchestrator && uv run pytest -q
+
+lint: ## Lint del monorepo (ruff)
+	uvx ruff check .
+	uvx ruff format --check .
+
+fmt: ## Formatea el código
+	uvx ruff format .
+	uvx ruff check --fix .
+
+hooks: ## Instala los hooks de pre-commit
+	uvx pre-commit install
