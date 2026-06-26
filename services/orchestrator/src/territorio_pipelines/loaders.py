@@ -9,6 +9,7 @@ from pydantic import ValidationError
 from sqlalchemy import text
 
 from .db import engine
+from .sources import padron
 from .sources.ign import feature_to_row, read_features
 
 # Calcula la geometría 4326 una sola vez (CTE) y deriva 25830 y superficie.
@@ -55,3 +56,32 @@ def load_municipios(path: Path) -> dict[str, int]:
             )
             inserted += 1
     return {"municipios": inserted, "descartados": skipped}
+
+
+_INSERT_PADRON = text("""
+INSERT INTO fact_municipio_anual
+    (cod_municipio, anio, poblacion_total, poblacion_hombres, poblacion_mujeres)
+VALUES (:cod, :anio, :total, :hombres, :mujeres)
+ON CONFLICT (cod_municipio, anio) DO UPDATE SET
+    poblacion_total = EXCLUDED.poblacion_total,
+    poblacion_hombres = EXCLUDED.poblacion_hombres,
+    poblacion_mujeres = EXCLUDED.poblacion_mujeres
+""")
+
+
+def load_padron(path: Path, batch_size: int = 5000) -> dict[str, int]:
+    """Carga población (2015→) en `fact_municipio_anual` desde el `.px` del INE."""
+    df = padron.parse_px(path)
+    batch: list[dict] = []
+    rows = 0
+    with engine.begin() as conn:
+        for rec in padron.records_from_df(df):
+            batch.append(rec)
+            if len(batch) >= batch_size:
+                conn.execute(_INSERT_PADRON, batch)
+                rows += len(batch)
+                batch = []
+        if batch:
+            conn.execute(_INSERT_PADRON, batch)
+            rows += len(batch)
+    return {"filas": rows}

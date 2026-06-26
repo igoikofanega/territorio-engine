@@ -1,5 +1,5 @@
 from geoalchemy2 import Geometry
-from sqlalchemy import Column, Float, String
+from sqlalchemy import Column, Float, Integer, String
 
 from .db import Base
 
@@ -20,3 +20,18 @@ class DimMunicipio(Base):
     superficie_km2 = Column(Float)
     geom_4326 = Column(Geometry("MULTIPOLYGON", srid=4326))
     geom_25830 = Column(Geometry("MULTIPOLYGON", srid=25830))
+
+
+class FactMunicipioAnual(Base):
+    """Matriz de hechos `(cod_municipio, anio)`. Spec: docs/matrix-spec.md.
+
+    Por ahora solo demografía (Padrón). Se ampliará con MNP, renta, paro y clima.
+    """
+
+    __tablename__ = "fact_municipio_anual"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    anio = Column(Integer, primary_key=True)
+    poblacion_total = Column(Integer)
+    poblacion_hombres = Column(Integer)
+    poblacion_mujeres = Column(Integer)

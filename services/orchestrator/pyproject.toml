@@ -12,6 +12,8 @@ dependencies = [
     "geoalchemy2>=0.15",
     "alembic>=1.13",
     "psycopg2-binary>=2.9",
+    "pandas>=2.2",
+    "pyaxis>=0.4",
 ]
 
 [dependency-groups]

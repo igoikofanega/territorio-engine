@@ -35,3 +35,6 @@ migrate: ## Aplica las migraciones de BD (Alembic) en el contenedor
 
 ingest-municipios: ## Ingesta geometrías IGN → dim_municipio
 	docker compose run --rm orchestrator uv run dagster asset materialize --select dim_municipio -m territorio_pipelines.definitions
+
+ingest-padron: ## Ingesta población INE (29005) → fact_municipio_anual
+	docker compose run --rm orchestrator uv run dagster asset materialize --select padron -m territorio_pipelines.definitions

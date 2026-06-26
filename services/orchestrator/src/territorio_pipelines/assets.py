@@ -27,9 +27,19 @@ def dim_municipio(context: AssetExecutionContext) -> int:
 
 @asset(group_name="fuentes")
 def padron(context: AssetExecutionContext) -> int:
-    """Población por municipio y pirámide de edad (INE, descarga .px → pyaxis)."""
-    context.log.info("STUB: Padrón / Cifras oficiales de población, ventana 2015→.")
-    return 0
+    """Población total por municipio y año (INE tabla 29005, .px → pyaxis), 2015→.
+
+    Requiere la migración 0002 (`make migrate`).
+    """
+    from .loaders import load_padron
+    from .sources.padron import download_raw
+
+    path = download_raw()
+    context.log.info(f"Crudo aterrizado en {path}")
+    result = load_padron(path)
+    context.add_output_metadata(result)
+    context.log.info(f"padron: {result}")
+    return result["filas"]
 
 
 @asset(group_name="fuentes")
