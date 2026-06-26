@@ -36,5 +36,7 @@
 - **Async bajo demanda:** Celery + broker SOLO cuando el usuario dispare jobs
   (p. ej. simulaciones "¿qué pasaría si…?").
 - **Almacenamiento:** MinIO → S3 cuando el volumen lo pida.
+- **Mapa:** `react-leaflet` (mapa base actual) → **deck.gl** cuando haga falta el
+  coroplético de toda España con rendimiento sobre miles de polígonos.
 
 Decisión registrada en [`adr/0003-architecture-topology.md`](adr/0003-architecture-topology.md).

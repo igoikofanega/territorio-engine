@@ -29,3 +29,9 @@ fmt: ## Formatea el código
 
 hooks: ## Instala los hooks de pre-commit
 	uvx pre-commit install
+
+migrate: ## Aplica las migraciones de BD (Alembic) en el contenedor
+	docker compose run --rm orchestrator uv run alembic upgrade head
+
+ingest-municipios: ## Ingesta geometrías IGN → dim_municipio
+	docker compose run --rm orchestrator uv run dagster asset materialize --select dim_municipio -m territorio_pipelines.definitions

@@ -10,9 +10,19 @@ from dagster import AssetExecutionContext, asset
 
 @asset(group_name="dimensiones")
 def dim_municipio(context: AssetExecutionContext) -> int:
-    """Tabla maestra de municipios (SCD2 con linaje INE desde 1842) + geometrías IGN."""
-    context.log.info("STUB: ingesta de geometrías IGN/CNIG + códigos INE (5 dígitos, texto).")
-    return 0
+    """Tabla maestra de municipios + geometrías (fuente: georef-spain/IGN).
+
+    Requiere que la migración de Alembic haya creado la tabla (`make migrate`).
+    """
+    from .loaders import load_municipios
+    from .sources.ign import download_raw
+
+    path = download_raw()
+    context.log.info(f"Crudo aterrizado en {path}")
+    result = load_municipios(path)
+    context.add_output_metadata(result)
+    context.log.info(f"dim_municipio: {result}")
+    return result["municipios"]
 
 
 @asset(group_name="fuentes")

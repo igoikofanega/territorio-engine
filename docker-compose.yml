@@ -1,7 +1,8 @@
 # Topología MVP — 4 servicios. Levanta todo con:  make up
 services:
   db:
-    image: postgis/postgis:16-3.4
+    # imresamu/postgis = PostGIS oficial pero multi-arch (incluye linux/arm64).
+    image: imresamu/postgis:16-3.4
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-territorio}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-territorio}
