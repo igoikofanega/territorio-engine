@@ -8,7 +8,9 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-territorio}
       POSTGRES_DB: ${POSTGRES_DB:-territorio}
     ports:
-      - "5432:5432"
+      # Puerto del HOST configurable (5432 suele estar ocupado por otros Postgres).
+      # Los demás servicios hablan con db:5432 por la red interna, no por este.
+      - "${DB_PORT:-5544}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
       - ./db/init:/docker-entrypoint-initdb.d:ro
@@ -23,7 +25,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://territorio:territorio@db:5432/territorio}
     ports:
-      - "8000:8000"
+      - "${API_PORT:-8000}:8000"
     depends_on:
       db:
         condition: service_healthy
@@ -33,7 +35,7 @@ services:
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://territorio:territorio@db:5432/territorio}
     ports:
-      - "3000:3000"
+      - "${DAGSTER_PORT:-3010}:3000"
     volumes:
       - ./raw:/data/raw  # landing zone inmutable de datos crudos
     depends_on:
@@ -43,7 +45,7 @@ services:
   frontend:
     build: ./frontend
     ports:
-      - "5173:5173"
+      - "${FRONTEND_PORT:-5173}:5173"
     depends_on:
       - api
 
