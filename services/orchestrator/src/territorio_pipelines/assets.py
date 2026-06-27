@@ -80,9 +80,16 @@ def renta_adrh(context: AssetExecutionContext) -> int:
 
 @asset(group_name="fuentes")
 def paro_sepe(context: AssetExecutionContext) -> int:
-    """Paro registrado por municipio (SEPE, scraping CSV mensual → media anual)."""
-    context.log.info("STUB: paro registrado; imputar enmascarados <5 con flag.")
-    return 0
+    """Paro registrado por municipio (SEPE, CSV anual nacional → media anual), 2015→.
+
+    Requiere la migración 0007.
+    """
+    from .loaders import load_paro
+
+    result = load_paro()
+    context.add_output_metadata(result)
+    context.log.info(f"paro_sepe: {result}")
+    return result["filas"]
 
 
 @asset(

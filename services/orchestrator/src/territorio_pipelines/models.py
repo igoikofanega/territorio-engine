@@ -35,6 +35,7 @@ class FactMunicipioAnual(Base):
     poblacion_total = Column(Integer)
     poblacion_hombres = Column(Integer)
     poblacion_mujeres = Column(Integer)
+    paro_media_anual = Column(Integer)
 
 
 class FactPiramide(Base):

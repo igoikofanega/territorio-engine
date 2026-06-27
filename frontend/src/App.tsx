@@ -7,7 +7,7 @@ import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
 
 const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
 
-type Modo = "poblacion" | "envejecimiento" | "futuro" | "futuro_cohorte";
+type Modo = "poblacion" | "paro" | "envejecimiento" | "futuro" | "futuro_cohorte";
 type Prov = { cod: string; nombre: string; piramide: boolean };
 
 const FUT_BUCKETS: [number, string][] = [[20, "#006837"], [5, "#1a9850"], [0, "#a6d96a"], [-10, "#fdae61"], [-20, "#f46d43"], [-100, "#a50026"]];
@@ -19,6 +19,10 @@ const ESCALAS: Record<
   poblacion: {
     endpoint: "coropleta.geojson", etiqueta: "Población", titulo: "Habitantes", campo: "poblacion_total", sufijo: " hab", anios: "poblacion/anios",
     buckets: [[100000, "#08306b"], [20000, "#2171b5"], [5000, "#4292c6"], [1000, "#6baed6"], [500, "#9ecae1"], [100, "#c6dbef"], [0, "#deebf7"]],
+  },
+  paro: {
+    endpoint: "paro.geojson", etiqueta: "Paro", titulo: "Paro ‰ hab", campo: "paro_1000", sufijo: "‰", anios: "paro/anios",
+    buckets: [[150, "#67000d"], [100, "#cb181d"], [60, "#fb6a4a"], [30, "#fcae91"], [0, "#fee5d9"]],
   },
   envejecimiento: {
     endpoint: "envejecimiento.geojson", etiqueta: "Envejecimiento", titulo: "Índice envejec.", campo: "indice", sufijo: "", anios: "envejecimiento/anios",

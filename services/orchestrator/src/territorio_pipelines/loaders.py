@@ -13,7 +13,7 @@ from sqlalchemy import text
 from . import proyeccion as proy
 from . import proyeccion_cohorte as hp
 from .db import engine
-from .sources import mnp, padron, piramide
+from .sources import mnp, padron, paro, piramide
 from .sources.ign import feature_to_row, read_features
 
 # Calcula la geometría 4326 una sola vez (CTE) y deriva 25830 y superficie.
@@ -71,6 +71,29 @@ ON CONFLICT (cod_municipio, anio) DO UPDATE SET
     poblacion_hombres = EXCLUDED.poblacion_hombres,
     poblacion_mujeres = EXCLUDED.poblacion_mujeres
 """)
+
+
+_INSERT_PARO = text("""
+INSERT INTO fact_municipio_anual (cod_municipio, anio, paro_media_anual)
+VALUES (:cod, :anio, :paro)
+ON CONFLICT (cod_municipio, anio) DO UPDATE SET paro_media_anual = EXCLUDED.paro_media_anual
+""")
+
+
+def load_paro(anios: list[int] | None = None) -> dict[str, int]:
+    """Carga el paro registrado (media anual) en fact_municipio_anual. Fuente nacional."""
+    years = anios if anios is not None else list(paro.anios_disponibles())
+    rows = 0
+    with engine.begin() as conn:
+        for anio in years:
+            path = paro.download(anio)
+            if path is None:
+                continue
+            batch = list(paro.records_from_df(paro.parse_csv(path)))
+            if batch:
+                conn.execute(_INSERT_PARO, batch)
+                rows += len(batch)
+    return {"filas": rows}
 
 
 def load_padron(path: Path, batch_size: int = 5000) -> dict[str, int]:
