@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from sqlalchemy import text
 
 from .db import engine
-from .sources import padron
+from .sources import padron, piramide
 from .sources.ign import feature_to_row, read_features
 
 # Calcula la geometría 4326 una sola vez (CTE) y deriva 25830 y superficie.
@@ -85,3 +85,39 @@ def load_padron(path: Path, batch_size: int = 5000) -> dict[str, int]:
             conn.execute(_INSERT_PADRON, batch)
             rows += len(batch)
     return {"filas": rows}
+
+
+_INSERT_PIRAMIDE = text("""
+INSERT INTO fact_piramide (cod_municipio, anio, sexo, edad_min, poblacion)
+VALUES (:cod, :anio, :sexo, :edad_min, :poblacion)
+ON CONFLICT (cod_municipio, anio, sexo, edad_min) DO UPDATE SET
+    poblacion = EXCLUDED.poblacion
+""")
+
+
+def load_piramide(provincias: list[str] | None = None, log=None) -> dict[str, int]:
+    """Carga la pirámide en `fact_piramide` iterando provincia a provincia.
+
+    `provincias` = None procesa las 52; pasar una lista (p. ej. ["34"]) para pruebas.
+    """
+    provs = sorted(provincias or piramide.PROV_TABLA)
+    total = 0
+    with engine.begin() as conn:
+        for prov in provs:
+            path = piramide.download_provincia(prov)
+            batch = [
+                {
+                    "cod": r["cod"],
+                    "anio": r["anio"],
+                    "sexo": r["sexo"],
+                    "edad_min": r["edad_min"],
+                    "poblacion": r["poblacion"],
+                }
+                for r in piramide.records_from_df(piramide.parse_px(path))
+            ]
+            if batch:
+                conn.execute(_INSERT_PIRAMIDE, batch)
+                total += len(batch)
+            if log:
+                log(f"  provincia {prov}: {len(batch)} filas")
+    return {"provincias": len(provs), "filas": total}

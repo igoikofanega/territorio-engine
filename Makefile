@@ -38,3 +38,6 @@ ingest-municipios: ## Ingesta geometrías IGN → dim_municipio
 
 ingest-padron: ## Ingesta población INE (29005) → fact_municipio_anual
 	docker compose run --rm orchestrator uv run dagster asset materialize --select padron -m territorio_pipelines.definitions
+
+ingest-piramide: ## Ingesta pirámide de edad INE (bucle 52 provincias) → fact_piramide
+	docker compose run --rm orchestrator uv run dagster asset materialize --select piramide -m territorio_pipelines.definitions

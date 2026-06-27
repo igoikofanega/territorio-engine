@@ -43,6 +43,20 @@ def padron(context: AssetExecutionContext) -> int:
 
 
 @asset(group_name="fuentes")
+def piramide(context: AssetExecutionContext) -> int:
+    """Pirámide de edad municipal (INE quinquenal, bucle por 52 provincias), 2015→.
+
+    Requiere la migración 0003 (`make migrate`).
+    """
+    from .loaders import load_piramide
+
+    result = load_piramide(log=context.log.info)
+    context.add_output_metadata(result)
+    context.log.info(f"piramide: {result}")
+    return result["filas"]
+
+
+@asset(group_name="fuentes")
 def mnp(context: AssetExecutionContext) -> int:
     """Movimiento Natural de Población: nacimientos y defunciones por municipio (INE)."""
     context.log.info("STUB: MNP, insumo del modelo cohorte-componente.")

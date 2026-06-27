@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "permissions": {
+    "allow": [
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep",
+      "WebSearch",
+      "WebFetch",
+      "Bash(uv *)",
+      "Bash(uvx *)",
+      "Bash(ruff *)",
+      "Bash(pytest *)",
+      "Bash(make *)",
+      "Bash(python3 *)",
+      "Bash(curl *)",
+      "Bash(docker compose *)",
+      "Bash(docker exec *)",
+      "Bash(docker build *)",
+      "Bash(docker run *)",
+      "Bash(docker ps *)",
+      "Bash(docker logs *)",
+      "Bash(docker inspect *)",
+      "Bash(docker pull *)",
+      "Bash(docker rm *)",
+      "Bash(git status *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git restore *)",
+      "Bash(git show *)",
+      "Bash(ls *)",
+      "Bash(cat *)",
+      "Bash(head *)",
+      "Bash(tail *)",
+      "Bash(grep *)",
+      "Bash(echo *)",
+      "Bash(mkdir *)",
+      "Bash(du *)"
+    ],
+    "deny": [
+      "Bash(git push *)",
+      "Bash(sudo *)",
+      "Bash(rm -rf *)",
+      "Bash(docker system prune *)",
+      "Bash(docker volume rm *)"
+    ],
+    "defaultMode": "acceptEdits"
+  }
+}

@@ -35,3 +35,18 @@ class FactMunicipioAnual(Base):
     poblacion_total = Column(Integer)
     poblacion_hombres = Column(Integer)
     poblacion_mujeres = Column(Integer)
+
+
+class FactPiramide(Base):
+    """Pirámide de edad por municipio (grupos quinquenales). Insumo cohorte-componente.
+
+    `edad_min` = límite inferior del grupo (0,5,…,100). `sexo` = 'H'/'M'.
+    """
+
+    __tablename__ = "fact_piramide"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    anio = Column(Integer, primary_key=True)
+    sexo = Column(String(1), primary_key=True)
+    edad_min = Column(Integer, primary_key=True)
+    poblacion = Column(Integer)

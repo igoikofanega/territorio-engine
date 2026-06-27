@@ -75,6 +75,66 @@ async def poblacion_anios() -> list[int]:
     return [r.anio for r in rows]
 
 
+@app.get("/envejecimiento/anios")
+async def envejecimiento_anios() -> list[int]:
+    async with engine.connect() as conn:
+        rows = (
+            await conn.execute(text("SELECT DISTINCT anio FROM fact_piramide ORDER BY anio DESC"))
+        ).all()
+    return [r.anio for r in rows]
+
+
+@app.get("/envejecimiento.geojson")
+async def envejecimiento(prov: str | None = None, anio: int | None = None) -> dict:
+    """Coroplético del índice de envejecimiento (pob 65+ / pob 0-14 × 100) por municipio.
+
+    Se agrega desde `fact_piramide`. Sin `anio` usa el último disponible.
+    """
+    async with engine.connect() as conn:
+        if anio is None:
+            anio = (
+                await conn.execute(text("SELECT max(anio) FROM fact_piramide"))
+            ).scalar_one_or_none()
+
+        where = "WHERE d.cod_provincia = :prov" if prov else ""
+        sql = text(f"""
+            WITH agg AS (
+                SELECT cod_municipio,
+                       sum(poblacion) FILTER (WHERE edad_min < 15) AS pob_0_14,
+                       sum(poblacion) FILTER (WHERE edad_min >= 65) AS pob_65_mas
+                FROM fact_piramide WHERE anio = :anio GROUP BY cod_municipio
+            )
+            SELECT d.cod_municipio, d.nombre, a.pob_0_14, a.pob_65_mas,
+                   round(a.pob_65_mas::numeric / NULLIF(a.pob_0_14, 0) * 100)::int AS indice,
+                   ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
+            FROM dim_municipio d
+            LEFT JOIN agg a ON a.cod_municipio = d.cod_municipio
+            {where}
+            ORDER BY d.cod_municipio
+        """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
+        params = {"anio": anio}
+        if prov:
+            params["prov"] = prov
+        rows = (await conn.execute(sql, params)).all()
+
+    return {
+        "type": "FeatureCollection",
+        "properties": {"anio": anio},
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "cod_municipio": r.cod_municipio,
+                    "nombre": r.nombre,
+                    "indice": r.indice,
+                },
+                "geometry": r.geom,
+            }
+            for r in rows
+        ],
+    }
+
+
 @app.get("/coropleta.geojson")
 async def coropleta(prov: str | None = None, anio: int | None = None) -> dict:
     """Coroplético: geometría + población (y densidad) por municipio para un año.
