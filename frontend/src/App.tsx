@@ -7,7 +7,7 @@ import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
 
 const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
 
-type Modo = "poblacion" | "renta" | "paro" | "envejecimiento" | "futuro" | "futuro_cohorte";
+type Modo = "poblacion" | "renta" | "alquiler" | "paro" | "envejecimiento" | "futuro" | "futuro_cohorte";
 type Prov = { cod: string; nombre: string; piramide: boolean };
 
 const FUT_BUCKETS: [number, string][] = [[20, "#006837"], [5, "#1a9850"], [0, "#a6d96a"], [-10, "#fdae61"], [-20, "#f46d43"], [-100, "#a50026"]];
@@ -23,6 +23,10 @@ const ESCALAS: Record<
   renta: {
     endpoint: "renta.geojson", etiqueta: "Renta", titulo: "Renta €/persona", campo: "renta", sufijo: " €", anios: "renta/anios",
     buckets: [[20000, "#00441b"], [15000, "#238b45"], [12000, "#66c2a4"], [9000, "#b2e2e2"], [0, "#edf8fb"]],
+  },
+  alquiler: {
+    endpoint: "alquiler.geojson", etiqueta: "Alquiler", titulo: "Alquiler €/m²", campo: "alquiler", sufijo: " €/m²", anios: "alquiler/anios",
+    buckets: [[12, "#4a1486"], [9, "#6a51a3"], [7, "#9e9ac8"], [5, "#cbc9e2"], [0, "#f2f0f7"]],
   },
   paro: {
     endpoint: "paro.geojson", etiqueta: "Paro", titulo: "Paro ‰ hab", campo: "paro_1000", sufijo: "‰", anios: "paro/anios",

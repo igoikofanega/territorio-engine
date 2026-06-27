@@ -86,6 +86,20 @@ def renta_adrh(context: AssetExecutionContext) -> int:
 
 
 @asset(group_name="fuentes")
+def alquiler(context: AssetExecutionContext) -> int:
+    """Precio del alquiler €/m² por municipio (SERPAVI/MIVAU, nacional), 2015→.
+
+    Requiere la migración 0009.
+    """
+    from .loaders import load_alquiler
+
+    result = load_alquiler()
+    context.add_output_metadata(result)
+    context.log.info(f"alquiler: {result}")
+    return result["filas"]
+
+
+@asset(group_name="fuentes")
 def paro_sepe(context: AssetExecutionContext) -> int:
     """Paro registrado por municipio (SEPE, CSV anual nacional → media anual), 2015→.
 

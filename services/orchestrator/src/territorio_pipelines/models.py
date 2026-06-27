@@ -37,6 +37,7 @@ class FactMunicipioAnual(Base):
     poblacion_mujeres = Column(Integer)
     paro_media_anual = Column(Integer)
     renta_neta_media_persona = Column(Float)
+    alquiler_eur_m2 = Column(Float)
 
 
 class FactPiramide(Base):

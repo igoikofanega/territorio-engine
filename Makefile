@@ -51,5 +51,8 @@ ingest-paro: ## Ingesta paro registrado SEPE → fact_municipio_anual
 ingest-renta: ## Ingesta renta INE/ADRH (bucle por provincia) → fact_municipio_anual
 	docker compose run --rm orchestrator uv run dagster asset materialize --select renta_adrh -m territorio_pipelines.definitions
 
+ingest-alquiler: ## Ingesta alquiler SERPAVI → fact_municipio_anual
+	docker compose run --rm orchestrator uv run dagster asset materialize --select alquiler -m territorio_pipelines.definitions
+
 proyectar: ## Calcula la proyección demográfica → proyeccion_municipio
 	docker compose run --rm orchestrator uv run dagster asset materialize --select proyeccion -m territorio_pipelines.definitions

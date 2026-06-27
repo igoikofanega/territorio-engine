@@ -13,7 +13,7 @@ from sqlalchemy import text
 from . import proyeccion as proy
 from . import proyeccion_cohorte as hp
 from .db import engine
-from .sources import mnp, padron, paro, piramide, renta
+from .sources import alquiler, mnp, padron, paro, piramide, renta
 from .sources.ign import feature_to_row, read_features
 
 # Calcula la geometría 4326 una sola vez (CTE) y deriva 25830 y superficie.
@@ -115,6 +115,23 @@ def load_renta(provincias: list[str] | None = None) -> dict[str, int]:
                 conn.execute(_INSERT_RENTA, batch)
                 rows += len(batch)
     return {"provincias": len(provs), "filas": rows}
+
+
+_INSERT_ALQUILER = text("""
+INSERT INTO fact_municipio_anual (cod_municipio, anio, alquiler_eur_m2)
+VALUES (:cod, :anio, :alquiler)
+ON CONFLICT (cod_municipio, anio) DO UPDATE SET alquiler_eur_m2 = EXCLUDED.alquiler_eur_m2
+""")
+
+
+def load_alquiler() -> dict[str, int]:
+    """Carga el alquiler medio €/m² (SERPAVI, nacional) en fact_municipio_anual."""
+    df = alquiler.parse_excel(alquiler.download())
+    batch = list(alquiler.records_from_df(df))
+    with engine.begin() as conn:
+        if batch:
+            conn.execute(_INSERT_ALQUILER, batch)
+    return {"filas": len(batch)}
 
 
 def load_padron(path: Path, batch_size: int = 5000) -> dict[str, int]:
