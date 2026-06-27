@@ -344,6 +344,50 @@ async def alquiler(prov: str | None = None, anio: int | None = None) -> dict:
     }
 
 
+@app.get("/indice.geojson")
+async def indice(prov: str | None = None) -> dict:
+    """Índice "¿dónde vivir?" (0-100) + percentiles por componente (explicabilidad)."""
+    async with engine.connect() as conn:
+        anio = (
+            await conn.execute(text("SELECT max(anio) FROM indice_municipio"))
+        ).scalar_one_or_none()
+        where = "WHERE d.cod_provincia = :prov" if prov else ""
+        sql = text(f"""
+            SELECT d.cod_municipio, d.nombre, i.score,
+                   i.c_renta, i.c_paro, i.c_alquiler, i.c_envejecimiento,
+                   ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
+            FROM dim_municipio d
+            LEFT JOIN indice_municipio i
+                   ON i.cod_municipio = d.cod_municipio AND i.anio = :anio
+            {where}
+            ORDER BY d.cod_municipio
+        """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
+        params = {"anio": anio}
+        if prov:
+            params["prov"] = prov
+        rows = (await conn.execute(sql, params)).all()
+    return {
+        "type": "FeatureCollection",
+        "properties": {"anio": anio},
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "cod_municipio": r.cod_municipio,
+                    "nombre": r.nombre,
+                    "score": r.score,
+                    "c_renta": r.c_renta,
+                    "c_paro": r.c_paro,
+                    "c_alquiler": r.c_alquiler,
+                    "c_envejecimiento": r.c_envejecimiento,
+                },
+                "geometry": r.geom,
+            }
+            for r in rows
+        ],
+    }
+
+
 @app.get("/futuro.geojson")
 async def futuro(prov: str | None = None) -> dict:
     """Proyección demográfica: cambio % a horizonte y trayectoria por municipio."""

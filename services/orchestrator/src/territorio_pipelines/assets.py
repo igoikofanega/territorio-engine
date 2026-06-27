@@ -142,6 +142,20 @@ def proyeccion(context: AssetExecutionContext) -> int:
     return result["municipios"]
 
 
+@asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, piramide])
+def indice(context: AssetExecutionContext) -> int:
+    """Índice compuesto "¿dónde vivir?" (renta+paro+alquiler+envejecimiento) → indice_municipio.
+
+    Requiere la migración 0010 y las capas cargadas.
+    """
+    from .loaders import load_indice
+
+    result = load_indice()
+    context.add_output_metadata(result)
+    context.log.info(f"indice: {result}")
+    return result["municipios"]
+
+
 @asset(group_name="modelo", deps=[piramide])
 def proyeccion_cohorte(context: AssetExecutionContext) -> int:
     """Proyección v2 cohorte-componente (Hamilton-Perry) → proyeccion_cohorte.

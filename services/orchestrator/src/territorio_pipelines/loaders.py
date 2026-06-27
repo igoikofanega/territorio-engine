@@ -10,6 +10,7 @@ import pandas as pd
 from pydantic import ValidationError
 from sqlalchemy import text
 
+from . import indice as idx
 from . import proyeccion as proy
 from . import proyeccion_cohorte as hp
 from .db import engine
@@ -132,6 +133,75 @@ def load_alquiler() -> dict[str, int]:
         if batch:
             conn.execute(_INSERT_ALQUILER, batch)
     return {"filas": len(batch)}
+
+
+_INSERT_INDICE = text("""
+INSERT INTO indice_municipio
+    (cod_municipio, anio, score, c_renta, c_paro, c_alquiler, c_envejecimiento)
+VALUES (:cod, :anio, :score, :c_renta, :c_paro, :c_alquiler, :c_envejecimiento)
+ON CONFLICT (cod_municipio, anio) DO UPDATE SET
+    score = EXCLUDED.score, c_renta = EXCLUDED.c_renta, c_paro = EXCLUDED.c_paro,
+    c_alquiler = EXCLUDED.c_alquiler, c_envejecimiento = EXCLUDED.c_envejecimiento
+""")
+_ANIO_INDICE = 2022  # año con cobertura de las 4 capas
+
+
+def _na(v: object) -> float | None:
+    return None if pd.isna(v) else round(float(v), 1)
+
+
+def load_indice(anio: int = _ANIO_INDICE) -> dict[str, int]:
+    """Calcula el índice "¿dónde vivir?" (percentiles ponderados) → indice_municipio."""
+    df = pd.read_sql(
+        "SELECT cod_municipio, renta_neta_media_persona AS renta, alquiler_eur_m2 AS alquiler, "
+        f"paro_media_anual AS paro, poblacion_total AS pob "
+        f"FROM fact_municipio_anual WHERE anio = {anio}",
+        engine,
+    )
+    env = pd.read_sql(
+        "SELECT cod_municipio, sum(poblacion) FILTER (WHERE edad_min >= 65)::float "
+        "/ NULLIF(sum(poblacion) FILTER (WHERE edad_min < 15), 0) * 100 AS envej "
+        f"FROM fact_piramide WHERE anio = {anio} GROUP BY cod_municipio",
+        engine,
+    )
+    df = df.merge(env, on="cod_municipio", how="left")
+    df["paro_1000"] = (df["paro"] / df["pob"] * 1000).replace([float("inf"), float("-inf")], None)
+
+    def pct(col: str, clave: str) -> pd.Series:
+        rank = df[col].rank(pct=True) * 100
+        return rank if idx.MEJOR_ALTO[clave] else 100 - rank
+
+    df["c_renta"] = pct("renta", "renta")
+    df["c_paro"] = pct("paro_1000", "paro")
+    df["c_alquiler"] = pct("alquiler", "alquiler")
+    df["c_envejecimiento"] = pct("envej", "envejecimiento")
+
+    rows = []
+    for r in df.itertuples(index=False):
+        comps = {
+            "renta": _na(r.c_renta),
+            "paro": _na(r.c_paro),
+            "alquiler": _na(r.c_alquiler),
+            "envejecimiento": _na(r.c_envejecimiento),
+        }
+        score = idx.combina(comps)
+        if score is None:
+            continue
+        rows.append(
+            {
+                "cod": r.cod_municipio,
+                "anio": anio,
+                "score": score,
+                "c_renta": comps["renta"],
+                "c_paro": comps["paro"],
+                "c_alquiler": comps["alquiler"],
+                "c_envejecimiento": comps["envejecimiento"],
+            }
+        )
+    with engine.begin() as conn:
+        if rows:
+            conn.execute(_INSERT_INDICE, rows)
+    return {"municipios": len(rows)}
 
 
 def load_padron(path: Path, batch_size: int = 5000) -> dict[str, int]:

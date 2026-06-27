@@ -81,6 +81,20 @@ class ProyeccionMunicipio(Base):
     trayectoria = Column(String)
 
 
+class IndiceMunicipio(Base):
+    """Índice compuesto "¿dónde vivir?" + percentiles por componente (explicabilidad)."""
+
+    __tablename__ = "indice_municipio"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    anio = Column(Integer, primary_key=True)
+    score = Column(Float)
+    c_renta = Column(Float)
+    c_paro = Column(Float)
+    c_alquiler = Column(Float)
+    c_envejecimiento = Column(Float)
+
+
 class ProyeccionCohorte(Base):
     """Proyección cohorte-componente (Hamilton-Perry). Requiere pirámide cargada."""
 

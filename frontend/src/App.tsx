@@ -7,7 +7,7 @@ import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
 
 const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
 
-type Modo = "poblacion" | "renta" | "alquiler" | "paro" | "envejecimiento" | "futuro" | "futuro_cohorte";
+type Modo = "indice" | "poblacion" | "renta" | "alquiler" | "paro" | "envejecimiento" | "futuro" | "futuro_cohorte";
 type Prov = { cod: string; nombre: string; piramide: boolean };
 
 const FUT_BUCKETS: [number, string][] = [[20, "#006837"], [5, "#1a9850"], [0, "#a6d96a"], [-10, "#fdae61"], [-20, "#f46d43"], [-100, "#a50026"]];
@@ -16,6 +16,10 @@ const ESCALAS: Record<
   Modo,
   { endpoint: string; etiqueta: string; titulo: string; campo: string; sufijo: string; anios?: string; buckets: [number, string][] }
 > = {
+  indice: {
+    endpoint: "indice.geojson", etiqueta: "¿Dónde vivir?", titulo: "Índice 0-100", campo: "score", sufijo: "/100",
+    buckets: [[70, "#006837"], [55, "#31a354"], [45, "#78c679"], [30, "#c2e699"], [0, "#ffffcc"]],
+  },
   poblacion: {
     endpoint: "coropleta.geojson", etiqueta: "Población", titulo: "Habitantes", campo: "poblacion_total", sufijo: " hab", anios: "poblacion/anios",
     buckets: [[100000, "#08306b"], [20000, "#2171b5"], [5000, "#4292c6"], [1000, "#6baed6"], [500, "#9ecae1"], [100, "#c6dbef"], [0, "#deebf7"]],
@@ -54,6 +58,10 @@ function color(buckets: [number, string][], v: number | null): string {
 
 function tooltip(modo: Modo, p: GeoJsonProperties): string {
   const props = p ?? {};
+  if (modo === "indice") {
+    const f = (v: unknown) => (v == null ? "—" : Math.round(v as number));
+    return `${props.nombre}: ${props.score ?? "—"}/100 · renta ${f(props.c_renta)} · empleo ${f(props.c_paro)} · asequibilidad ${f(props.c_alquiler)} · vitalidad ${f(props.c_envejecimiento)}`;
+  }
   if (modo.startsWith("futuro")) {
     const c = props.cambio_pct;
     const signo = c != null && c > 0 ? "+" : "";
