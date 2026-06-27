@@ -76,3 +76,17 @@ class ProyeccionMunicipio(Base):
     pob_proyectada = Column(Integer)
     cambio_pct = Column(Float)
     trayectoria = Column(String)
+
+
+class ProyeccionCohorte(Base):
+    """Proyección cohorte-componente (Hamilton-Perry). Requiere pirámide cargada."""
+
+    __tablename__ = "proyeccion_cohorte"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    anio_base = Column(Integer)
+    pob_base = Column(Integer)
+    anio_horizonte = Column(Integer)
+    pob_proyectada = Column(Integer)
+    cambio_pct = Column(Float)
+    trayectoria = Column(String)

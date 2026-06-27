@@ -112,3 +112,17 @@ def proyeccion(context: AssetExecutionContext) -> int:
     context.add_output_metadata(result)
     context.log.info(f"proyeccion: {result}")
     return result["municipios"]
+
+
+@asset(group_name="modelo", deps=[piramide])
+def proyeccion_cohorte(context: AssetExecutionContext) -> int:
+    """Proyección v2 cohorte-componente (Hamilton-Perry) → proyeccion_cohorte.
+
+    Solo municipios con pirámide cargada. Requiere la migración 0006.
+    """
+    from .loaders import load_proyeccion_cohorte
+
+    result = load_proyeccion_cohorte()
+    context.add_output_metadata(result)
+    context.log.info(f"proyeccion_cohorte: {result}")
+    return result["municipios"]

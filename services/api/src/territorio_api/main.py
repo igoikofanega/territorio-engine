@@ -199,6 +199,42 @@ async def futuro(prov: str | None = None) -> dict:
     }
 
 
+@app.get("/futuro-cohorte.geojson")
+async def futuro_cohorte(prov: str | None = None) -> dict:
+    """Proyección v2 (cohorte-componente Hamilton-Perry). Solo provincias con pirámide."""
+    where = "WHERE d.cod_provincia = :prov" if prov else ""
+    sql = text(f"""
+        SELECT d.cod_municipio, d.nombre, p.cambio_pct, p.trayectoria,
+               p.pob_base, p.pob_proyectada, p.anio_horizonte,
+               ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
+        FROM dim_municipio d
+        LEFT JOIN proyeccion_cohorte p ON p.cod_municipio = d.cod_municipio
+        {where}
+        ORDER BY d.cod_municipio
+    """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
+    async with engine.connect() as conn:
+        rows = (await conn.execute(sql, {"prov": prov} if prov else {})).all()
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "cod_municipio": r.cod_municipio,
+                    "nombre": r.nombre,
+                    "cambio_pct": r.cambio_pct,
+                    "trayectoria": r.trayectoria,
+                    "pob_base": r.pob_base,
+                    "pob_proyectada": r.pob_proyectada,
+                    "anio_horizonte": r.anio_horizonte,
+                },
+                "geometry": r.geom,
+            }
+            for r in rows
+        ],
+    }
+
+
 @app.get("/coropleta.geojson")
 async def coropleta(prov: str | None = None, anio: int | None = None) -> dict:
     """Coroplético: geometría + población (y densidad) por municipio para un año.

@@ -7,8 +7,10 @@ import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
 
 const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
 
-type Modo = "poblacion" | "envejecimiento" | "futuro";
+type Modo = "poblacion" | "envejecimiento" | "futuro" | "futuro_cohorte";
 type Prov = { cod: string; nombre: string; piramide: boolean };
+
+const FUT_BUCKETS: [number, string][] = [[20, "#006837"], [5, "#1a9850"], [0, "#a6d96a"], [-10, "#fdae61"], [-20, "#f46d43"], [-100, "#a50026"]];
 
 const ESCALAS: Record<
   Modo,
@@ -23,8 +25,12 @@ const ESCALAS: Record<
     buckets: [[400, "#800026"], [200, "#bd0026"], [120, "#e31a1c"], [80, "#fc4e2a"], [40, "#feb24c"], [0, "#ffffb2"]],
   },
   futuro: {
-    endpoint: "futuro.geojson", etiqueta: "Futuro", titulo: "Cambio a 2035", campo: "cambio_pct", sufijo: "%",
-    buckets: [[20, "#006837"], [5, "#1a9850"], [0, "#a6d96a"], [-10, "#fdae61"], [-20, "#f46d43"], [-100, "#a50026"]],
+    endpoint: "futuro.geojson", etiqueta: "Futuro (tendencia)", titulo: "Cambio a 2035", campo: "cambio_pct", sufijo: "%",
+    buckets: FUT_BUCKETS,
+  },
+  futuro_cohorte: {
+    endpoint: "futuro-cohorte.geojson", etiqueta: "Futuro (cohorte)", titulo: "Cambio a 2037", campo: "cambio_pct", sufijo: "%",
+    buckets: FUT_BUCKETS,
   },
 };
 
@@ -36,7 +42,7 @@ function color(buckets: [number, string][], v: number | null): string {
 
 function tooltip(modo: Modo, p: GeoJsonProperties): string {
   const props = p ?? {};
-  if (modo === "futuro") {
+  if (modo.startsWith("futuro")) {
     const c = props.cambio_pct;
     const signo = c != null && c > 0 ? "+" : "";
     return `${props.nombre}: ${props.trayectoria ?? "—"} (${c != null ? signo + c + "%" : "—"} → ${props.pob_proyectada ?? "—"} hab en ${props.anio_horizonte ?? ""})`;
