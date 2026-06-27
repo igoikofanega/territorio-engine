@@ -73,9 +73,16 @@ def mnp(context: AssetExecutionContext) -> int:
 
 @asset(group_name="fuentes")
 def renta_adrh(context: AssetExecutionContext) -> int:
-    """Atlas de Distribución de Renta (INE/AEAT), dato a nivel municipio."""
-    context.log.info("STUB: renta neta media, Gini, S80/S20 (directo municipio).")
-    return 0
+    """Renta neta media por persona por municipio (INE ADRH, bucle por provincia), 2015→.
+
+    Requiere la migración 0008.
+    """
+    from .loaders import load_renta
+
+    result = load_renta()
+    context.add_output_metadata(result)
+    context.log.info(f"renta_adrh: {result}")
+    return result["filas"]
 
 
 @asset(group_name="fuentes")

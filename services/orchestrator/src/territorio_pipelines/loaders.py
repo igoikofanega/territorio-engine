@@ -13,7 +13,7 @@ from sqlalchemy import text
 from . import proyeccion as proy
 from . import proyeccion_cohorte as hp
 from .db import engine
-from .sources import mnp, padron, paro, piramide
+from .sources import mnp, padron, paro, piramide, renta
 from .sources.ign import feature_to_row, read_features
 
 # Calcula la geometría 4326 una sola vez (CTE) y deriva 25830 y superficie.
@@ -94,6 +94,27 @@ def load_paro(anios: list[int] | None = None) -> dict[str, int]:
                 conn.execute(_INSERT_PARO, batch)
                 rows += len(batch)
     return {"filas": rows}
+
+
+_INSERT_RENTA = text("""
+INSERT INTO fact_municipio_anual (cod_municipio, anio, renta_neta_media_persona)
+VALUES (:cod, :anio, :renta)
+ON CONFLICT (cod_municipio, anio) DO UPDATE SET
+    renta_neta_media_persona = EXCLUDED.renta_neta_media_persona
+""")
+
+
+def load_renta(provincias: list[str] | None = None) -> dict[str, int]:
+    """Carga la renta neta media por persona iterando provincia a provincia (ADRH)."""
+    provs = sorted(provincias or renta.PROV_TABLA)
+    rows = 0
+    with engine.begin() as conn:
+        for prov in provs:
+            batch = list(renta.records_from_df(renta.parse_px(renta.download_provincia(prov))))
+            if batch:
+                conn.execute(_INSERT_RENTA, batch)
+                rows += len(batch)
+    return {"provincias": len(provs), "filas": rows}
 
 
 def load_padron(path: Path, batch_size: int = 5000) -> dict[str, int]:
