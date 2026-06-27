@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
+from .constants import PROVINCIAS
 from .db import engine
 
 app = FastAPI(title="territorio-engine API", version="0.1.0")
@@ -25,6 +26,33 @@ async def health_db() -> dict[str, str]:
     async with engine.connect() as conn:
         await conn.execute(text("SELECT 1"))
     return {"db": "ok"}
+
+
+@app.get("/provincias")
+async def provincias() -> list[dict]:
+    """Provincias con datos, con nombre y si tienen pirámide (para el selector)."""
+    async with engine.connect() as conn:
+        munis = (
+            await conn.execute(
+                text("SELECT DISTINCT cod_provincia FROM dim_municipio ORDER BY cod_provincia")
+            )
+        ).all()
+        con_pir = {
+            r[0]
+            for r in (
+                await conn.execute(
+                    text("SELECT DISTINCT left(cod_municipio, 2) FROM fact_piramide")
+                )
+            ).all()
+        }
+    return [
+        {
+            "cod": r.cod_provincia,
+            "nombre": PROVINCIAS.get(r.cod_provincia, r.cod_provincia),
+            "piramide": r.cod_provincia in con_pir,
+        }
+        for r in munis
+    ]
 
 
 @app.get("/municipios/count")

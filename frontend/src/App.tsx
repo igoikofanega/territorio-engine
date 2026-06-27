@@ -1,22 +1,25 @@
 import "leaflet/dist/leaflet.css";
 
 import type { Feature, FeatureCollection, GeoJsonProperties } from "geojson";
-import type { Layer } from "leaflet";
+import L, { type Layer } from "leaflet";
 import { useEffect, useState } from "react";
-import { GeoJSON, MapContainer, TileLayer } from "react-leaflet";
+import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
 
 const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
-const PROV_DEFECTO = "34"; // Palencia (provincia de muestra)
 
 type Modo = "poblacion" | "envejecimiento" | "futuro";
+type Prov = { cod: string; nombre: string; piramide: boolean };
 
-const ESCALAS: Record<Modo, { endpoint: string; etiqueta: string; titulo: string; campo: string; sufijo: string; buckets: [number, string][] }> = {
+const ESCALAS: Record<
+  Modo,
+  { endpoint: string; etiqueta: string; titulo: string; campo: string; sufijo: string; anios?: string; buckets: [number, string][] }
+> = {
   poblacion: {
-    endpoint: "coropleta.geojson", etiqueta: "Población", titulo: "Habitantes", campo: "poblacion_total", sufijo: " hab",
+    endpoint: "coropleta.geojson", etiqueta: "Población", titulo: "Habitantes", campo: "poblacion_total", sufijo: " hab", anios: "poblacion/anios",
     buckets: [[100000, "#08306b"], [20000, "#2171b5"], [5000, "#4292c6"], [1000, "#6baed6"], [500, "#9ecae1"], [100, "#c6dbef"], [0, "#deebf7"]],
   },
   envejecimiento: {
-    endpoint: "envejecimiento.geojson", etiqueta: "Envejecimiento", titulo: "Índice envejec.", campo: "indice", sufijo: "",
+    endpoint: "envejecimiento.geojson", etiqueta: "Envejecimiento", titulo: "Índice envejec.", campo: "indice", sufijo: "", anios: "envejecimiento/anios",
     buckets: [[400, "#800026"], [200, "#bd0026"], [120, "#e31a1c"], [80, "#fc4e2a"], [40, "#feb24c"], [0, "#ffffb2"]],
   },
   futuro: {
@@ -42,40 +45,74 @@ function tooltip(modo: Modo, p: GeoJsonProperties): string {
   return `${props.nombre}: ${props[esc.campo] ?? "—"}${esc.sufijo}`;
 }
 
+function FitBounds({ geo }: { geo: FeatureCollection | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (geo && geo.features.length) {
+      const b = L.geoJSON(geo).getBounds();
+      if (b.isValid()) map.fitBounds(b, { padding: [20, 20] });
+    }
+  }, [geo, map]);
+  return null;
+}
+
 export default function App() {
+  const [provincias, setProvincias] = useState<Prov[]>([]);
+  const [prov, setProv] = useState("34");
   const [modo, setModo] = useState<Modo>("poblacion");
+  const [anios, setAnios] = useState<number[]>([]);
+  const [anioSel, setAnioSel] = useState<number | null>(null);
   const [geo, setGeo] = useState<FeatureCollection | null>(null);
-  const [anio, setAnio] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const esc = ESCALAS[modo];
 
   useEffect(() => {
-    setGeo(null);
+    fetch(`${API}/provincias`).then((r) => r.json()).then(setProvincias).catch(() => {});
+  }, []);
+
+  // Años disponibles según el modo
+  useEffect(() => {
+    if (!esc.anios) {
+      setAnios([]);
+      setAnioSel(null);
+      return;
+    }
+    fetch(`${API}/${esc.anios}`).then((r) => r.json()).then((ys: number[]) => {
+      setAnios(ys);
+      setAnioSel(ys[0] ?? null);
+    }).catch(() => {});
+  }, [modo, esc.anios]);
+
+  // Datos del mapa
+  useEffect(() => {
+    if (esc.anios && anioSel == null) return; // esperando a tener año
     setError(null);
-    fetch(`${API}/${esc.endpoint}?prov=${PROV_DEFECTO}`)
+    const q = esc.anios ? `?prov=${prov}&anio=${anioSel}` : `?prov=${prov}`;
+    fetch(`${API}/${esc.endpoint}${q}`)
       .then((r) => r.json())
-      .then((d: FeatureCollection & { properties?: { anio?: number } }) => {
-        setGeo(d);
-        setAnio(d.properties?.anio ?? null);
-      })
-      .catch(() => setError(`No se pudo cargar /${esc.endpoint} (¿API y BD arriba?)`));
-  }, [modo, esc.endpoint]);
+      .then(setGeo)
+      .catch(() => setError(`No se pudo cargar /${esc.endpoint}`));
+  }, [prov, modo, anioSel, esc.endpoint, esc.anios]);
+
+  const sel = { padding: "4px 8px", borderRadius: 4, border: "1px solid #ccc" };
 
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", fontFamily: "system-ui" }}>
-      <header style={{ padding: "0.5rem 1rem", borderBottom: "1px solid #eee", display: "flex", gap: "1rem", alignItems: "center" }}>
+      <header style={{ padding: "0.5rem 1rem", borderBottom: "1px solid #eee", display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
         <strong>territorio-engine</strong>
-        <span>provincia {PROV_DEFECTO}{anio ? ` · ${anio}` : ""}</span>
+        <select value={prov} onChange={(e) => setProv(e.target.value)} style={sel}>
+          {provincias.map((p) => (
+            <option key={p.cod} value={p.cod}>{p.nombre}{!p.piramide ? " (sin pirámide)" : ""}</option>
+          ))}
+        </select>
+        {esc.anios && (
+          <select value={anioSel ?? ""} onChange={(e) => setAnioSel(Number(e.target.value))} style={sel}>
+            {anios.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        )}
         <span style={{ marginLeft: "auto" }}>
           {(Object.keys(ESCALAS) as Modo[]).map((m) => (
-            <button
-              key={m}
-              onClick={() => setModo(m)}
-              style={{
-                marginLeft: 6, padding: "4px 10px", cursor: "pointer", border: "1px solid #ccc", borderRadius: 4,
-                background: modo === m ? "#2563eb" : "white", color: modo === m ? "white" : "#333",
-              }}
-            >
+            <button key={m} onClick={() => setModo(m)} style={{ marginLeft: 6, padding: "4px 10px", cursor: "pointer", border: "1px solid #ccc", borderRadius: 4, background: modo === m ? "#2563eb" : "white", color: modo === m ? "white" : "#333" }}>
               {ESCALAS[m].etiqueta}
             </button>
           ))}
@@ -86,15 +123,13 @@ export default function App() {
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
         {geo && (
           <GeoJSON
-            key={modo}
+            key={`${prov}-${modo}-${anioSel}`}
             data={geo}
-            style={(f?: Feature) => ({
-              fillColor: color(esc.buckets, (f?.properties?.[esc.campo] as number | null) ?? null),
-              weight: 0.5, color: "#555", fillOpacity: 0.75,
-            })}
+            style={(f?: Feature) => ({ fillColor: color(esc.buckets, (f?.properties?.[esc.campo] as number | null) ?? null), weight: 0.5, color: "#555", fillOpacity: 0.75 })}
             onEachFeature={(f: Feature, layer: Layer) => layer.bindTooltip(tooltip(modo, f.properties), { sticky: true })}
           />
         )}
+        <FitBounds geo={geo} />
         <Leyenda titulo={esc.titulo} buckets={esc.buckets} />
       </MapContainer>
     </div>
