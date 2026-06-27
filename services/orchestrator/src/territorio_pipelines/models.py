@@ -50,3 +50,14 @@ class FactPiramide(Base):
     sexo = Column(String(1), primary_key=True)
     edad_min = Column(Integer, primary_key=True)
     poblacion = Column(Integer)
+
+
+class FactProvinciaAnual(Base):
+    """Tasas vitales por provincia y año (MNP). El modelo las aplica al grano municipal."""
+
+    __tablename__ = "fact_provincia_anual"
+
+    cod_provincia = Column(String(2), primary_key=True)
+    anio = Column(Integer, primary_key=True)
+    tasa_natalidad = Column(Float)
+    tasa_mortalidad = Column(Float)

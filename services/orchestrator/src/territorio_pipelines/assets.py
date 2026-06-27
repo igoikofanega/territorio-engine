@@ -58,9 +58,17 @@ def piramide(context: AssetExecutionContext) -> int:
 
 @asset(group_name="fuentes")
 def mnp(context: AssetExecutionContext) -> int:
-    """Movimiento Natural de Población: nacimientos y defunciones por municipio (INE)."""
-    context.log.info("STUB: MNP, insumo del modelo cohorte-componente.")
-    return 0
+    """Tasas vitales PROVINCIALES (natalidad+mortalidad, INE 1470/1482) → fact_provincia_anual.
+
+    El MNP municipal no existe para municipios pequeños; el modelo aplica estas tasas
+    provinciales a la estructura de edad municipal. Requiere la migración 0004.
+    """
+    from .loaders import load_mnp
+
+    result = load_mnp()
+    context.add_output_metadata(result)
+    context.log.info(f"mnp: {result}")
+    return result["filas"]
 
 
 @asset(group_name="fuentes")

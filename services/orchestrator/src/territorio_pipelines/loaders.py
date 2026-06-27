@@ -9,7 +9,7 @@ from pydantic import ValidationError
 from sqlalchemy import text
 
 from .db import engine
-from .sources import padron, piramide
+from .sources import mnp, padron, piramide
 from .sources.ign import feature_to_row, read_features
 
 # Calcula la geometría 4326 una sola vez (CTE) y deriva 25830 y superficie.
@@ -121,3 +121,23 @@ def load_piramide(provincias: list[str] | None = None, log=None) -> dict[str, in
             if log:
                 log(f"  provincia {prov}: {len(batch)} filas")
     return {"provincias": len(provs), "filas": total}
+
+
+_INSERT_MNP = text("""
+INSERT INTO fact_provincia_anual (cod_provincia, anio, tasa_natalidad, tasa_mortalidad)
+VALUES (:cod_provincia, :anio, :tasa_natalidad, :tasa_mortalidad)
+ON CONFLICT (cod_provincia, anio) DO UPDATE SET
+    tasa_natalidad = EXCLUDED.tasa_natalidad,
+    tasa_mortalidad = EXCLUDED.tasa_mortalidad
+""")
+
+
+def load_mnp() -> dict[str, int]:
+    """Carga tasas vitales provinciales (natalidad + mortalidad) en fact_provincia_anual."""
+    nat = mnp.parse_px(mnp.download(mnp.TABLA_NATALIDAD))
+    mort = mnp.parse_px(mnp.download(mnp.TABLA_MORTALIDAD))
+    recs = list(mnp.records_from_dfs(nat, mort))
+    with engine.begin() as conn:
+        if recs:
+            conn.execute(_INSERT_MNP, recs)
+    return {"filas": len(recs)}

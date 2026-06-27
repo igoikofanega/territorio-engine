@@ -41,3 +41,6 @@ ingest-padron: ## Ingesta población INE (29005) → fact_municipio_anual
 
 ingest-piramide: ## Ingesta pirámide de edad INE (bucle 52 provincias) → fact_piramide
 	docker compose run --rm orchestrator uv run dagster asset materialize --select piramide -m territorio_pipelines.definitions
+
+ingest-mnp: ## Ingesta tasas vitales provinciales INE (1470/1482) → fact_provincia_anual
+	docker compose run --rm orchestrator uv run dagster asset materialize --select mnp -m territorio_pipelines.definitions
