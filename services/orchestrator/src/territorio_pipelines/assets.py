@@ -97,3 +97,18 @@ def matriz_municipio_anual(context: AssetExecutionContext) -> int:
     """
     context.log.info("STUB: fusión de fuentes → fact_municipio_anual (2015→).")
     return 0
+
+
+@asset(group_name="modelo", deps=[padron])
+def proyeccion(context: AssetExecutionContext) -> int:
+    """Proyección demográfica municipal (v1: tendencia log-lineal) → proyeccion_municipio.
+
+    Responde "¿hacia dónde va este pueblo?". Requiere la migración 0005 y población
+    cargada (asset `padron`).
+    """
+    from .loaders import load_proyeccion
+
+    result = load_proyeccion()
+    context.add_output_metadata(result)
+    context.log.info(f"proyeccion: {result}")
+    return result["municipios"]

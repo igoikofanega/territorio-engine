@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pandas as pd
 from pydantic import ValidationError
 from sqlalchemy import text
 
+from . import proyeccion as proy
 from .db import engine
 from .sources import mnp, padron, piramide
 from .sources.ign import feature_to_row, read_features
@@ -141,3 +143,32 @@ def load_mnp() -> dict[str, int]:
         if recs:
             conn.execute(_INSERT_MNP, recs)
     return {"filas": len(recs)}
+
+
+_INSERT_PROY = text("""
+INSERT INTO proyeccion_municipio
+    (cod_municipio, anio_base, pob_base, cagr, anio_horizonte, pob_proyectada,
+     cambio_pct, trayectoria)
+VALUES (:cod_municipio, :anio_base, :pob_base, :cagr, :anio_horizonte,
+        :pob_proyectada, :cambio_pct, :trayectoria)
+ON CONFLICT (cod_municipio) DO UPDATE SET
+    anio_base = EXCLUDED.anio_base, pob_base = EXCLUDED.pob_base, cagr = EXCLUDED.cagr,
+    anio_horizonte = EXCLUDED.anio_horizonte, pob_proyectada = EXCLUDED.pob_proyectada,
+    cambio_pct = EXCLUDED.cambio_pct, trayectoria = EXCLUDED.trayectoria
+""")
+
+
+def load_proyeccion(horizonte: int = proy.HORIZONTE) -> dict[str, int]:
+    """Ajusta la proyección de cada municipio desde fact_municipio_anual y la guarda."""
+    df = pd.read_sql(
+        "SELECT cod_municipio, anio, poblacion_total FROM fact_municipio_anual", engine
+    )
+    rows = []
+    for cod, g in df.groupby("cod_municipio"):
+        fit = proy.proyecta(g["anio"].tolist(), g["poblacion_total"].tolist(), horizonte)
+        if fit:
+            rows.append({"cod_municipio": cod, **fit})
+    with engine.begin() as conn:
+        if rows:
+            conn.execute(_INSERT_PROY, rows)
+    return {"municipios": len(rows)}

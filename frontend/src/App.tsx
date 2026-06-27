@@ -1,35 +1,27 @@
 import "leaflet/dist/leaflet.css";
 
-import type { Feature, FeatureCollection } from "geojson";
+import type { Feature, FeatureCollection, GeoJsonProperties } from "geojson";
 import type { Layer } from "leaflet";
 import { useEffect, useState } from "react";
 import { GeoJSON, MapContainer, TileLayer } from "react-leaflet";
 
-const API = "http://localhost:8000";
+const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
 const PROV_DEFECTO = "34"; // Palencia (provincia de muestra)
 
-type Modo = "poblacion" | "envejecimiento";
+type Modo = "poblacion" | "envejecimiento" | "futuro";
 
-const ESCALAS: Record<Modo, { endpoint: string; titulo: string; campo: string; sufijo: string; buckets: [number, string][] }> = {
+const ESCALAS: Record<Modo, { endpoint: string; etiqueta: string; titulo: string; campo: string; sufijo: string; buckets: [number, string][] }> = {
   poblacion: {
-    endpoint: "coropleta.geojson",
-    titulo: "Habitantes",
-    campo: "poblacion_total",
-    sufijo: " hab",
-    buckets: [
-      [100000, "#08306b"], [20000, "#2171b5"], [5000, "#4292c6"],
-      [1000, "#6baed6"], [500, "#9ecae1"], [100, "#c6dbef"], [0, "#deebf7"],
-    ],
+    endpoint: "coropleta.geojson", etiqueta: "Población", titulo: "Habitantes", campo: "poblacion_total", sufijo: " hab",
+    buckets: [[100000, "#08306b"], [20000, "#2171b5"], [5000, "#4292c6"], [1000, "#6baed6"], [500, "#9ecae1"], [100, "#c6dbef"], [0, "#deebf7"]],
   },
   envejecimiento: {
-    endpoint: "envejecimiento.geojson",
-    titulo: "Índice envejec.",
-    campo: "indice",
-    sufijo: "",
-    buckets: [
-      [400, "#800026"], [200, "#bd0026"], [120, "#e31a1c"],
-      [80, "#fc4e2a"], [40, "#feb24c"], [0, "#ffffb2"],
-    ],
+    endpoint: "envejecimiento.geojson", etiqueta: "Envejecimiento", titulo: "Índice envejec.", campo: "indice", sufijo: "",
+    buckets: [[400, "#800026"], [200, "#bd0026"], [120, "#e31a1c"], [80, "#fc4e2a"], [40, "#feb24c"], [0, "#ffffb2"]],
+  },
+  futuro: {
+    endpoint: "futuro.geojson", etiqueta: "Futuro", titulo: "Cambio a 2035", campo: "cambio_pct", sufijo: "%",
+    buckets: [[20, "#006837"], [5, "#1a9850"], [0, "#a6d96a"], [-10, "#fdae61"], [-20, "#f46d43"], [-100, "#a50026"]],
   },
 };
 
@@ -37,6 +29,17 @@ function color(buckets: [number, string][], v: number | null): string {
   if (v == null) return "#eeeeee";
   for (const [umbral, c] of buckets) if (v >= umbral) return c;
   return buckets[buckets.length - 1][1];
+}
+
+function tooltip(modo: Modo, p: GeoJsonProperties): string {
+  const props = p ?? {};
+  if (modo === "futuro") {
+    const c = props.cambio_pct;
+    const signo = c != null && c > 0 ? "+" : "";
+    return `${props.nombre}: ${props.trayectoria ?? "—"} (${c != null ? signo + c + "%" : "—"} → ${props.pob_proyectada ?? "—"} hab en ${props.anio_horizonte ?? ""})`;
+  }
+  const esc = ESCALAS[modo];
+  return `${props.nombre}: ${props[esc.campo] ?? "—"}${esc.sufijo}`;
 }
 
 export default function App() {
@@ -64,18 +67,16 @@ export default function App() {
         <strong>territorio-engine</strong>
         <span>provincia {PROV_DEFECTO}{anio ? ` · ${anio}` : ""}</span>
         <span style={{ marginLeft: "auto" }}>
-          {(["poblacion", "envejecimiento"] as Modo[]).map((m) => (
+          {(Object.keys(ESCALAS) as Modo[]).map((m) => (
             <button
               key={m}
               onClick={() => setModo(m)}
               style={{
-                marginLeft: 6, padding: "4px 10px", cursor: "pointer",
-                border: "1px solid #ccc", borderRadius: 4,
-                background: modo === m ? "#2563eb" : "white",
-                color: modo === m ? "white" : "#333",
+                marginLeft: 6, padding: "4px 10px", cursor: "pointer", border: "1px solid #ccc", borderRadius: 4,
+                background: modo === m ? "#2563eb" : "white", color: modo === m ? "white" : "#333",
               }}
             >
-              {m === "poblacion" ? "Población" : "Envejecimiento"}
+              {ESCALAS[m].etiqueta}
             </button>
           ))}
         </span>
@@ -91,11 +92,7 @@ export default function App() {
               fillColor: color(esc.buckets, (f?.properties?.[esc.campo] as number | null) ?? null),
               weight: 0.5, color: "#555", fillOpacity: 0.75,
             })}
-            onEachFeature={(f: Feature, layer: Layer) => {
-              const p = f.properties ?? {};
-              const v = p[esc.campo] ?? "—";
-              layer.bindTooltip(`${p.nombre}: ${v}${esc.sufijo}`, { sticky: true });
-            }}
+            onEachFeature={(f: Feature, layer: Layer) => layer.bindTooltip(tooltip(modo, f.properties), { sticky: true })}
           />
         )}
         <Leyenda titulo={esc.titulo} buckets={esc.buckets} />

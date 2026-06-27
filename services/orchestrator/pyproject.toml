@@ -13,6 +13,7 @@ dependencies = [
     "alembic>=1.13",
     "psycopg2-binary>=2.9",
     "pandas>=2.2",
+    "numpy>=1.26",
     "pyaxis>=0.4",
 ]
 

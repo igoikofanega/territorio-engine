@@ -61,3 +61,18 @@ class FactProvinciaAnual(Base):
     anio = Column(Integer, primary_key=True)
     tasa_natalidad = Column(Float)
     tasa_mortalidad = Column(Float)
+
+
+class ProyeccionMunicipio(Base):
+    """Proyección demográfica por municipio (una fila por municipio). v1: tendencia."""
+
+    __tablename__ = "proyeccion_municipio"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    anio_base = Column(Integer)
+    pob_base = Column(Integer)
+    cagr = Column(Float)
+    anio_horizonte = Column(Integer)
+    pob_proyectada = Column(Integer)
+    cambio_pct = Column(Float)
+    trayectoria = Column(String)
