@@ -301,6 +301,29 @@ def load_prediccion_ml() -> dict:
     return {"municipios": len(recs), "mae": round(metrics["mae"], 2), "r2": round(metrics["r2"], 3)}
 
 
+_INSERT_ARQUETIPO = text("""
+INSERT INTO arquetipo_municipio (cod_municipio, cluster, etiqueta)
+VALUES (:cod, :cluster, :etiqueta)
+ON CONFLICT (cod_municipio) DO UPDATE SET
+    cluster = EXCLUDED.cluster, etiqueta = EXCLUDED.etiqueta
+""")
+
+
+def load_arquetipos() -> dict:
+    """Agrupa los municipios en arquetipos (KMeans) y los guarda. Devuelve métricas."""
+    from .ml.clustering import entrenar_clusters
+
+    out, metrics = entrenar_clusters(engine)
+    recs = [
+        {"cod": r.cod, "cluster": int(r.cluster), "etiqueta": r.etiqueta}
+        for r in out.itertuples(index=False)
+    ]
+    with engine.begin() as conn:
+        if recs:
+            conn.execute(_INSERT_ARQUETIPO, recs)
+    return {"municipios": len(recs), **metrics}
+
+
 def load_padron(path: Path, batch_size: int = 5000) -> dict[str, int]:
     """Carga población (2015→) en `fact_municipio_anual` desde el `.px` del INE."""
     df = padron.parse_px(path)

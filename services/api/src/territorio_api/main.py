@@ -433,6 +433,38 @@ async def clima(prov: str | None = None) -> dict:
     }
 
 
+@app.get("/arquetipos.geojson")
+async def arquetipos(prov: str | None = None) -> dict:
+    """Arquetipo (cluster) de cada municipio + etiqueta legible."""
+    where = "WHERE d.cod_provincia = :prov" if prov else ""
+    sql = text(f"""
+        SELECT d.cod_municipio, d.nombre, a.cluster, a.etiqueta,
+               ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
+        FROM dim_municipio d
+        LEFT JOIN arquetipo_municipio a ON a.cod_municipio = d.cod_municipio
+        {where}
+        ORDER BY d.cod_municipio
+    """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
+    async with engine.connect() as conn:
+        rows = (await conn.execute(sql, {"prov": prov} if prov else {})).all()
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "cod_municipio": r.cod_municipio,
+                    "nombre": r.nombre,
+                    "cluster": r.cluster,
+                    "etiqueta": r.etiqueta,
+                },
+                "geometry": r.geom,
+            }
+            for r in rows
+        ],
+    }
+
+
 @app.get("/prediccion.geojson")
 async def prediccion(prov: str | None = None) -> dict:
     """Predicción del modelo ML: cambio %, banda de incertidumbre y drivers por municipio."""

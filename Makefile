@@ -65,3 +65,6 @@ proyectar: ## Calcula la proyección demográfica → proyeccion_municipio
 
 entrenar-ml: ## Entrena el modelo ML (backtest + MLflow) y predice → prediccion_ml
 	docker compose run --rm orchestrator uv run dagster asset materialize --select prediccion_ml -m territorio_pipelines.definitions
+
+arquetipos: ## Clustering de municipios en arquetipos → arquetipo_municipio
+	docker compose run --rm orchestrator uv run dagster asset materialize --select arquetipos -m territorio_pipelines.definitions

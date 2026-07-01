@@ -184,6 +184,17 @@ def prediccion_ml(context: AssetExecutionContext) -> int:
     return result["municipios"]
 
 
+@asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, clima])
+def arquetipos(context: AssetExecutionContext) -> int:
+    """Clustering de municipios en arquetipos ('pueblos como el tuyo'). Requiere 0013."""
+    from .loaders import load_arquetipos
+
+    result = load_arquetipos()
+    context.add_output_metadata(result)
+    context.log.info(f"arquetipos: {result}")
+    return result["municipios"]
+
+
 @asset(group_name="modelo", deps=[piramide])
 def proyeccion_cohorte(context: AssetExecutionContext) -> int:
     """Proyección v2 cohorte-componente (Hamilton-Perry) → proyeccion_cohorte.

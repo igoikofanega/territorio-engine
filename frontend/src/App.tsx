@@ -7,15 +7,20 @@ import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
 
 const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
 
-type Modo = "indice" | "poblacion" | "renta" | "alquiler" | "paro" | "clima" | "envejecimiento" | "prediccion" | "futuro" | "futuro_cohorte";
+type Modo = "indice" | "poblacion" | "renta" | "alquiler" | "paro" | "clima" | "envejecimiento" | "arquetipos" | "prediccion" | "futuro" | "futuro_cohorte";
 type Prov = { cod: string; nombre: string; piramide: boolean };
 
 const FUT_BUCKETS: [number, string][] = [[20, "#006837"], [5, "#1a9850"], [0, "#a6d96a"], [-10, "#fdae61"], [-20, "#f46d43"], [-100, "#a50026"]];
+// paleta cualitativa para arquetipos (clusters)
+const PALETA_CAT = ["#66c2a5", "#fc8d62", "#8da0cb", "#e78ac3", "#a6d854", "#ffd92f", "#e5c494", "#b3b3b3"];
 
 const ESCALAS: Record<
   Modo,
-  { endpoint: string; etiqueta: string; titulo: string; campo: string; sufijo: string; anios?: string; buckets: [number, string][] }
+  { endpoint: string; etiqueta: string; titulo: string; campo: string; sufijo: string; anios?: string; categorico?: boolean; buckets: [number, string][] }
 > = {
+  arquetipos: {
+    endpoint: "arquetipos.geojson", etiqueta: "Arquetipos", titulo: "Arquetipos", campo: "cluster", sufijo: "", categorico: true, buckets: [],
+  },
   indice: {
     endpoint: "indice.geojson", etiqueta: "¿Dónde vivir?", titulo: "Índice 0-100", campo: "score", sufijo: "/100",
     buckets: [[70, "#006837"], [55, "#31a354"], [45, "#78c679"], [30, "#c2e699"], [0, "#ffffcc"]],
@@ -72,6 +77,9 @@ function tooltip(modo: Modo, p: GeoJsonProperties): string {
   }
   if (modo === "clima") {
     return `${props.nombre}: ${props.temp ?? "—"} °C · ${props.precip ?? "—"} mm/año`;
+  }
+  if (modo === "arquetipos") {
+    return `${props.nombre}: arquetipo ${props.cluster ?? "—"} · ${props.etiqueta ?? ""}`;
   }
   if (modo === "prediccion") {
     const c = props.cambio_pct;
@@ -139,6 +147,17 @@ export default function App() {
 
   const sel = { padding: "4px 8px", borderRadius: 4, border: "1px solid #ccc" };
 
+  const categorias =
+    esc.categorico && geo
+      ? [...new Map(
+          geo.features
+            .filter((f) => f.properties?.cluster != null)
+            .map((f) => [f.properties!.cluster as number, String(f.properties!.etiqueta)]),
+        ).entries()]
+          .sort((a, b) => a[0] - b[0])
+          .map(([c, label]) => ({ color: PALETA_CAT[c % PALETA_CAT.length], label }))
+      : null;
+
   return (
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", fontFamily: "system-ui" }}>
       <header style={{ padding: "0.5rem 1rem", borderBottom: "1px solid #eee", display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
@@ -168,25 +187,26 @@ export default function App() {
           <GeoJSON
             key={`${prov}-${modo}-${anioSel}`}
             data={geo}
-            style={(f?: Feature) => ({ fillColor: color(esc.buckets, (f?.properties?.[esc.campo] as number | null) ?? null), weight: 0.5, color: "#555", fillOpacity: 0.75 })}
+            style={(f?: Feature) => ({ fillColor: esc.categorico ? (f?.properties?.cluster != null ? PALETA_CAT[f.properties.cluster % PALETA_CAT.length] : "#eeeeee") : color(esc.buckets, (f?.properties?.[esc.campo] as number | null) ?? null), weight: 0.5, color: "#555", fillOpacity: 0.75 })}
             onEachFeature={(f: Feature, layer: Layer) => layer.bindTooltip(tooltip(modo, f.properties), { sticky: true })}
           />
         )}
         <FitBounds geo={geo} />
-        <Leyenda titulo={esc.titulo} buckets={esc.buckets} />
+        <Leyenda titulo={esc.titulo} buckets={esc.buckets} categorias={categorias} />
       </MapContainer>
     </div>
   );
 }
 
-function Leyenda({ titulo, buckets }: { titulo: string; buckets: [number, string][] }) {
-  const items = [...buckets].reverse();
+function Leyenda({ titulo, buckets, categorias }: { titulo: string; buckets: [number, string][]; categorias?: { color: string; label: string }[] | null }) {
+  const items = categorias ?? [...buckets].reverse().map(([u, c]) => ({ color: c, label: `≥ ${u}` }));
   return (
-    <div style={{ position: "absolute", bottom: 20, right: 20, zIndex: 1000, background: "white", padding: "8px 10px", borderRadius: 6, boxShadow: "0 1px 4px rgba(0,0,0,.3)", fontSize: 12 }}>
+    <div style={{ position: "absolute", bottom: 20, right: 20, zIndex: 1000, background: "white", padding: "8px 10px", borderRadius: 6, boxShadow: "0 1px 4px rgba(0,0,0,.3)", fontSize: 12, maxWidth: 220 }}>
       <strong>{titulo}</strong>
-      {items.map(([umbral, c]) => (
-        <div key={umbral} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-          <span style={{ width: 14, height: 14, background: c, display: "inline-block" }} />≥ {umbral}
+      {items.map((it, i) => (
+        <div key={i} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ width: 14, height: 14, background: it.color, display: "inline-block", flexShrink: 0 }} />
+          {it.label}
         </div>
       ))}
     </div>

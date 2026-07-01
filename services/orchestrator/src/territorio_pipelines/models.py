@@ -113,6 +113,16 @@ class PrediccionMl(Base):
     drivers = Column(String)
 
 
+class ArquetipoMunicipio(Base):
+    """Arquetipo (cluster KMeans) de cada municipio + etiqueta legible."""
+
+    __tablename__ = "arquetipo_municipio"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    cluster = Column(Integer)
+    etiqueta = Column(String)
+
+
 class ProyeccionCohorte(Base):
     """Proyección cohorte-componente (Hamilton-Perry). Requiere pirámide cargada."""
 
