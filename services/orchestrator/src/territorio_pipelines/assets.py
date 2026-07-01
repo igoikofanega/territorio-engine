@@ -142,6 +142,20 @@ def proyeccion(context: AssetExecutionContext) -> int:
     return result["municipios"]
 
 
+@asset(group_name="fuentes")
+def clima(context: AssetExecutionContext) -> int:
+    """Clima por municipio (AEMET, interpolación estación→municipio), normal 2015-2024.
+
+    Requiere la migración 0011 y AEMET_API_KEY. Ingesta lenta (~250 estaciones útiles).
+    """
+    from .loaders import load_clima
+
+    result = load_clima()
+    context.add_output_metadata(result)
+    context.log.info(f"clima: {result}")
+    return result["municipios"]
+
+
 @asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, piramide])
 def indice(context: AssetExecutionContext) -> int:
     """Índice compuesto "¿dónde vivir?" (renta+paro+alquiler+envejecimiento) → indice_municipio.

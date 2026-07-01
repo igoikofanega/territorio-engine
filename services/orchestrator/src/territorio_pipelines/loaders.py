@@ -6,6 +6,7 @@ import json
 from collections import defaultdict
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from pydantic import ValidationError
 from sqlalchemy import text
@@ -14,7 +15,7 @@ from . import indice as idx
 from . import proyeccion as proy
 from . import proyeccion_cohorte as hp
 from .db import engine
-from .sources import alquiler, mnp, padron, paro, piramide, renta
+from .sources import aemet, alquiler, mnp, padron, paro, piramide, renta
 from .sources.ign import feature_to_row, read_features
 
 # Calcula la geometría 4326 una sola vez (CTE) y deriva 25830 y superficie.
@@ -202,6 +203,63 @@ def load_indice(anio: int = _ANIO_INDICE) -> dict[str, int]:
         if rows:
             conn.execute(_INSERT_INDICE, rows)
     return {"municipios": len(rows)}
+
+
+_INSERT_CLIMA = text("""
+INSERT INTO fact_municipio_anual (cod_municipio, anio, temp_media_anual, precip_anual_mm)
+VALUES (:cod, :anio, :temp, :precip)
+ON CONFLICT (cod_municipio, anio) DO UPDATE SET
+    temp_media_anual = EXCLUDED.temp_media_anual, precip_anual_mm = EXCLUDED.precip_anual_mm
+""")
+_ANIO_CLIMA = 2022  # normal reciente (media 2015-2024) almacenada en el año del índice
+
+
+def _idw(mlon, mlat, slon, slat, sval, k: int = 3) -> np.ndarray:
+    """Interpolación IDW de las k estaciones más cercanas (distancia en grados, k=3)."""
+    mask = ~np.isnan(sval)
+    slon, slat, sval = slon[mask], slat[mask], sval[mask]
+    d2 = (mlon[:, None] - slon[None, :]) ** 2 + (mlat[:, None] - slat[None, :]) ** 2 + 1e-9
+    kk = min(k, len(sval))
+    idx_k = np.argpartition(d2, kk - 1, axis=1)[:, :kk]
+    filas = np.arange(len(mlon))[:, None]
+    w = 1.0 / d2[filas, idx_k]
+    return (w * sval[idx_k]).sum(1) / w.sum(1)
+
+
+def load_clima(anio: int = _ANIO_CLIMA) -> dict[str, int]:
+    """Descarga el clima por estación (AEMET) e interpola a municipio (IDW)."""
+    with aemet.cliente() as client:
+        ests = [
+            {**e, **c}
+            for e in aemet.estaciones(client)
+            if (c := aemet.clima_estacion(client, e["indicativo"])) is not None
+        ]
+    if not ests:
+        return {"municipios": 0, "estaciones": 0}
+    munis = pd.read_sql(
+        "SELECT cod_municipio, ST_X(ST_Centroid(geom_4326)) AS lon, "
+        "ST_Y(ST_Centroid(geom_4326)) AS lat FROM dim_municipio",
+        engine,
+    )
+    slon = np.array([e["lon"] for e in ests])
+    slat = np.array([e["lat"] for e in ests])
+    stemp = np.array([e["tm"] if e["tm"] is not None else np.nan for e in ests])
+    sprec = np.array([e["prec"] if e["prec"] is not None else np.nan for e in ests])
+    mlon, mlat = munis["lon"].to_numpy(), munis["lat"].to_numpy()
+
+    temp = _idw(mlon, mlat, slon, slat, stemp)
+    precip = _idw(mlon, mlat, slon, slat, sprec)
+    rows = []
+    for cod, t, p in zip(munis["cod_municipio"], temp, precip, strict=False):
+        celsius = None if np.isnan(t) else round(float(t), 1)
+        mm = None if np.isnan(p) else round(float(p))
+        if celsius is None and mm is None:
+            continue
+        rows.append({"cod": cod, "anio": anio, "temp": celsius, "precip": mm})
+    with engine.begin() as conn:
+        if rows:
+            conn.execute(_INSERT_CLIMA, rows)
+    return {"municipios": len(rows), "estaciones": len(ests)}
 
 
 def load_padron(path: Path, batch_size: int = 5000) -> dict[str, int]:

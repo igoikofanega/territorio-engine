@@ -38,6 +38,8 @@ class FactMunicipioAnual(Base):
     paro_media_anual = Column(Integer)
     renta_neta_media_persona = Column(Float)
     alquiler_eur_m2 = Column(Float)
+    temp_media_anual = Column(Float)
+    precip_anual_mm = Column(Float)
 
 
 class FactPiramide(Base):

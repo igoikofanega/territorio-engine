@@ -34,6 +34,7 @@ services:
     build: ./services/orchestrator
     environment:
       DATABASE_URL: ${DATABASE_URL:-postgresql+asyncpg://territorio:territorio@db:5432/territorio}
+      AEMET_API_KEY: ${AEMET_API_KEY:-}
     ports:
       - "${DAGSTER_PORT:-3010}:3000"
     volumes:

@@ -7,7 +7,7 @@ import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
 
 const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
 
-type Modo = "indice" | "poblacion" | "renta" | "alquiler" | "paro" | "envejecimiento" | "futuro" | "futuro_cohorte";
+type Modo = "indice" | "poblacion" | "renta" | "alquiler" | "paro" | "clima" | "envejecimiento" | "futuro" | "futuro_cohorte";
 type Prov = { cod: string; nombre: string; piramide: boolean };
 
 const FUT_BUCKETS: [number, string][] = [[20, "#006837"], [5, "#1a9850"], [0, "#a6d96a"], [-10, "#fdae61"], [-20, "#f46d43"], [-100, "#a50026"]];
@@ -36,6 +36,10 @@ const ESCALAS: Record<
     endpoint: "paro.geojson", etiqueta: "Paro", titulo: "Paro ‰ hab", campo: "paro_1000", sufijo: "‰", anios: "paro/anios",
     buckets: [[150, "#67000d"], [100, "#cb181d"], [60, "#fb6a4a"], [30, "#fcae91"], [0, "#fee5d9"]],
   },
+  clima: {
+    endpoint: "clima.geojson", etiqueta: "Clima", titulo: "Temp. media °C", campo: "temp", sufijo: " °C",
+    buckets: [[18, "#d73027"], [15, "#fc8d59"], [12, "#fee090"], [9, "#91bfdb"], [0, "#4575b4"]],
+  },
   envejecimiento: {
     endpoint: "envejecimiento.geojson", etiqueta: "Envejecimiento", titulo: "Índice envejec.", campo: "indice", sufijo: "", anios: "envejecimiento/anios",
     buckets: [[400, "#800026"], [200, "#bd0026"], [120, "#e31a1c"], [80, "#fc4e2a"], [40, "#feb24c"], [0, "#ffffb2"]],
@@ -61,6 +65,9 @@ function tooltip(modo: Modo, p: GeoJsonProperties): string {
   if (modo === "indice") {
     const f = (v: unknown) => (v == null ? "—" : Math.round(v as number));
     return `${props.nombre}: ${props.score ?? "—"}/100 · renta ${f(props.c_renta)} · empleo ${f(props.c_paro)} · asequibilidad ${f(props.c_alquiler)} · vitalidad ${f(props.c_envejecimiento)}`;
+  }
+  if (modo === "clima") {
+    return `${props.nombre}: ${props.temp ?? "—"} °C · ${props.precip ?? "—"} mm/año`;
   }
   if (modo.startsWith("futuro")) {
     const c = props.cambio_pct;

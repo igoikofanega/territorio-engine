@@ -54,6 +54,9 @@ ingest-renta: ## Ingesta renta INE/ADRH (bucle por provincia) → fact_municipio
 ingest-alquiler: ## Ingesta alquiler SERPAVI → fact_municipio_anual
 	docker compose run --rm orchestrator uv run dagster asset materialize --select alquiler -m territorio_pipelines.definitions
 
+ingest-clima: ## Ingesta clima AEMET (lento ~20 min) → fact_municipio_anual
+	docker compose run --rm orchestrator uv run dagster asset materialize --select clima -m territorio_pipelines.definitions
+
 indice: ## Calcula el índice "¿dónde vivir?" → indice_municipio
 	docker compose run --rm orchestrator uv run dagster asset materialize --select indice -m territorio_pipelines.definitions
 
