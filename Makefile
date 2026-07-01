@@ -62,3 +62,6 @@ indice: ## Calcula el índice "¿dónde vivir?" → indice_municipio
 
 proyectar: ## Calcula la proyección demográfica → proyeccion_municipio
 	docker compose run --rm orchestrator uv run dagster asset materialize --select proyeccion -m territorio_pipelines.definitions
+
+entrenar-ml: ## Entrena el modelo ML (backtest + MLflow) y predice → prediccion_ml
+	docker compose run --rm orchestrator uv run dagster asset materialize --select prediccion_ml -m territorio_pipelines.definitions

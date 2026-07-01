@@ -97,6 +97,22 @@ class IndiceMunicipio(Base):
     c_envejecimiento = Column(Float)
 
 
+class PrediccionMl(Base):
+    """Predicción del modelo ML (gradient boosting) + banda e explicación por municipio."""
+
+    __tablename__ = "prediccion_ml"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    anio_base = Column(Integer)
+    anio_horizonte = Column(Integer)
+    pob_base = Column(Integer)
+    pob_proyectada = Column(Integer)
+    cambio_pct = Column(Float)
+    cambio_inf = Column(Float)
+    cambio_sup = Column(Float)
+    drivers = Column(String)
+
+
 class ProyeccionCohorte(Base):
     """Proyección cohorte-componente (Hamilton-Perry). Requiere pirámide cargada."""
 

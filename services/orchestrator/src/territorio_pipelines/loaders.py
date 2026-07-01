@@ -262,6 +262,45 @@ def load_clima(anio: int = _ANIO_CLIMA) -> dict[str, int]:
     return {"municipios": len(rows), "estaciones": len(ests)}
 
 
+_INSERT_PREDICCION_ML = text("""
+INSERT INTO prediccion_ml
+    (cod_municipio, anio_base, anio_horizonte, pob_base, pob_proyectada,
+     cambio_pct, cambio_inf, cambio_sup, drivers)
+VALUES (:cod, :anio_base, :anio_horizonte, :pob_base, :pob_proyectada,
+        :cambio_pct, :cambio_inf, :cambio_sup, :drivers)
+ON CONFLICT (cod_municipio) DO UPDATE SET
+    anio_base = EXCLUDED.anio_base, anio_horizonte = EXCLUDED.anio_horizonte,
+    pob_base = EXCLUDED.pob_base, pob_proyectada = EXCLUDED.pob_proyectada,
+    cambio_pct = EXCLUDED.cambio_pct, cambio_inf = EXCLUDED.cambio_inf,
+    cambio_sup = EXCLUDED.cambio_sup, drivers = EXCLUDED.drivers
+""")
+
+
+def load_prediccion_ml() -> dict:
+    """Entrena el modelo ML, predice el futuro y guarda las predicciones. Devuelve métricas."""
+    from .ml.modelo import entrenar_y_predecir
+
+    pred, metrics = entrenar_y_predecir(engine)
+    recs = [
+        {
+            "cod": r.cod,
+            "anio_base": int(r.anio_base),
+            "anio_horizonte": int(r.anio_horizonte),
+            "pob_base": int(r.pob_base),
+            "pob_proyectada": None if pd.isna(r.pob_proyectada) else int(r.pob_proyectada),
+            "cambio_pct": float(r.cambio_pct),
+            "cambio_inf": float(r.cambio_inf),
+            "cambio_sup": float(r.cambio_sup),
+            "drivers": r.drivers,
+        }
+        for r in pred.itertuples(index=False)
+    ]
+    with engine.begin() as conn:
+        if recs:
+            conn.execute(_INSERT_PREDICCION_ML, recs)
+    return {"municipios": len(recs), "mae": round(metrics["mae"], 2), "r2": round(metrics["r2"], 3)}
+
+
 def load_padron(path: Path, batch_size: int = 5000) -> dict[str, int]:
     """Carga población (2015→) en `fact_municipio_anual` desde el `.px` del INE."""
     df = padron.parse_px(path)

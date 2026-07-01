@@ -433,6 +433,44 @@ async def clima(prov: str | None = None) -> dict:
     }
 
 
+@app.get("/prediccion.geojson")
+async def prediccion(prov: str | None = None) -> dict:
+    """Predicción del modelo ML: cambio %, banda de incertidumbre y drivers por municipio."""
+    where = "WHERE d.cod_provincia = :prov" if prov else ""
+    sql = text(f"""
+        SELECT d.cod_municipio, d.nombre, p.cambio_pct, p.cambio_inf, p.cambio_sup,
+               p.pob_base, p.pob_proyectada, p.anio_horizonte, p.drivers,
+               ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
+        FROM dim_municipio d
+        LEFT JOIN prediccion_ml p ON p.cod_municipio = d.cod_municipio
+        {where}
+        ORDER BY d.cod_municipio
+    """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
+    async with engine.connect() as conn:
+        rows = (await conn.execute(sql, {"prov": prov} if prov else {})).all()
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "cod_municipio": r.cod_municipio,
+                    "nombre": r.nombre,
+                    "cambio_pct": r.cambio_pct,
+                    "cambio_inf": r.cambio_inf,
+                    "cambio_sup": r.cambio_sup,
+                    "pob_base": r.pob_base,
+                    "pob_proyectada": r.pob_proyectada,
+                    "anio_horizonte": r.anio_horizonte,
+                    "drivers": r.drivers,
+                },
+                "geometry": r.geom,
+            }
+            for r in rows
+        ],
+    }
+
+
 @app.get("/futuro.geojson")
 async def futuro(prov: str | None = None) -> dict:
     """Proyección demográfica: cambio % a horizonte y trayectoria por municipio."""

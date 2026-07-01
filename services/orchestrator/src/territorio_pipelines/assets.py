@@ -170,6 +170,20 @@ def indice(context: AssetExecutionContext) -> int:
     return result["municipios"]
 
 
+@asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, clima, mnp, piramide])
+def prediccion_ml(context: AssetExecutionContext) -> int:
+    """Modelo ML (gradient boosting) validado con backtest → prediccion_ml. Requiere 0012.
+
+    Entrena, valida temporalmente, registra en MLflow y predice 2023→2028 con drivers.
+    """
+    from .loaders import load_prediccion_ml
+
+    result = load_prediccion_ml()
+    context.add_output_metadata(result)
+    context.log.info(f"prediccion_ml: {result}")
+    return result["municipios"]
+
+
 @asset(group_name="modelo", deps=[piramide])
 def proyeccion_cohorte(context: AssetExecutionContext) -> int:
     """Proyección v2 cohorte-componente (Hamilton-Perry) → proyeccion_cohorte.
