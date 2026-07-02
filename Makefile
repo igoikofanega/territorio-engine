@@ -74,3 +74,6 @@ ingest-wikidata: ## Hechos Wikidata por municipio → municipio_wiki
 
 ingest-wikipedia: ## Descripciones Wikipedia por municipio → municipio_wiki
 	docker compose run --rm orchestrator uv run dagster asset materialize --select wikipedia -m territorio_pipelines.definitions
+
+ingest-servicios: ## Servicios OSM por municipio → municipio_servicios
+	docker compose run --rm orchestrator uv run dagster asset materialize --select servicios -m territorio_pipelines.definitions

@@ -153,6 +153,17 @@ def wikidata(context: AssetExecutionContext) -> int:
     return result["municipios"]
 
 
+@asset(group_name="fuentes")
+def servicios(context: AssetExecutionContext) -> int:
+    """Equipamientos (salud/educación/comercio) por municipio desde OSM. Requiere 0015."""
+    from .loaders import load_osm
+
+    result = load_osm()
+    context.add_output_metadata(result)
+    context.log.info(f"servicios: {result}")
+    return result["municipios"]
+
+
 @asset(group_name="fuentes", deps=[wikidata])
 def wikipedia(context: AssetExecutionContext) -> int:
     """Descripciones (texto) de Wikipedia por municipio → municipio_wiki. Ingesta lenta."""

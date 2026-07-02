@@ -17,7 +17,7 @@ from . import indice as idx
 from . import proyeccion as proy
 from . import proyeccion_cohorte as hp
 from .db import engine
-from .sources import aemet, alquiler, mnp, padron, paro, piramide, renta, wikidata, wikipedia
+from .sources import aemet, alquiler, mnp, osm, padron, paro, piramide, renta, wikidata, wikipedia
 from .sources.ign import feature_to_row, read_features
 
 # Calcula la geometría 4326 una sola vez (CTE) y deriva 25830 y superficie.
@@ -369,6 +369,50 @@ def load_wikipedia() -> dict:
         if updates:
             conn.execute(_UPDATE_WIKIPEDIA, updates)
     return {"municipios": len(updates)}
+
+
+def load_osm(batch_size: int = 20000) -> dict[str, int]:
+    """Descarga servicios OSM por provincia (bbox) y los cuenta por municipio (PostGIS)."""
+    bboxes = pd.read_sql(
+        "SELECT ST_YMin(bb) AS s, ST_XMin(bb) AS w, ST_YMax(bb) AS n, ST_XMax(bb) AS e "
+        "FROM (SELECT ST_Extent(geom_4326) AS bb FROM dim_municipio GROUP BY cod_provincia) t",
+        engine,
+    )
+    vistos: set[tuple[float, float, str]] = set()
+    for b in bboxes.itertuples(index=False):
+        bbox = (b.s, b.w, b.n, b.e)
+        for cat, filtro in osm.CATEGORIAS.items():
+            for lon, lat in osm.consultar_bbox(filtro, bbox):
+                vistos.add((round(lon, 6), round(lat, 6), cat))
+            time.sleep(1.0)
+    puntos = [{"lon": x, "lat": y, "cat": c} for (x, y, c) in vistos]
+    with engine.begin() as conn:
+        conn.execute(
+            text("CREATE TEMP TABLE _osm_pts (lon float8, lat float8, cat text) ON COMMIT DROP")
+        )
+        ins = text("INSERT INTO _osm_pts (lon, lat, cat) VALUES (:lon, :lat, :cat)")
+        for i in range(0, len(puntos), batch_size):
+            conn.execute(ins, puntos[i : i + batch_size])
+        conn.execute(
+            text("""
+            INSERT INTO municipio_servicios
+                (cod_municipio, n_salud, n_educacion, n_comercio, n_total)
+            SELECT d.cod_municipio,
+                   count(*) FILTER (WHERE p.cat = 'salud')::int,
+                   count(*) FILTER (WHERE p.cat = 'educacion')::int,
+                   count(*) FILTER (WHERE p.cat = 'comercio')::int,
+                   count(*)::int
+            FROM dim_municipio d
+            JOIN _osm_pts p
+              ON ST_Contains(d.geom_4326, ST_SetSRID(ST_MakePoint(p.lon, p.lat), 4326))
+            GROUP BY d.cod_municipio
+            ON CONFLICT (cod_municipio) DO UPDATE SET
+                n_salud = EXCLUDED.n_salud, n_educacion = EXCLUDED.n_educacion,
+                n_comercio = EXCLUDED.n_comercio, n_total = EXCLUDED.n_total
+        """)
+        )
+        n = conn.execute(text("SELECT count(*) FROM municipio_servicios")).scalar_one()
+    return {"municipios": n, "puntos": len(puntos)}
 
 
 def load_padron(path: Path, batch_size: int = 5000) -> dict[str, int]:

@@ -129,6 +129,18 @@ class MunicipioWiki(Base):
     wiki_imagen = Column(String)
 
 
+class MunicipioServicios(Base):
+    """Recuento de equipamientos (OSM) por municipio: salud, educación, comercio."""
+
+    __tablename__ = "municipio_servicios"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    n_salud = Column(Integer)
+    n_educacion = Column(Integer)
+    n_comercio = Column(Integer)
+    n_total = Column(Integer)
+
+
 class ArquetipoMunicipio(Base):
     """Arquetipo (cluster KMeans) de cada municipio + etiqueta legible."""
 
