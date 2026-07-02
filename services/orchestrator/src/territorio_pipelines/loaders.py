@@ -371,6 +371,24 @@ def load_wikipedia() -> dict:
     return {"municipios": len(updates)}
 
 
+_INSERT_SIMILAR = text("""
+INSERT INTO similar_municipio (cod_municipio, similares)
+VALUES (:cod, :similares)
+ON CONFLICT (cod_municipio) DO UPDATE SET similares = EXCLUDED.similares
+""")
+
+
+def load_similares() -> dict:
+    """Calcula y guarda los 'pueblos como el tuyo' (vecinos en features)."""
+    from .ml.similares import calcular_similares
+
+    recs = calcular_similares(engine)
+    with engine.begin() as conn:
+        if recs:
+            conn.execute(_INSERT_SIMILAR, recs)
+    return {"municipios": len(recs)}
+
+
 def load_osm(batch_size: int = 20000) -> dict[str, int]:
     """Descarga servicios OSM por provincia (bbox) y los cuenta por municipio (PostGIS)."""
     bboxes = pd.read_sql(

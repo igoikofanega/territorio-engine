@@ -141,6 +141,15 @@ class MunicipioServicios(Base):
     n_total = Column(Integer)
 
 
+class SimilarMunicipio(Base):
+    """'Pueblos como el tuyo': códigos de los municipios más parecidos (separados por coma)."""
+
+    __tablename__ = "similar_municipio"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    similares = Column(String)
+
+
 class ArquetipoMunicipio(Base):
     """Arquetipo (cluster KMeans) de cada municipio + etiqueta legible."""
 

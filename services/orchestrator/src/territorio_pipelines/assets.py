@@ -218,6 +218,17 @@ def prediccion_ml(context: AssetExecutionContext) -> int:
 
 
 @asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, clima])
+def similares(context: AssetExecutionContext) -> int:
+    """'Pueblos como el tuyo' (vecinos en features) → similar_municipio. Requiere 0016."""
+    from .loaders import load_similares
+
+    result = load_similares()
+    context.add_output_metadata(result)
+    context.log.info(f"similares: {result}")
+    return result["municipios"]
+
+
+@asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, clima])
 def arquetipos(context: AssetExecutionContext) -> int:
     """Clustering de municipios en arquetipos ('pueblos como el tuyo'). Requiere 0013."""
     from .loaders import load_arquetipos

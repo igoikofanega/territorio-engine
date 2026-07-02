@@ -77,3 +77,6 @@ ingest-wikipedia: ## Descripciones Wikipedia por municipio → municipio_wiki
 
 ingest-servicios: ## Servicios OSM por municipio → municipio_servicios
 	docker compose run --rm orchestrator uv run dagster asset materialize --select servicios -m territorio_pipelines.definitions
+
+similares: ## 'Pueblos como el tuyo' (vecinos en features) → similar_municipio
+	docker compose run --rm orchestrator uv run dagster asset materialize --select similares -m territorio_pipelines.definitions
