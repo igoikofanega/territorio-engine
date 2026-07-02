@@ -113,6 +113,22 @@ class PrediccionMl(Base):
     drivers = Column(String)
 
 
+class MunicipioWiki(Base):
+    """Hechos de Wikidata + descripción de Wikipedia por municipio (para la ficha)."""
+
+    __tablename__ = "municipio_wiki"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    altitud = Column(Float)
+    web = Column(String)
+    imagen = Column(String)
+    escudo = Column(String)
+    gentilicio = Column(String)
+    wiki_titulo = Column(String)
+    descripcion = Column(String)
+    wiki_imagen = Column(String)
+
+
 class ArquetipoMunicipio(Base):
     """Arquetipo (cluster KMeans) de cada municipio + etiqueta legible."""
 

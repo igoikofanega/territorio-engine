@@ -15,7 +15,7 @@ from . import indice as idx
 from . import proyeccion as proy
 from . import proyeccion_cohorte as hp
 from .db import engine
-from .sources import aemet, alquiler, mnp, padron, paro, piramide, renta
+from .sources import aemet, alquiler, mnp, padron, paro, piramide, renta, wikidata
 from .sources.ign import feature_to_row, read_features
 
 # Calcula la geometría 4326 una sola vez (CTE) y deriva 25830 y superficie.
@@ -322,6 +322,26 @@ def load_arquetipos() -> dict:
         if recs:
             conn.execute(_INSERT_ARQUETIPO, recs)
     return {"municipios": len(recs), **metrics}
+
+
+_INSERT_WIKIDATA = text("""
+INSERT INTO municipio_wiki
+    (cod_municipio, altitud, web, imagen, escudo, gentilicio, wiki_titulo)
+VALUES (:cod, :altitud, :web, :imagen, :escudo, :gentilicio, :wiki_titulo)
+ON CONFLICT (cod_municipio) DO UPDATE SET
+    altitud = EXCLUDED.altitud, web = EXCLUDED.web, imagen = EXCLUDED.imagen,
+    escudo = EXCLUDED.escudo, gentilicio = EXCLUDED.gentilicio,
+    wiki_titulo = EXCLUDED.wiki_titulo
+""")
+
+
+def load_wikidata() -> dict:
+    """Carga hechos de Wikidata por municipio (no toca descripcion/wiki_imagen)."""
+    recs = list(wikidata.records_from_bindings(wikidata.descargar()))
+    with engine.begin() as conn:
+        if recs:
+            conn.execute(_INSERT_WIKIDATA, recs)
+    return {"municipios": len(recs)}
 
 
 def load_padron(path: Path, batch_size: int = 5000) -> dict[str, int]:

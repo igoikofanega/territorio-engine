@@ -143,6 +143,17 @@ def proyeccion(context: AssetExecutionContext) -> int:
 
 
 @asset(group_name="fuentes")
+def wikidata(context: AssetExecutionContext) -> int:
+    """Hechos de Wikidata por municipio (altitud, web, escudo, imagen…). Requiere 0014."""
+    from .loaders import load_wikidata
+
+    result = load_wikidata()
+    context.add_output_metadata(result)
+    context.log.info(f"wikidata: {result}")
+    return result["municipios"]
+
+
+@asset(group_name="fuentes")
 def clima(context: AssetExecutionContext) -> int:
     """Clima por municipio (AEMET, interpolación estación→municipio), normal 2015-2024.
 
