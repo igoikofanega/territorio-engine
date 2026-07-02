@@ -140,11 +140,12 @@ def load_alquiler() -> dict[str, int]:
 
 _INSERT_INDICE = text("""
 INSERT INTO indice_municipio
-    (cod_municipio, anio, score, c_renta, c_paro, c_alquiler, c_envejecimiento)
-VALUES (:cod, :anio, :score, :c_renta, :c_paro, :c_alquiler, :c_envejecimiento)
+    (cod_municipio, anio, score, c_renta, c_paro, c_alquiler, c_envejecimiento, c_servicios)
+VALUES (:cod, :anio, :score, :c_renta, :c_paro, :c_alquiler, :c_envejecimiento, :c_servicios)
 ON CONFLICT (cod_municipio, anio) DO UPDATE SET
     score = EXCLUDED.score, c_renta = EXCLUDED.c_renta, c_paro = EXCLUDED.c_paro,
-    c_alquiler = EXCLUDED.c_alquiler, c_envejecimiento = EXCLUDED.c_envejecimiento
+    c_alquiler = EXCLUDED.c_alquiler, c_envejecimiento = EXCLUDED.c_envejecimiento,
+    c_servicios = EXCLUDED.c_servicios
 """)
 _ANIO_INDICE = 2022  # año con cobertura de las 4 capas
 
@@ -167,8 +168,13 @@ def load_indice(anio: int = _ANIO_INDICE) -> dict[str, int]:
         f"FROM fact_piramide WHERE anio = {anio} GROUP BY cod_municipio",
         engine,
     )
-    df = df.merge(env, on="cod_municipio", how="left")
+    serv = pd.read_sql(
+        "SELECT cod_municipio, n_total AS n_serv FROM municipio_servicios",
+        engine,
+    )
+    df = df.merge(env, on="cod_municipio", how="left").merge(serv, on="cod_municipio", how="left")
     df["paro_1000"] = (df["paro"] / df["pob"] * 1000).replace([float("inf"), float("-inf")], None)
+    df["serv_1000"] = (df["n_serv"] / df["pob"] * 1000).replace([float("inf"), float("-inf")], None)
 
     def pct(col: str, clave: str) -> pd.Series:
         rank = df[col].rank(pct=True) * 100
@@ -178,6 +184,7 @@ def load_indice(anio: int = _ANIO_INDICE) -> dict[str, int]:
     df["c_paro"] = pct("paro_1000", "paro")
     df["c_alquiler"] = pct("alquiler", "alquiler")
     df["c_envejecimiento"] = pct("envej", "envejecimiento")
+    df["c_servicios"] = pct("serv_1000", "servicios")
 
     rows = []
     for r in df.itertuples(index=False):
@@ -186,6 +193,7 @@ def load_indice(anio: int = _ANIO_INDICE) -> dict[str, int]:
             "paro": _na(r.c_paro),
             "alquiler": _na(r.c_alquiler),
             "envejecimiento": _na(r.c_envejecimiento),
+            "servicios": _na(r.c_servicios),
         }
         score = idx.combina(comps)
         if score is None:
@@ -199,6 +207,7 @@ def load_indice(anio: int = _ANIO_INDICE) -> dict[str, int]:
                 "c_paro": comps["paro"],
                 "c_alquiler": comps["alquiler"],
                 "c_envejecimiento": comps["envejecimiento"],
+                "c_servicios": comps["servicios"],
             }
         )
     with engine.begin() as conn:

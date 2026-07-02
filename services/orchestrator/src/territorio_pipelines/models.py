@@ -95,6 +95,7 @@ class IndiceMunicipio(Base):
     c_paro = Column(Float)
     c_alquiler = Column(Float)
     c_envejecimiento = Column(Float)
+    c_servicios = Column(Float)
 
 
 class PrediccionMl(Base):

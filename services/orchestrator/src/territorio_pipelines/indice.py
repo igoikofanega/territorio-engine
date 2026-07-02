@@ -13,10 +13,11 @@ import math
 
 # peso de cada componente (suman 1.0)
 PESOS: dict[str, float] = {
-    "renta": 0.30,
-    "paro": 0.25,
-    "alquiler": 0.25,
-    "envejecimiento": 0.20,
+    "renta": 0.25,
+    "paro": 0.20,
+    "alquiler": 0.20,
+    "envejecimiento": 0.15,
+    "servicios": 0.20,
 }
 # True = más es mejor; False = menos es mejor (se invierte el percentil en el loader)
 MEJOR_ALTO: dict[str, bool] = {
@@ -24,6 +25,7 @@ MEJOR_ALTO: dict[str, bool] = {
     "paro": False,
     "alquiler": False,
     "envejecimiento": False,
+    "servicios": True,
 }
 
 
