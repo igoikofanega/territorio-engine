@@ -71,3 +71,6 @@ arquetipos: ## Clustering de municipios en arquetipos → arquetipo_municipio
 
 ingest-wikidata: ## Hechos Wikidata por municipio → municipio_wiki
 	docker compose run --rm orchestrator uv run dagster asset materialize --select wikidata -m territorio_pipelines.definitions
+
+ingest-wikipedia: ## Descripciones Wikipedia por municipio → municipio_wiki
+	docker compose run --rm orchestrator uv run dagster asset materialize --select wikipedia -m territorio_pipelines.definitions

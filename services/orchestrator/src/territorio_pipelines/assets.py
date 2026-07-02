@@ -153,6 +153,17 @@ def wikidata(context: AssetExecutionContext) -> int:
     return result["municipios"]
 
 
+@asset(group_name="fuentes", deps=[wikidata])
+def wikipedia(context: AssetExecutionContext) -> int:
+    """Descripciones (texto) de Wikipedia por municipio → municipio_wiki. Ingesta lenta."""
+    from .loaders import load_wikipedia
+
+    result = load_wikipedia()
+    context.add_output_metadata(result)
+    context.log.info(f"wikipedia: {result}")
+    return result["municipios"]
+
+
 @asset(group_name="fuentes")
 def clima(context: AssetExecutionContext) -> int:
     """Clima por municipio (AEMET, interpolación estación→municipio), normal 2015-2024.

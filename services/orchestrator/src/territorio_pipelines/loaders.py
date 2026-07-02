@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import json
+import time
 from collections import defaultdict
 from pathlib import Path
 
+import httpx
 import numpy as np
 import pandas as pd
 from pydantic import ValidationError
@@ -15,7 +17,7 @@ from . import indice as idx
 from . import proyeccion as proy
 from . import proyeccion_cohorte as hp
 from .db import engine
-from .sources import aemet, alquiler, mnp, padron, paro, piramide, renta, wikidata
+from .sources import aemet, alquiler, mnp, padron, paro, piramide, renta, wikidata, wikipedia
 from .sources.ign import feature_to_row, read_features
 
 # Calcula la geometría 4326 una sola vez (CTE) y deriva 25830 y superficie.
@@ -342,6 +344,31 @@ def load_wikidata() -> dict:
         if recs:
             conn.execute(_INSERT_WIKIDATA, recs)
     return {"municipios": len(recs)}
+
+
+_UPDATE_WIKIPEDIA = text("""
+UPDATE municipio_wiki SET descripcion = :desc, wiki_imagen = :img WHERE cod_municipio = :cod
+""")
+
+
+def load_wikipedia() -> dict:
+    """Rellena descripcion + wiki_imagen en municipio_wiki desde la REST API de Wikipedia."""
+    titulos = pd.read_sql(
+        "SELECT cod_municipio AS cod, wiki_titulo FROM municipio_wiki "
+        "WHERE wiki_titulo IS NOT NULL",
+        engine,
+    )
+    updates = []
+    with httpx.Client(timeout=30, follow_redirects=True) as client:
+        for r in titulos.itertuples(index=False):
+            res = wikipedia.resumen(client, r.wiki_titulo)
+            if res and res.get("descripcion"):
+                updates.append({"cod": r.cod, "desc": res["descripcion"], "img": res.get("imagen")})
+            time.sleep(wikipedia.THROTTLE_S)
+    with engine.begin() as conn:
+        if updates:
+            conn.execute(_UPDATE_WIKIPEDIA, updates)
+    return {"municipios": len(updates)}
 
 
 def load_padron(path: Path, batch_size: int = 5000) -> dict[str, int]:
