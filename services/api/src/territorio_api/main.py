@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
@@ -620,4 +620,198 @@ async def coropleta(prov: str | None = None, anio: int | None = None) -> dict:
             }
             for r in rows
         ],
+    }
+
+
+@app.get("/municipio/{cod}")
+async def municipio_ficha(cod: str) -> dict:
+    """Ficha completa de un municipio: identidad, wiki, serie, índice, ML, arquetipo y similares."""
+    async with engine.connect() as conn:
+        base = (
+            await conn.execute(
+                text("""
+                    SELECT cod_municipio, nombre, cod_provincia, cod_ccaa, superficie_km2,
+                           ST_Y(ST_Centroid(geom_4326)) AS lat,
+                           ST_X(ST_Centroid(geom_4326)) AS lon
+                    FROM dim_municipio WHERE cod_municipio = :cod
+                """),
+                {"cod": cod},
+            )
+        ).one_or_none()
+        if base is None:
+            raise HTTPException(status_code=404, detail="municipio no encontrado")
+
+        serie = (
+            await conn.execute(
+                text("""
+                    SELECT anio, poblacion_total, paro_media_anual,
+                           renta_neta_media_persona AS renta, alquiler_eur_m2 AS alquiler,
+                           temp_media_anual AS temp, precip_anual_mm AS precip
+                    FROM fact_municipio_anual
+                    WHERE cod_municipio = :cod
+                    ORDER BY anio
+                """),
+                {"cod": cod},
+            )
+        ).all()
+
+        indice = (
+            await conn.execute(
+                text("""
+                    SELECT anio, score, c_renta, c_paro, c_alquiler, c_envejecimiento, c_servicios
+                    FROM indice_municipio WHERE cod_municipio = :cod
+                    ORDER BY anio DESC LIMIT 1
+                """),
+                {"cod": cod},
+            )
+        ).one_or_none()
+
+        pred = (
+            await conn.execute(
+                text("""
+                    SELECT anio_base, anio_horizonte, pob_base, pob_proyectada,
+                           cambio_pct, cambio_inf, cambio_sup, drivers
+                    FROM prediccion_ml WHERE cod_municipio = :cod
+                """),
+                {"cod": cod},
+            )
+        ).one_or_none()
+
+        arq = (
+            await conn.execute(
+                text("""
+                    SELECT cluster, etiqueta FROM arquetipo_municipio
+                    WHERE cod_municipio = :cod
+                """),
+                {"cod": cod},
+            )
+        ).one_or_none()
+
+        wiki = (
+            await conn.execute(
+                text("""
+                    SELECT altitud, web, imagen, escudo, gentilicio,
+                           wiki_titulo, descripcion, wiki_imagen
+                    FROM municipio_wiki WHERE cod_municipio = :cod
+                """),
+                {"cod": cod},
+            )
+        ).one_or_none()
+
+        serv = (
+            await conn.execute(
+                text("""
+                    SELECT n_salud, n_educacion, n_comercio, n_total
+                    FROM municipio_servicios WHERE cod_municipio = :cod
+                """),
+                {"cod": cod},
+            )
+        ).one_or_none()
+
+        sim_row = (
+            await conn.execute(
+                text("SELECT similares FROM similar_municipio WHERE cod_municipio = :cod"),
+                {"cod": cod},
+            )
+        ).one_or_none()
+        similares: list[dict] = []
+        if sim_row and sim_row.similares:
+            cods = [c for c in sim_row.similares.split(",") if c]
+            if cods:
+                nombres = (
+                    await conn.execute(
+                        text("""
+                            SELECT cod_municipio, nombre, cod_provincia
+                            FROM dim_municipio WHERE cod_municipio = ANY(:cods)
+                        """),
+                        {"cods": cods},
+                    )
+                ).all()
+                by_cod = {r.cod_municipio: r for r in nombres}
+                similares = [
+                    {
+                        "cod": c,
+                        "nombre": by_cod[c].nombre,
+                        "provincia": PROVINCIAS.get(by_cod[c].cod_provincia, by_cod[c].cod_provincia),
+                    }
+                    for c in cods
+                    if c in by_cod
+                ]
+
+    return {
+        "cod": base.cod_municipio,
+        "nombre": base.nombre,
+        "provincia": {
+            "cod": base.cod_provincia,
+            "nombre": PROVINCIAS.get(base.cod_provincia, base.cod_provincia),
+        },
+        "cod_ccaa": base.cod_ccaa,
+        "superficie_km2": base.superficie_km2,
+        "centroide": {"lat": base.lat, "lon": base.lon},
+        "wiki": (
+            {
+                "descripcion": wiki.descripcion,
+                "gentilicio": wiki.gentilicio,
+                "altitud": wiki.altitud,
+                "web": wiki.web,
+                "imagen": wiki.wiki_imagen or wiki.imagen,
+                "escudo": wiki.escudo,
+                "wiki_titulo": wiki.wiki_titulo,
+            }
+            if wiki
+            else None
+        ),
+        "serie": [
+            {
+                "anio": r.anio,
+                "poblacion": r.poblacion_total,
+                "paro": r.paro_media_anual,
+                "renta": r.renta,
+                "alquiler": r.alquiler,
+                "temp": r.temp,
+                "precip": r.precip,
+            }
+            for r in serie
+        ],
+        "indice": (
+            {
+                "anio": indice.anio,
+                "score": indice.score,
+                "componentes": {
+                    "renta": indice.c_renta,
+                    "paro": indice.c_paro,
+                    "alquiler": indice.c_alquiler,
+                    "envejecimiento": indice.c_envejecimiento,
+                    "servicios": indice.c_servicios,
+                },
+            }
+            if indice
+            else None
+        ),
+        "prediccion": (
+            {
+                "anio_base": pred.anio_base,
+                "anio_horizonte": pred.anio_horizonte,
+                "pob_base": pred.pob_base,
+                "pob_proyectada": pred.pob_proyectada,
+                "cambio_pct": pred.cambio_pct,
+                "cambio_inf": pred.cambio_inf,
+                "cambio_sup": pred.cambio_sup,
+                "drivers": pred.drivers,
+            }
+            if pred
+            else None
+        ),
+        "arquetipo": ({"cluster": arq.cluster, "etiqueta": arq.etiqueta} if arq else None),
+        "servicios": (
+            {
+                "salud": serv.n_salud,
+                "educacion": serv.n_educacion,
+                "comercio": serv.n_comercio,
+                "total": serv.n_total,
+            }
+            if serv
+            else None
+        ),
+        "similares": similares,
     }

@@ -2,6 +2,7 @@ import "leaflet/dist/leaflet.css";
 
 import type { Feature, FeatureCollection, GeoJsonProperties } from "geojson";
 import L, { type Layer } from "leaflet";
+import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
 
@@ -9,6 +10,21 @@ const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
 
 type Modo = "indice" | "poblacion" | "renta" | "alquiler" | "paro" | "clima" | "envejecimiento" | "arquetipos" | "prediccion" | "futuro" | "futuro_cohorte";
 type Prov = { cod: string; nombre: string; piramide: boolean };
+
+type SerieRow = { anio: number; poblacion: number | null; paro: number | null; renta: number | null; alquiler: number | null; temp: number | null; precip: number | null };
+type FichaData = {
+  cod: string;
+  nombre: string;
+  provincia: { cod: string; nombre: string };
+  superficie_km2: number | null;
+  wiki: { descripcion: string | null; gentilicio: string | null; altitud: number | null; web: string | null; imagen: string | null; escudo: string | null; wiki_titulo: string | null } | null;
+  serie: SerieRow[];
+  indice: { anio: number; score: number | null; componentes: { renta: number | null; paro: number | null; alquiler: number | null; envejecimiento: number | null; servicios: number | null } } | null;
+  prediccion: { anio_base: number; anio_horizonte: number; pob_base: number; pob_proyectada: number; cambio_pct: number; cambio_inf: number | null; cambio_sup: number | null; drivers: string | null } | null;
+  arquetipo: { cluster: number; etiqueta: string } | null;
+  servicios: { salud: number | null; educacion: number | null; comercio: number | null; total: number | null } | null;
+  similares: { cod: string; nombre: string; provincia: string }[];
+};
 
 const FUT_BUCKETS: [number, string][] = [[20, "#006837"], [5, "#1a9850"], [0, "#a6d96a"], [-10, "#fdae61"], [-20, "#f46d43"], [-100, "#a50026"]];
 // paleta cualitativa para arquetipos (clusters)
@@ -115,7 +131,14 @@ export default function App() {
   const [anioSel, setAnioSel] = useState<number | null>(null);
   const [geo, setGeo] = useState<FeatureCollection | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [codSel, setCodSel] = useState<string | null>(null);
+  const [ficha, setFicha] = useState<FichaData | null>(null);
   const esc = ESCALAS[modo];
+
+  useEffect(() => {
+    if (!codSel) { setFicha(null); return; }
+    fetch(`${API}/municipio/${codSel}`).then((r) => r.json()).then(setFicha).catch(() => setFicha(null));
+  }, [codSel]);
 
   useEffect(() => {
     fetch(`${API}/provincias`).then((r) => r.json()).then(setProvincias).catch(() => {});
@@ -188,12 +211,162 @@ export default function App() {
             key={`${prov}-${modo}-${anioSel}`}
             data={geo}
             style={(f?: Feature) => ({ fillColor: esc.categorico ? (f?.properties?.cluster != null ? PALETA_CAT[f.properties.cluster % PALETA_CAT.length] : "#eeeeee") : color(esc.buckets, (f?.properties?.[esc.campo] as number | null) ?? null), weight: 0.5, color: "#555", fillOpacity: 0.75 })}
-            onEachFeature={(f: Feature, layer: Layer) => layer.bindTooltip(tooltip(modo, f.properties), { sticky: true })}
+            onEachFeature={(f: Feature, layer: Layer) => {
+              layer.bindTooltip(tooltip(modo, f.properties), { sticky: true });
+              layer.on("click", () => {
+                const cod = (f.properties as GeoJsonProperties)?.cod_municipio as string | undefined;
+                if (cod) setCodSel(cod);
+              });
+            }}
           />
         )}
         <FitBounds geo={geo} />
         <Leyenda titulo={esc.titulo} buckets={esc.buckets} categorias={categorias} />
       </MapContainer>
+      {codSel && (
+        <Ficha
+          ficha={ficha}
+          onClose={() => setCodSel(null)}
+          onSelect={(c) => setCodSel(c)}
+        />
+      )}
+    </div>
+  );
+}
+
+function Sparkline({ serie }: { serie: SerieRow[] }) {
+  const pts = serie.filter((r) => r.poblacion != null);
+  if (pts.length < 2) return null;
+  const w = 240, h = 48, pad = 4;
+  const xs = pts.map((r) => r.anio);
+  const ys = pts.map((r) => r.poblacion as number);
+  const xmin = Math.min(...xs), xmax = Math.max(...xs);
+  const ymin = Math.min(...ys), ymax = Math.max(...ys);
+  const sx = (x: number) => pad + ((x - xmin) / (xmax - xmin || 1)) * (w - 2 * pad);
+  const sy = (y: number) => h - pad - ((y - ymin) / (ymax - ymin || 1)) * (h - 2 * pad);
+  const d = pts.map((r, i) => `${i === 0 ? "M" : "L"}${sx(r.anio)},${sy(r.poblacion as number)}`).join(" ");
+  return (
+    <svg width={w} height={h} style={{ display: "block" }}>
+      <path d={d} fill="none" stroke="#2563eb" strokeWidth={1.5} />
+      <text x={pad} y={h - 1} fontSize={9} fill="#666">{xmin}</text>
+      <text x={w - pad} y={h - 1} fontSize={9} fill="#666" textAnchor="end">{xmax}</text>
+      <text x={pad} y={10} fontSize={9} fill="#666">{ymax.toLocaleString("es")}</text>
+    </svg>
+  );
+}
+
+function Componente({ nombre, valor }: { nombre: string; valor: number | null }) {
+  const v = valor == null ? 0 : Math.round(valor);
+  const bg = valor == null ? "#eee" : "#dbeafe";
+  const fg = valor == null ? "#999" : "#1d4ed8";
+  return (
+    <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+      <span style={{ width: 90, color: "#555" }}>{nombre}</span>
+      <span style={{ flex: 1, background: bg, height: 8, borderRadius: 4, overflow: "hidden" }}>
+        <span style={{ display: "block", width: `${v}%`, height: "100%", background: fg }} />
+      </span>
+      <span style={{ width: 30, textAlign: "right", color: "#333" }}>{valor == null ? "—" : v}</span>
+    </div>
+  );
+}
+
+function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData | null; onClose: () => void; onSelect: (cod: string) => void }) {
+  const panel: CSSProperties = {
+    position: "absolute", top: 60, right: 12, bottom: 12, width: 340, zIndex: 1100,
+    background: "white", boxShadow: "0 2px 12px rgba(0,0,0,.25)", borderRadius: 8,
+    padding: 14, overflowY: "auto", fontFamily: "system-ui", fontSize: 13, color: "#333",
+  };
+  if (!ficha) {
+    return (
+      <div style={panel}>
+        <button onClick={onClose} style={{ float: "right", border: 0, background: "transparent", cursor: "pointer", fontSize: 18 }}>×</button>
+        <p>Cargando…</p>
+      </div>
+    );
+  }
+  const pred = ficha.prediccion;
+  const idx = ficha.indice;
+  return (
+    <div style={panel}>
+      <button onClick={onClose} style={{ float: "right", border: 0, background: "transparent", cursor: "pointer", fontSize: 18, lineHeight: 1 }}>×</button>
+      <h2 style={{ margin: "0 0 2px 0", fontSize: 18 }}>{ficha.nombre}</h2>
+      <div style={{ color: "#666", fontSize: 12, marginBottom: 8 }}>
+        {ficha.provincia.nombre}
+        {ficha.wiki?.gentilicio ? ` · ${ficha.wiki.gentilicio}` : ""}
+        {ficha.superficie_km2 ? ` · ${ficha.superficie_km2.toFixed(1)} km²` : ""}
+        {ficha.wiki?.altitud ? ` · ${Math.round(ficha.wiki.altitud)} m` : ""}
+      </div>
+      {ficha.wiki?.imagen && (
+        <img src={ficha.wiki.imagen} alt="" style={{ width: "100%", borderRadius: 4, marginBottom: 8, maxHeight: 140, objectFit: "cover" }} />
+      )}
+      {ficha.wiki?.descripcion && (
+        <p style={{ margin: "0 0 10px 0", lineHeight: 1.35 }}>{ficha.wiki.descripcion}</p>
+      )}
+
+      <Sparkline serie={ficha.serie} />
+
+      {idx && (
+        <>
+          <h3 style={{ margin: "12px 0 4px 0", fontSize: 13 }}>¿Dónde vivir? <span style={{ color: "#2563eb" }}>{idx.score ?? "—"}/100</span></h3>
+          <Componente nombre="renta" valor={idx.componentes.renta} />
+          <Componente nombre="empleo" valor={idx.componentes.paro} />
+          <Componente nombre="asequibilidad" valor={idx.componentes.alquiler} />
+          <Componente nombre="vitalidad" valor={idx.componentes.envejecimiento} />
+          <Componente nombre="servicios" valor={idx.componentes.servicios} />
+        </>
+      )}
+
+      {pred && (
+        <>
+          <h3 style={{ margin: "12px 0 4px 0", fontSize: 13 }}>Predicción a {pred.anio_horizonte}</h3>
+          <div>
+            <strong style={{ color: pred.cambio_pct >= 0 ? "#166534" : "#991b1b" }}>
+              {pred.cambio_pct >= 0 ? "+" : ""}{pred.cambio_pct}%
+            </strong>
+            {pred.cambio_inf != null && (
+              <span style={{ color: "#666" }}> [{pred.cambio_inf}%..{pred.cambio_sup}%]</span>
+            )}
+            <span style={{ color: "#666" }}> → {pred.pob_proyectada.toLocaleString("es")} hab</span>
+          </div>
+          {pred.drivers && <div style={{ color: "#666", fontSize: 11, marginTop: 2 }}>{pred.drivers}</div>}
+        </>
+      )}
+
+      {ficha.arquetipo && (
+        <div style={{ marginTop: 10 }}>
+          <span style={{ background: "#f3f4f6", padding: "3px 8px", borderRadius: 10, fontSize: 11 }}>
+            Arquetipo #{ficha.arquetipo.cluster}: {ficha.arquetipo.etiqueta}
+          </span>
+        </div>
+      )}
+
+      {ficha.servicios && (
+        <>
+          <h3 style={{ margin: "12px 0 4px 0", fontSize: 13 }}>Servicios (OSM)</h3>
+          <div style={{ color: "#555" }}>
+            🏥 {ficha.servicios.salud ?? 0} · 🎓 {ficha.servicios.educacion ?? 0} · 🛒 {ficha.servicios.comercio ?? 0}
+            <span style={{ color: "#999" }}> (total {ficha.servicios.total ?? 0})</span>
+          </div>
+        </>
+      )}
+
+      {ficha.similares.length > 0 && (
+        <>
+          <h3 style={{ margin: "12px 0 4px 0", fontSize: 13 }}>Pueblos como {ficha.nombre}</h3>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+            {ficha.similares.map((s) => (
+              <button
+                key={s.cod}
+                onClick={() => onSelect(s.cod)}
+                title={s.provincia}
+                style={{ background: "#eef2ff", color: "#3730a3", border: 0, borderRadius: 10, padding: "3px 8px", fontSize: 11, cursor: "pointer" }}
+              >
+                {s.nombre}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
