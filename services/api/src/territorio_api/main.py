@@ -62,6 +62,39 @@ async def municipios_count() -> dict[str, int]:
     return {"total": total}
 
 
+@app.get("/buscar")
+async def buscar(q: str, limit: int = 12) -> list[dict]:
+    """Busca municipios por nombre (prefijo primero, luego contiene). Case/acento-insensible."""
+    q = q.strip()
+    if len(q) < 2:
+        return []
+    limit = max(1, min(limit, 50))
+    async with engine.connect() as conn:
+        rows = (
+            await conn.execute(
+                text("""
+                    SELECT cod_municipio, nombre, cod_provincia
+                    FROM dim_municipio,
+                         LATERAL (SELECT f_unaccent(lower(:qq)) AS q) q
+                    WHERE f_unaccent(lower(nombre)) LIKE '%' || q.q || '%'
+                    ORDER BY (f_unaccent(lower(nombre)) LIKE q.q || '%') DESC,
+                             length(nombre), nombre
+                    LIMIT :lim
+                """),
+                {"qq": q, "lim": limit},
+            )
+        ).all()
+    return [
+        {
+            "cod": r.cod_municipio,
+            "nombre": r.nombre,
+            "provincia": PROVINCIAS.get(r.cod_provincia, r.cod_provincia),
+            "cod_provincia": r.cod_provincia,
+        }
+        for r in rows
+    ]
+
+
 @app.get("/municipios.geojson")
 async def municipios_geojson(prov: str | None = None) -> dict:
     """Devuelve los municipios como FeatureCollection (geometría simplificada).
@@ -354,7 +387,7 @@ async def indice(prov: str | None = None) -> dict:
         where = "WHERE d.cod_provincia = :prov" if prov else ""
         sql = text(f"""
             SELECT d.cod_municipio, d.nombre, i.score,
-                   i.c_renta, i.c_paro, i.c_alquiler, i.c_envejecimiento,
+                   i.c_renta, i.c_paro, i.c_alquiler, i.c_envejecimiento, i.c_servicios,
                    ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
             FROM dim_municipio d
             LEFT JOIN indice_municipio i
@@ -380,6 +413,60 @@ async def indice(prov: str | None = None) -> dict:
                     "c_paro": r.c_paro,
                     "c_alquiler": r.c_alquiler,
                     "c_envejecimiento": r.c_envejecimiento,
+                    "c_servicios": r.c_servicios,
+                },
+                "geometry": r.geom,
+            }
+            for r in rows
+        ],
+    }
+
+
+@app.get("/servicios.geojson")
+async def servicios(prov: str | None = None) -> dict:
+    """Servicios OSM per capita por municipio (‰ hab) para el coroplético."""
+    async with engine.connect() as conn:
+        anio = (
+            await conn.execute(
+                text(
+                    "SELECT max(anio) FROM fact_municipio_anual "
+                    "WHERE poblacion_total IS NOT NULL"
+                )
+            )
+        ).scalar_one_or_none()
+        where = "WHERE d.cod_provincia = :prov" if prov else ""
+        sql = text(f"""
+            SELECT d.cod_municipio, d.nombre,
+                   s.n_salud, s.n_educacion, s.n_comercio, s.n_total,
+                   CASE WHEN f.poblacion_total > 0
+                        THEN round((s.n_total::numeric / f.poblacion_total * 1000)::numeric, 2)
+                        ELSE NULL END AS serv_1000,
+                   ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
+            FROM dim_municipio d
+            LEFT JOIN municipio_servicios s ON s.cod_municipio = d.cod_municipio
+            LEFT JOIN fact_municipio_anual f
+                   ON f.cod_municipio = d.cod_municipio AND f.anio = :anio
+            {where}
+            ORDER BY d.cod_municipio
+        """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
+        params = {"anio": anio}
+        if prov:
+            params["prov"] = prov
+        rows = (await conn.execute(sql, params)).all()
+    return {
+        "type": "FeatureCollection",
+        "properties": {"anio": anio},
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "cod_municipio": r.cod_municipio,
+                    "nombre": r.nombre,
+                    "n_salud": r.n_salud,
+                    "n_educacion": r.n_educacion,
+                    "n_comercio": r.n_comercio,
+                    "n_total": r.n_total,
+                    "serv_1000": float(r.serv_1000) if r.serv_1000 is not None else None,
                 },
                 "geometry": r.geom,
             }

@@ -8,9 +8,10 @@ import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
 
 const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
 
-type Modo = "indice" | "poblacion" | "renta" | "alquiler" | "paro" | "clima" | "envejecimiento" | "arquetipos" | "prediccion" | "futuro" | "futuro_cohorte";
+type Modo = "indice" | "poblacion" | "renta" | "alquiler" | "paro" | "servicios" | "clima" | "envejecimiento" | "arquetipos" | "prediccion" | "futuro" | "futuro_cohorte";
 type Prov = { cod: string; nombre: string; piramide: boolean };
 
+type Sugerencia = { cod: string; nombre: string; provincia: string; cod_provincia: string };
 type SerieRow = { anio: number; poblacion: number | null; paro: number | null; renta: number | null; alquiler: number | null; temp: number | null; precip: number | null };
 type FichaData = {
   cod: string;
@@ -57,6 +58,10 @@ const ESCALAS: Record<
     endpoint: "paro.geojson", etiqueta: "Paro", titulo: "Paro ‰ hab", campo: "paro_1000", sufijo: "‰", anios: "paro/anios",
     buckets: [[150, "#67000d"], [100, "#cb181d"], [60, "#fb6a4a"], [30, "#fcae91"], [0, "#fee5d9"]],
   },
+  servicios: {
+    endpoint: "servicios.geojson", etiqueta: "Servicios", titulo: "Servicios ‰ hab (OSM)", campo: "serv_1000", sufijo: "‰",
+    buckets: [[8, "#084594"], [4, "#2171b5"], [2, "#6baed6"], [1, "#c6dbef"], [0, "#f7fbff"]],
+  },
   clima: {
     endpoint: "clima.geojson", etiqueta: "Clima", titulo: "Temp. media °C", campo: "temp", sufijo: " °C",
     buckets: [[18, "#d73027"], [15, "#fc8d59"], [12, "#fee090"], [9, "#91bfdb"], [0, "#4575b4"]],
@@ -79,17 +84,41 @@ const ESCALAS: Record<
   },
 };
 
+const CLAVES_INDICE = ["renta", "paro", "alquiler", "envejecimiento", "servicios"] as const;
+type ClaveIndice = (typeof CLAVES_INDICE)[number];
+type Pesos = Record<ClaveIndice, number>;
+const PESOS_DEFECTO: Pesos = { renta: 0.25, paro: 0.20, alquiler: 0.20, envejecimiento: 0.15, servicios: 0.20 };
+const CAMPO_COMP: Record<ClaveIndice, string> = {
+  renta: "c_renta", paro: "c_paro", alquiler: "c_alquiler", envejecimiento: "c_envejecimiento", servicios: "c_servicios",
+};
+
+function combinaCustom(p: GeoJsonProperties, w: Pesos): number | null {
+  const props = p ?? {};
+  let num = 0, den = 0;
+  for (const k of CLAVES_INDICE) {
+    const v = props[CAMPO_COMP[k]] as number | null | undefined;
+    if (v == null) continue;
+    num += w[k] * v;
+    den += w[k];
+  }
+  return den > 0 ? Math.round((num / den) * 10) / 10 : null;
+}
+
 function color(buckets: [number, string][], v: number | null): string {
   if (v == null) return "#eeeeee";
   for (const [umbral, c] of buckets) if (v >= umbral) return c;
   return buckets[buckets.length - 1][1];
 }
 
-function tooltip(modo: Modo, p: GeoJsonProperties): string {
+function tooltip(modo: Modo, p: GeoJsonProperties, pesos?: Pesos): string {
   const props = p ?? {};
   if (modo === "indice") {
     const f = (v: unknown) => (v == null ? "—" : Math.round(v as number));
-    return `${props.nombre}: ${props.score ?? "—"}/100 · renta ${f(props.c_renta)} · empleo ${f(props.c_paro)} · asequibilidad ${f(props.c_alquiler)} · vitalidad ${f(props.c_envejecimiento)}`;
+    const score = pesos ? combinaCustom(p, pesos) : (props.score as number | null);
+    return `${props.nombre}: ${score ?? "—"}/100 · renta ${f(props.c_renta)} · empleo ${f(props.c_paro)} · asequibilidad ${f(props.c_alquiler)} · vitalidad ${f(props.c_envejecimiento)} · servicios ${f(props.c_servicios)}`;
+  }
+  if (modo === "servicios") {
+    return `${props.nombre}: ${props.serv_1000 ?? "—"}‰ hab · 🏥 ${props.n_salud ?? 0} · 🎓 ${props.n_educacion ?? 0} · 🛒 ${props.n_comercio ?? 0}`;
   }
   if (modo === "clima") {
     return `${props.nombre}: ${props.temp ?? "—"} °C · ${props.precip ?? "—"} mm/año`;
@@ -133,11 +162,16 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [codSel, setCodSel] = useState<string | null>(null);
   const [ficha, setFicha] = useState<FichaData | null>(null);
+  const [pesos, setPesos] = useState<Pesos>(PESOS_DEFECTO);
   const esc = ESCALAS[modo];
 
   useEffect(() => {
     if (!codSel) { setFicha(null); return; }
-    fetch(`${API}/municipio/${codSel}`).then((r) => r.json()).then(setFicha).catch(() => setFicha(null));
+    fetch(`${API}/municipio/${codSel}`).then((r) => r.json()).then((d: FichaData) => {
+      setFicha(d);
+      // si el municipio está en otra provincia, cambiamos el mapa para que se vea
+      if (d?.provincia?.cod && d.provincia.cod !== prov) setProv(d.provincia.cod);
+    }).catch(() => setFicha(null));
   }, [codSel]);
 
   useEffect(() => {
@@ -185,6 +219,7 @@ export default function App() {
     <div style={{ height: "100vh", display: "flex", flexDirection: "column", fontFamily: "system-ui" }}>
       <header style={{ padding: "0.5rem 1rem", borderBottom: "1px solid #eee", display: "flex", gap: "0.75rem", alignItems: "center", flexWrap: "wrap" }}>
         <strong>territorio-engine</strong>
+        <Buscador onSelect={(cod) => setCodSel(cod)} />
         <select value={prov} onChange={(e) => setProv(e.target.value)} style={sel}>
           {provincias.map((p) => (
             <option key={p.cod} value={p.cod}>{p.nombre}{!p.piramide ? " (sin pirámide)" : ""}</option>
@@ -208,11 +243,22 @@ export default function App() {
         <TileLayer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png" attribution="&copy; OpenStreetMap" />
         {geo && (
           <GeoJSON
-            key={`${prov}-${modo}-${anioSel}`}
+            key={`${prov}-${modo}-${anioSel}-${modo === "indice" ? CLAVES_INDICE.map((k) => pesos[k].toFixed(2)).join(",") : ""}`}
             data={geo}
-            style={(f?: Feature) => ({ fillColor: esc.categorico ? (f?.properties?.cluster != null ? PALETA_CAT[f.properties.cluster % PALETA_CAT.length] : "#eeeeee") : color(esc.buckets, (f?.properties?.[esc.campo] as number | null) ?? null), weight: 0.5, color: "#555", fillOpacity: 0.75 })}
+            style={(f?: Feature) => {
+              let fillColor = "#eeeeee";
+              if (esc.categorico) {
+                const c = f?.properties?.cluster as number | null;
+                fillColor = c != null ? PALETA_CAT[c % PALETA_CAT.length] : "#eeeeee";
+              } else if (modo === "indice") {
+                fillColor = color(esc.buckets, combinaCustom(f?.properties ?? null, pesos));
+              } else {
+                fillColor = color(esc.buckets, (f?.properties?.[esc.campo] as number | null) ?? null);
+              }
+              return { fillColor, weight: 0.5, color: "#555", fillOpacity: 0.75 };
+            }}
             onEachFeature={(f: Feature, layer: Layer) => {
-              layer.bindTooltip(tooltip(modo, f.properties), { sticky: true });
+              layer.bindTooltip(tooltip(modo, f.properties, modo === "indice" ? pesos : undefined), { sticky: true });
               layer.on("click", () => {
                 const cod = (f.properties as GeoJsonProperties)?.cod_municipio as string | undefined;
                 if (cod) setCodSel(cod);
@@ -222,6 +268,7 @@ export default function App() {
         )}
         <FitBounds geo={geo} />
         <Leyenda titulo={esc.titulo} buckets={esc.buckets} categorias={categorias} />
+        {modo === "indice" && <PanelPesos pesos={pesos} onChange={setPesos} />}
       </MapContainer>
       {codSel && (
         <Ficha
@@ -229,6 +276,103 @@ export default function App() {
           onClose={() => setCodSel(null)}
           onSelect={(c) => setCodSel(c)}
         />
+      )}
+    </div>
+  );
+}
+
+function PanelPesos({ pesos, onChange }: { pesos: Pesos; onChange: (p: Pesos) => void }) {
+  const [abierto, setAbierto] = useState(false);
+  const suma = CLAVES_INDICE.reduce((s, k) => s + pesos[k], 0);
+  const norm: Pesos = { ...pesos };
+  if (suma > 0) for (const k of CLAVES_INDICE) norm[k] = pesos[k] / suma;
+  const dirty = CLAVES_INDICE.some((k) => Math.abs(pesos[k] - PESOS_DEFECTO[k]) > 0.001);
+  return (
+    <div style={{ position: "absolute", top: 16, left: 60, zIndex: 1000, background: "white", padding: "8px 12px", borderRadius: 6, boxShadow: "0 1px 4px rgba(0,0,0,.3)", fontSize: 12, minWidth: 240 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }} onClick={() => setAbierto((v) => !v)}>
+        <strong>Pesos</strong>
+        <span style={{ color: "#666" }}>{abierto ? "▾" : "▸"}</span>
+        {dirty && <span style={{ marginLeft: "auto", color: "#2563eb", fontSize: 10 }}>ajustado</span>}
+      </div>
+      {abierto && (
+        <div style={{ marginTop: 6 }}>
+          {CLAVES_INDICE.map((k) => (
+            <label key={k} style={{ display: "flex", alignItems: "center", gap: 6, margin: "3px 0" }}>
+              <span style={{ width: 90, color: "#555", textTransform: "capitalize" }}>{k}</span>
+              <input
+                type="range" min={0} max={1} step={0.05}
+                value={pesos[k]}
+                onChange={(e) => onChange({ ...pesos, [k]: Number(e.target.value) })}
+                style={{ flex: 1 }}
+              />
+              <span style={{ width: 32, textAlign: "right", color: "#333" }}>{Math.round(norm[k] * 100)}%</span>
+            </label>
+          ))}
+          <button
+            onClick={() => onChange(PESOS_DEFECTO)}
+            style={{ marginTop: 4, border: 0, background: "#f3f4f6", padding: "3px 8px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}
+          >
+            restablecer
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Buscador({ onSelect }: { onSelect: (cod: string) => void }) {
+  const [q, setQ] = useState("");
+  const [items, setItems] = useState<Sugerencia[]>([]);
+  const [abierto, setAbierto] = useState(false);
+  const [cursor, setCursor] = useState(0);
+
+  useEffect(() => {
+    if (q.trim().length < 2) { setItems([]); return; }
+    const id = setTimeout(() => {
+      fetch(`${API}/buscar?q=${encodeURIComponent(q.trim())}`)
+        .then((r) => r.json())
+        .then((d: Sugerencia[]) => { setItems(d); setCursor(0); })
+        .catch(() => setItems([]));
+    }, 150);
+    return () => clearTimeout(id);
+  }, [q]);
+
+  const pick = (s: Sugerencia) => {
+    onSelect(s.cod);
+    setQ(""); setItems([]); setAbierto(false);
+  };
+
+  return (
+    <div style={{ position: "relative", width: 240 }}>
+      <input
+        value={q}
+        onChange={(e) => { setQ(e.target.value); setAbierto(true); }}
+        onFocus={() => setAbierto(true)}
+        onBlur={() => setTimeout(() => setAbierto(false), 150)}
+        onKeyDown={(e) => {
+          if (!items.length) return;
+          if (e.key === "ArrowDown") { e.preventDefault(); setCursor((c) => (c + 1) % items.length); }
+          else if (e.key === "ArrowUp") { e.preventDefault(); setCursor((c) => (c - 1 + items.length) % items.length); }
+          else if (e.key === "Enter") { e.preventDefault(); pick(items[cursor]); }
+          else if (e.key === "Escape") { setAbierto(false); }
+        }}
+        placeholder="Buscar municipio…"
+        style={{ padding: "4px 8px", borderRadius: 4, border: "1px solid #ccc", width: "100%", boxSizing: "border-box" }}
+      />
+      {abierto && items.length > 0 && (
+        <ul style={{ position: "absolute", top: "100%", left: 0, right: 0, margin: 0, padding: 0, listStyle: "none", background: "white", border: "1px solid #ccc", borderRadius: 4, maxHeight: 260, overflowY: "auto", zIndex: 1200, boxShadow: "0 2px 8px rgba(0,0,0,.15)" }}>
+          {items.map((s, i) => (
+            <li
+              key={s.cod}
+              onMouseDown={() => pick(s)}
+              onMouseEnter={() => setCursor(i)}
+              style={{ padding: "4px 8px", cursor: "pointer", background: i === cursor ? "#eff6ff" : "white", fontSize: 12 }}
+            >
+              <strong>{s.nombre}</strong>
+              <span style={{ color: "#666" }}> · {s.provincia}</span>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
