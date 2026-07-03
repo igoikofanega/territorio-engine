@@ -848,6 +848,110 @@ async def coropleta(prov: str | None = None, anio: int | None = None) -> dict:
     }
 
 
+_ETIQUETA_COMP = {
+    "renta": "renta alta",
+    "paro": "empleo sano",
+    "alquiler": "alquiler asequible",
+    "envejecimiento": "población joven",
+    "servicios": "buenos servicios",
+}
+
+
+@app.get("/recomendar")
+async def recomendar(
+    pob_min: int | None = None,
+    pob_max: int | None = None,
+    alquiler_max: float | None = None,
+    temp_min: float | None = None,
+    temp_max: float | None = None,
+    km_salud_max: float | None = None,
+    w_renta: float = 0.25,
+    w_paro: float = 0.20,
+    w_alquiler: float = 0.20,
+    w_envejecimiento: float = 0.15,
+    w_servicios: float = 0.20,
+    limit: int = 20,
+) -> list[dict]:
+    """'¿Dónde debería vivir yo?': filtros duros + pesos → top-N nacional explicado."""
+    limit = max(1, min(limit, 100))
+    pesos = {
+        "renta": w_renta,
+        "paro": w_paro,
+        "alquiler": w_alquiler,
+        "envejecimiento": w_envejecimiento,
+        "servicios": w_servicios,
+    }
+    sql = text("""
+        SELECT d.cod_municipio AS cod, d.nombre, d.cod_provincia,
+               i.c_renta, i.c_paro, i.c_alquiler, i.c_envejecimiento, i.c_servicios,
+               f.poblacion_total AS pob, f.alquiler_eur_m2 AS alquiler,
+               f.temp_media_anual AS temp,
+               a.km_salud, r.prob AS riesgo_prob, p.cambio_pct
+        FROM indice_municipio i
+        JOIN dim_municipio d ON d.cod_municipio = i.cod_municipio
+        LEFT JOIN fact_municipio_anual f
+               ON f.cod_municipio = i.cod_municipio AND f.anio = i.anio
+        LEFT JOIN municipio_aislamiento a ON a.cod_municipio = i.cod_municipio
+        LEFT JOIN riesgo_municipio r ON r.cod_municipio = i.cod_municipio
+        LEFT JOIN prediccion_ml p ON p.cod_municipio = i.cod_municipio
+        WHERE i.anio = (SELECT max(anio) FROM indice_municipio)
+    """)
+    async with engine.connect() as conn:
+        rows = (await conn.execute(sql)).all()
+
+    candidatos = []
+    for r in rows:
+        if pob_min is not None and (r.pob is None or r.pob < pob_min):
+            continue
+        if pob_max is not None and (r.pob is None or r.pob > pob_max):
+            continue
+        if alquiler_max is not None and r.alquiler is not None and r.alquiler > alquiler_max:
+            continue
+        if temp_min is not None and (r.temp is None or r.temp < temp_min):
+            continue
+        if temp_max is not None and (r.temp is None or r.temp > temp_max):
+            continue
+        if km_salud_max is not None and (r.km_salud is None or r.km_salud > km_salud_max):
+            continue
+        comps = {
+            "renta": r.c_renta,
+            "paro": r.c_paro,
+            "alquiler": r.c_alquiler,
+            "envejecimiento": r.c_envejecimiento,
+            "servicios": r.c_servicios,
+        }
+        num = den = 0.0
+        for k, v in comps.items():
+            if v is None:
+                continue
+            num += pesos[k] * v
+            den += pesos[k]
+        if den == 0:
+            continue
+        score = num / den
+        razones = sorted(
+            ((k, v) for k, v in comps.items() if v is not None and pesos[k] > 0),
+            key=lambda kv: kv[1] * pesos[kv[0]],
+            reverse=True,
+        )[:2]
+        candidatos.append(
+            {
+                "cod": r.cod,
+                "nombre": r.nombre,
+                "provincia": PROVINCIAS.get(r.cod_provincia, r.cod_provincia),
+                "score": round(score, 1),
+                "razones": [_ETIQUETA_COMP[k] for k, _ in razones],
+                "pob": r.pob,
+                "alquiler": r.alquiler,
+                "temp": r.temp,
+                "riesgo_pct": round(r.riesgo_prob * 100, 1) if r.riesgo_prob is not None else None,
+                "cambio_pct": r.cambio_pct,
+            }
+        )
+    candidatos.sort(key=lambda c: c["score"], reverse=True)
+    return candidatos[:limit]
+
+
 @app.get("/municipio/{cod}")
 async def municipio_ficha(cod: str) -> dict:
     """Ficha completa de un municipio: identidad, wiki, serie, índice, ML, arquetipo y similares."""

@@ -1,4 +1,4 @@
-import { PanelLeftClose } from "lucide-react";
+import { PanelLeftClose, Wand2 } from "lucide-react";
 
 import { ESCALAS, GRUPOS_MODOS } from "../escalas";
 import type { Modo, Pesos, Prov } from "../types";
@@ -18,6 +18,7 @@ export default function Sidebar({
   onPesos,
   onSelectMunicipio,
   onColapsar,
+  onRecomendador,
   nMunicipios,
   error,
 }: {
@@ -33,6 +34,7 @@ export default function Sidebar({
   onPesos: (p: Pesos) => void;
   onSelectMunicipio: (cod: string) => void;
   onColapsar: () => void;
+  onRecomendador: () => void;
   nMunicipios: number | null;
   error: string | null;
 }) {
@@ -50,6 +52,14 @@ export default function Sidebar({
       </div>
 
       <Buscador onSelect={onSelectMunicipio} />
+
+      <button
+        onClick={onRecomendador}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "7px 0", border: 0, borderRadius: 6, background: "var(--accent)", color: "white", fontWeight: 600, fontSize: 12, cursor: "pointer" }}
+      >
+        <Wand2 size={14} strokeWidth={2} />
+        ¿Dónde debería vivir yo?
+      </button>
 
       <div style={{ display: "flex", gap: 8 }}>
         <select className="input" value={prov} onChange={(e) => onProv(e.target.value)}>

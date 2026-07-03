@@ -8,6 +8,7 @@ import { GeoJSON, MapContainer, ScaleControl, TileLayer, useMap, ZoomControl } f
 
 import Ficha from "./components/Ficha";
 import Leyenda from "./components/Leyenda";
+import Recomendador from "./components/Recomendador";
 import Sidebar from "./components/Sidebar";
 import { color, combinaCustom, ESCALAS, LISA_COLORES, LISA_LEYENDA, PALETA_CAT, PESOS_DEFECTO, tooltip } from "./escalas";
 import { CLAVES_INDICE, type FichaData, type Modo, type Pesos, type Prov } from "./types";
@@ -37,6 +38,7 @@ export default function App() {
   const [ficha, setFicha] = useState<FichaData | null>(null);
   const [pesos, setPesos] = useState<Pesos>(PESOS_DEFECTO);
   const [sidebarAbierta, setSidebarAbierta] = useState(true);
+  const [recomendadorAbierto, setRecomendadorAbierto] = useState(false);
   const esc = ESCALAS[modo];
 
   useEffect(() => {
@@ -125,6 +127,7 @@ export default function App() {
           onPesos={setPesos}
           onSelectMunicipio={setCodSel}
           onColapsar={() => setSidebarAbierta(false)}
+          onRecomendador={() => setRecomendadorAbierto((v) => !v)}
           nMunicipios={geo?.features.length ?? null}
           error={error}
         />
@@ -176,6 +179,13 @@ export default function App() {
             nota={modo === "indice" && pesosDirty ? "pesos ajustados" : null}
           />
         </MapContainer>
+        {recomendadorAbierto && (
+          <Recomendador
+            pesos={pesos}
+            onSelect={(c) => setCodSel(c)}
+            onClose={() => setRecomendadorAbierto(false)}
+          />
+        )}
         {codSel && (
           <Ficha
             ficha={ficha}
