@@ -1,3 +1,4 @@
+import { Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import type { Sugerencia } from "../types";
@@ -28,8 +29,14 @@ export default function Buscador({ onSelect }: { onSelect: (cod: string) => void
 
   return (
     <div style={{ position: "relative" }}>
+      <Search
+        size={14}
+        strokeWidth={1.75}
+        style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "var(--text-2)", pointerEvents: "none" }}
+      />
       <input
         className="input"
+        style={{ paddingLeft: 28 }}
         value={q}
         onChange={(e) => { setQ(e.target.value); setAbierto(true); }}
         onFocus={() => setAbierto(true)}

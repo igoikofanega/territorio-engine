@@ -1,4 +1,19 @@
 import type { GeoJsonProperties } from "geojson";
+import {
+  Baby,
+  Briefcase,
+  CloudSun,
+  Compass,
+  Home,
+  Hourglass,
+  type LucideIcon,
+  Shapes,
+  Sparkles,
+  Store,
+  TrendingUp,
+  Users,
+  Wallet,
+} from "lucide-react";
 
 import { CLAVES_INDICE, type ClaveIndice, type Modo, type Pesos } from "./types";
 
@@ -8,53 +23,53 @@ export const PALETA_CAT = ["#66c2a5", "#fc8d62", "#8da0cb", "#e78ac3", "#a6d854"
 
 export const ESCALAS: Record<
   Modo,
-  { endpoint: string; etiqueta: string; icono: string; titulo: string; campo: string; sufijo: string; anios?: string; categorico?: boolean; buckets: [number, string][] }
+  { endpoint: string; etiqueta: string; icono: LucideIcon; titulo: string; campo: string; sufijo: string; anios?: string; categorico?: boolean; buckets: [number, string][] }
 > = {
   arquetipos: {
-    endpoint: "arquetipos.geojson", etiqueta: "Arquetipos", icono: "🧩", titulo: "Arquetipos", campo: "cluster", sufijo: "", categorico: true, buckets: [],
+    endpoint: "arquetipos.geojson", etiqueta: "Arquetipos", icono: Shapes, titulo: "Arquetipos", campo: "cluster", sufijo: "", categorico: true, buckets: [],
   },
   indice: {
-    endpoint: "indice.geojson", etiqueta: "¿Dónde vivir?", icono: "🧭", titulo: "Índice 0-100", campo: "score", sufijo: "/100",
+    endpoint: "indice.geojson", etiqueta: "¿Dónde vivir?", icono: Compass, titulo: "Índice 0-100", campo: "score", sufijo: "/100",
     buckets: [[70, "#006837"], [55, "#31a354"], [45, "#78c679"], [30, "#c2e699"], [0, "#ffffcc"]],
   },
   poblacion: {
-    endpoint: "coropleta.geojson", etiqueta: "Población", icono: "👥", titulo: "Habitantes", campo: "poblacion_total", sufijo: " hab", anios: "poblacion/anios",
+    endpoint: "coropleta.geojson", etiqueta: "Población", icono: Users, titulo: "Habitantes", campo: "poblacion_total", sufijo: " hab", anios: "poblacion/anios",
     buckets: [[100000, "#08306b"], [20000, "#2171b5"], [5000, "#4292c6"], [1000, "#6baed6"], [500, "#9ecae1"], [100, "#c6dbef"], [0, "#deebf7"]],
   },
   renta: {
-    endpoint: "renta.geojson", etiqueta: "Renta", icono: "💶", titulo: "Renta €/persona", campo: "renta", sufijo: " €", anios: "renta/anios",
+    endpoint: "renta.geojson", etiqueta: "Renta", icono: Wallet, titulo: "Renta €/persona", campo: "renta", sufijo: " €", anios: "renta/anios",
     buckets: [[20000, "#00441b"], [15000, "#238b45"], [12000, "#66c2a4"], [9000, "#b2e2e2"], [0, "#edf8fb"]],
   },
   alquiler: {
-    endpoint: "alquiler.geojson", etiqueta: "Alquiler", icono: "🏠", titulo: "Alquiler €/m²", campo: "alquiler", sufijo: " €/m²", anios: "alquiler/anios",
+    endpoint: "alquiler.geojson", etiqueta: "Alquiler", icono: Home, titulo: "Alquiler €/m²", campo: "alquiler", sufijo: " €/m²", anios: "alquiler/anios",
     buckets: [[12, "#4a1486"], [9, "#6a51a3"], [7, "#9e9ac8"], [5, "#cbc9e2"], [0, "#f2f0f7"]],
   },
   paro: {
-    endpoint: "paro.geojson", etiqueta: "Paro", icono: "📉", titulo: "Paro ‰ hab", campo: "paro_1000", sufijo: "‰", anios: "paro/anios",
+    endpoint: "paro.geojson", etiqueta: "Paro", icono: Briefcase, titulo: "Paro ‰ hab", campo: "paro_1000", sufijo: "‰", anios: "paro/anios",
     buckets: [[150, "#67000d"], [100, "#cb181d"], [60, "#fb6a4a"], [30, "#fcae91"], [0, "#fee5d9"]],
   },
   servicios: {
-    endpoint: "servicios.geojson", etiqueta: "Servicios", icono: "🛒", titulo: "Servicios ‰ hab (OSM)", campo: "serv_1000", sufijo: "‰",
+    endpoint: "servicios.geojson", etiqueta: "Servicios", icono: Store, titulo: "Servicios ‰ hab (OSM)", campo: "serv_1000", sufijo: "‰",
     buckets: [[8, "#084594"], [4, "#2171b5"], [2, "#6baed6"], [1, "#c6dbef"], [0, "#f7fbff"]],
   },
   clima: {
-    endpoint: "clima.geojson", etiqueta: "Clima", icono: "🌤️", titulo: "Temp. media °C", campo: "temp", sufijo: " °C",
+    endpoint: "clima.geojson", etiqueta: "Clima", icono: CloudSun, titulo: "Temp. media °C", campo: "temp", sufijo: " °C",
     buckets: [[18, "#d73027"], [15, "#fc8d59"], [12, "#fee090"], [9, "#91bfdb"], [0, "#4575b4"]],
   },
   envejecimiento: {
-    endpoint: "envejecimiento.geojson", etiqueta: "Envejecimiento", icono: "👵", titulo: "Índice envejec.", campo: "indice", sufijo: "", anios: "envejecimiento/anios",
+    endpoint: "envejecimiento.geojson", etiqueta: "Envejecimiento", icono: Hourglass, titulo: "Índice envejec.", campo: "indice", sufijo: "", anios: "envejecimiento/anios",
     buckets: [[400, "#800026"], [200, "#bd0026"], [120, "#e31a1c"], [80, "#fc4e2a"], [40, "#feb24c"], [0, "#ffffb2"]],
   },
   prediccion: {
-    endpoint: "prediccion.geojson", etiqueta: "Predicción ML", icono: "🤖", titulo: "Cambio a 2028", campo: "cambio_pct", sufijo: "%",
+    endpoint: "prediccion.geojson", etiqueta: "Predicción ML", icono: Sparkles, titulo: "Cambio a 2028", campo: "cambio_pct", sufijo: "%",
     buckets: FUT_BUCKETS,
   },
   futuro: {
-    endpoint: "futuro.geojson", etiqueta: "Futuro (tendencia)", icono: "📈", titulo: "Cambio a 2035", campo: "cambio_pct", sufijo: "%",
+    endpoint: "futuro.geojson", etiqueta: "Futuro (tendencia)", icono: TrendingUp, titulo: "Cambio a 2035", campo: "cambio_pct", sufijo: "%",
     buckets: FUT_BUCKETS,
   },
   futuro_cohorte: {
-    endpoint: "futuro-cohorte.geojson", etiqueta: "Futuro (cohorte)", icono: "🍼", titulo: "Cambio a 2037", campo: "cambio_pct", sufijo: "%",
+    endpoint: "futuro-cohorte.geojson", etiqueta: "Futuro (cohorte)", icono: Baby, titulo: "Cambio a 2037", campo: "cambio_pct", sufijo: "%",
     buckets: FUT_BUCKETS,
   },
 };
@@ -97,7 +112,7 @@ export function tooltip(modo: Modo, p: GeoJsonProperties, pesos?: Pesos): string
     return `${props.nombre}: ${score ?? "—"}/100 · renta ${f(props.c_renta)} · empleo ${f(props.c_paro)} · asequibilidad ${f(props.c_alquiler)} · vitalidad ${f(props.c_envejecimiento)} · servicios ${f(props.c_servicios)}`;
   }
   if (modo === "servicios") {
-    return `${props.nombre}: ${props.serv_1000 ?? "—"}‰ hab · 🏥 ${props.n_salud ?? 0} · 🎓 ${props.n_educacion ?? 0} · 🛒 ${props.n_comercio ?? 0}`;
+    return `${props.nombre}: ${props.serv_1000 ?? "—"}‰ hab · salud ${props.n_salud ?? 0} · educación ${props.n_educacion ?? 0} · comercio ${props.n_comercio ?? 0}`;
   }
   if (modo === "clima") {
     return `${props.nombre}: ${props.temp ?? "—"} °C · ${props.precip ?? "—"} mm/año`;

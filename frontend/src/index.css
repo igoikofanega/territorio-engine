@@ -168,6 +168,14 @@ body {
   font-weight: 600;
 }
 
+.sidebar-icono {
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+.sidebar-item.activo .sidebar-icono {
+  color: var(--accent);
+}
+
 .sidebar-pie {
   margin-top: auto;
   padding-top: 12px;
@@ -175,6 +183,51 @@ body {
   font-size: 11px;
   color: var(--text-2);
   line-height: 1.5;
+}
+
+/* ---------- stat cards (KPIs de la ficha) ---------- */
+
+.stat-card {
+  padding: 8px 10px;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+}
+
+.stat-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-2);
+  margin-bottom: 3px;
+}
+
+.stat-valor {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
+.stat-unidad {
+  font-size: 10px;
+  font-weight: 500;
+  color: var(--text-2);
+  margin-left: 3px;
+}
+
+.stat-delta {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 10px;
+  color: var(--text-2);
+  margin-top: 2px;
 }
 
 /* ---------- ficha (drawer) ---------- */
@@ -225,4 +278,30 @@ body {
 .leaflet-container {
   background: var(--bg);
   font: inherit;
+}
+
+/* controles de leaflet (zoom, escala, atribución) acordes al tema */
+.leaflet-bar {
+  border: 1px solid var(--border) !important;
+  box-shadow: var(--shadow) !important;
+  border-radius: var(--radius-sm) !important;
+  overflow: hidden;
+}
+.leaflet-bar a {
+  color: var(--text) !important;
+  border-bottom-color: var(--border) !important;
+}
+.leaflet-bar a:hover {
+  background: var(--bg) !important;
+}
+.leaflet-control-scale-line {
+  background: rgba(255, 255, 255, 0.75) !important;
+  border-color: var(--text-2) !important;
+  color: var(--text-2) !important;
+  font-size: 10px !important;
+}
+.leaflet-control-attribution {
+  background: rgba(255, 255, 255, 0.75) !important;
+  color: var(--text-2) !important;
+  font-size: 10px !important;
 }

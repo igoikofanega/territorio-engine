@@ -1,3 +1,5 @@
+import { PanelLeftClose } from "lucide-react";
+
 import { ESCALAS, GRUPOS_MODOS } from "../escalas";
 import type { Modo, Pesos, Prov } from "../types";
 import Buscador from "./Buscador";
@@ -42,8 +44,8 @@ export default function Sidebar({
           <div className="sidebar-marca">territorio-engine</div>
           <div className="sidebar-sub">¿Dónde vivir en España? Datos por municipio.</div>
         </div>
-        <button className="btn-ghost" onClick={onColapsar} title="Ocultar panel" style={{ marginLeft: "auto", fontSize: 15 }}>
-          «
+        <button className="btn-ghost" onClick={onColapsar} title="Ocultar panel" style={{ marginLeft: "auto" }}>
+          <PanelLeftClose size={16} strokeWidth={1.75} />
         </button>
       </div>
 
@@ -66,12 +68,15 @@ export default function Sidebar({
         {GRUPOS_MODOS.map((g) => (
           <div key={g.titulo}>
             <div className="grupo-titulo">{g.titulo}</div>
-            {g.modos.map((m) => (
-              <button key={m} className={`sidebar-item${modo === m ? " activo" : ""}`} onClick={() => onModo(m)}>
-                <span style={{ width: 18, textAlign: "center" }}>{ESCALAS[m].icono}</span>
-                {ESCALAS[m].etiqueta}
-              </button>
-            ))}
+            {g.modos.map((m) => {
+              const Icono = ESCALAS[m].icono;
+              return (
+                <button key={m} className={`sidebar-item${modo === m ? " activo" : ""}`} onClick={() => onModo(m)}>
+                  <Icono size={15} strokeWidth={1.75} className="sidebar-icono" />
+                  {ESCALAS[m].etiqueta}
+                </button>
+              );
+            })}
           </div>
         ))}
       </nav>

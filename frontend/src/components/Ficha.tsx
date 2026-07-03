@@ -1,15 +1,99 @@
-import type { FichaData } from "../types";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Briefcase,
+  GraduationCap,
+  Home,
+  ShoppingCart,
+  Stethoscope,
+  Users,
+  Wallet,
+  X,
+} from "lucide-react";
+
+import type { FichaData, SerieRow } from "../types";
 import Sparkline from "./Sparkline";
+
+/** Último valor no nulo de un campo de la serie + el anterior (para el delta). */
+function ultimo(serie: SerieRow[], campo: keyof SerieRow): { anio: number; valor: number; prev: number | null } | null {
+  const rows = serie.filter((r) => r[campo] != null);
+  if (!rows.length) return null;
+  const last = rows[rows.length - 1];
+  const prev = rows.length > 1 ? rows[rows.length - 2] : null;
+  return { anio: last.anio, valor: last[campo] as number, prev: prev ? (prev[campo] as number) : null };
+}
+
+function StatCard({
+  icono: Icono,
+  label,
+  valor,
+  unidad,
+  anio,
+  delta,
+  deltaSemantico,
+}: {
+  icono: typeof Users;
+  label: string;
+  valor: string;
+  unidad?: string;
+  anio?: number;
+  delta?: number | null;
+  deltaSemantico?: boolean; // colorear verde/rojo (solo cuando subir es inequívocamente bueno)
+}) {
+  return (
+    <div className="stat-card">
+      <div className="stat-label">
+        <Icono size={12} strokeWidth={1.75} />
+        {label}
+        {anio != null && <span style={{ marginLeft: "auto", fontWeight: 400 }}>{anio}</span>}
+      </div>
+      <div className="stat-valor">
+        {valor}
+        {unidad && <span className="stat-unidad">{unidad}</span>}
+      </div>
+      {delta != null && Number.isFinite(delta) && (
+        <div className="stat-delta" style={deltaSemantico ? { color: delta >= 0 ? "#15803d" : "#b91c1c" } : undefined}>
+          {delta >= 0 ? <ArrowUpRight size={11} strokeWidth={2} /> : <ArrowDownRight size={11} strokeWidth={2} />}
+          {Math.abs(delta).toFixed(1)}% vs año anterior
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Anillo de progreso 0-100 para el score del índice. */
+function Gauge({ valor }: { valor: number | null }) {
+  const r = 26;
+  const c = 2 * Math.PI * r;
+  const frac = valor == null ? 0 : Math.max(0, Math.min(1, valor / 100));
+  return (
+    <svg width={68} height={68} viewBox="0 0 68 68" style={{ flexShrink: 0 }}>
+      <circle cx={34} cy={34} r={r} fill="none" stroke="var(--border)" strokeWidth={6} />
+      <circle
+        cx={34} cy={34} r={r} fill="none"
+        stroke="var(--accent)" strokeWidth={6} strokeLinecap="round"
+        strokeDasharray={`${frac * c} ${c}`}
+        transform="rotate(-90 34 34)"
+      />
+      <text x={34} y={33} textAnchor="middle" fontSize={17} fontWeight={700} fill="var(--text)">
+        {valor ?? "—"}
+      </text>
+      <text x={34} y={46} textAnchor="middle" fontSize={8} fill="var(--text-2)">
+        /100
+      </text>
+    </svg>
+  );
+}
 
 function Componente({ nombre, valor }: { nombre: string; valor: number | null }) {
   const v = valor == null ? 0 : Math.round(valor);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, margin: "4px 0" }}>
-      <span style={{ width: 90, color: "var(--text-2)" }}>{nombre}</span>
-      <span style={{ flex: 1, background: valor == null ? "var(--border)" : "var(--accent-soft)", height: 8, borderRadius: 4, overflow: "hidden" }}>
-        <span style={{ display: "block", width: `${v}%`, height: "100%", background: "var(--accent)", borderRadius: 4 }} />
+      <span style={{ width: 86, color: "var(--text-2)" }}>{nombre}</span>
+      <span style={{ flex: 1, background: valor == null ? "var(--border)" : "var(--accent-soft)", height: 6, borderRadius: 3, overflow: "hidden" }}>
+        <span style={{ display: "block", width: `${v}%`, height: "100%", background: "var(--accent)", borderRadius: 3 }} />
       </span>
-      <span style={{ width: 30, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{valor == null ? "—" : v}</span>
+      <span style={{ width: 26, textAlign: "right", fontVariantNumeric: "tabular-nums" }}>{valor == null ? "—" : v}</span>
     </div>
   );
 }
@@ -18,7 +102,7 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
   if (!ficha) {
     return (
       <div className="ficha" style={{ padding: 16 }}>
-        <button className="btn-ghost" onClick={onClose} style={{ float: "right", fontSize: 18 }}>×</button>
+        <button className="btn-ghost" onClick={onClose} style={{ float: "right" }}><X size={16} /></button>
         <p style={{ color: "var(--text-2)" }}>Cargando…</p>
       </div>
     );
@@ -26,6 +110,19 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
   const pred = ficha.prediccion;
   const idx = ficha.indice;
   const foto = ficha.wiki?.imagen;
+
+  const pob = ultimo(ficha.serie, "poblacion");
+  const renta = ultimo(ficha.serie, "renta");
+  const alquiler = ultimo(ficha.serie, "alquiler");
+  const paro = ultimo(ficha.serie, "paro");
+  // paro absoluto → ‰ sobre la población del mismo año (si la hay)
+  const paroPct =
+    paro && pob
+      ? { ...paro, valor: (paro.valor / (ficha.serie.find((r) => r.anio === paro.anio)?.poblacion ?? pob.valor)) * 1000 }
+      : null;
+  const deltaPct = (d: { valor: number; prev: number | null } | null) =>
+    d && d.prev != null && d.prev !== 0 ? ((d.valor - d.prev) / d.prev) * 100 : null;
+
   return (
     <div className="ficha">
       {/* cabecera: foto con gradiente o bloque de color plano */}
@@ -40,9 +137,9 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
         <button
           className="btn-ghost"
           onClick={onClose}
-          style={{ position: "absolute", top: 8, right: 8, fontSize: 18, color: "white", background: "rgba(15,23,42,.4)", width: 28, height: 28 }}
+          style={{ position: "absolute", top: 8, right: 8, color: "white", background: "rgba(15,23,42,.45)", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6 }}
         >
-          ×
+          <X size={15} strokeWidth={2} />
         </button>
         <div style={{ position: "absolute", left: 16, right: 16, bottom: 10, color: "white" }}>
           <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em", textShadow: "0 1px 3px rgba(0,0,0,.5)" }}>{ficha.nombre}</div>
@@ -57,25 +154,56 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
 
       <div style={{ padding: 16 }}>
         {ficha.wiki?.descripcion && (
-          <p style={{ margin: "0 0 12px", lineHeight: 1.45, color: "var(--text)" }}>{ficha.wiki.descripcion}</p>
+          <p style={{ margin: "0 0 14px", lineHeight: 1.45, color: "var(--text)" }}>{ficha.wiki.descripcion}</p>
         )}
 
-        <h3>Población</h3>
+        {/* KPIs: etiqueta → valor → delta (indicadores más recientes) */}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+          {pob && (
+            <StatCard
+              icono={Users} label="Población" anio={pob.anio}
+              valor={pob.valor.toLocaleString("es")} unidad="hab"
+              delta={deltaPct(pob)} deltaSemantico
+            />
+          )}
+          {renta && (
+            <StatCard
+              icono={Wallet} label="Renta" anio={renta.anio}
+              valor={Math.round(renta.valor).toLocaleString("es")} unidad="€/pers"
+              delta={deltaPct(renta)}
+            />
+          )}
+          {paroPct && (
+            <StatCard
+              icono={Briefcase} label="Paro" anio={paroPct.anio}
+              valor={paroPct.valor.toFixed(0)} unidad="‰ hab"
+            />
+          )}
+          {alquiler && (
+            <StatCard
+              icono={Home} label="Alquiler" anio={alquiler.anio}
+              valor={alquiler.valor.toFixed(1)} unidad="€/m²"
+              delta={deltaPct(alquiler)}
+            />
+          )}
+        </div>
+
+        <h3>Evolución de la población</h3>
         <Sparkline serie={ficha.serie} />
 
         {idx && (
           <>
-            <h3>
-              ¿Dónde vivir?{" "}
-              <span style={{ color: "var(--accent)", fontSize: 16, fontWeight: 700, textTransform: "none", letterSpacing: 0 }}>
-                {idx.score ?? "—"}<span style={{ fontSize: 11, color: "var(--text-2)" }}>/100</span>
-              </span>
-            </h3>
-            <Componente nombre="renta" valor={idx.componentes.renta} />
-            <Componente nombre="empleo" valor={idx.componentes.paro} />
-            <Componente nombre="asequibilidad" valor={idx.componentes.alquiler} />
-            <Componente nombre="vitalidad" valor={idx.componentes.envejecimiento} />
-            <Componente nombre="servicios" valor={idx.componentes.servicios} />
+            <h3>¿Dónde vivir?</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <Gauge valor={idx.score} />
+              <div style={{ flex: 1 }}>
+                <Componente nombre="renta" valor={idx.componentes.renta} />
+                <Componente nombre="empleo" valor={idx.componentes.paro} />
+                <Componente nombre="asequibilidad" valor={idx.componentes.alquiler} />
+                <Componente nombre="vitalidad" valor={idx.componentes.envejecimiento} />
+                <Componente nombre="servicios" valor={idx.componentes.servicios} />
+              </div>
+            </div>
           </>
         )}
 
@@ -95,22 +223,30 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
           </>
         )}
 
+        {ficha.servicios && (
+          <>
+            <h3>Servicios (OSM)</h3>
+            <div style={{ display: "flex", gap: 14, color: "var(--text-2)", fontSize: 12, alignItems: "center" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <Stethoscope size={13} strokeWidth={1.75} /> {ficha.servicios.salud ?? 0}
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <GraduationCap size={13} strokeWidth={1.75} /> {ficha.servicios.educacion ?? 0}
+              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                <ShoppingCart size={13} strokeWidth={1.75} /> {ficha.servicios.comercio ?? 0}
+              </span>
+              <span style={{ marginLeft: "auto", opacity: 0.8 }}>total {ficha.servicios.total ?? 0}</span>
+            </div>
+          </>
+        )}
+
         {ficha.arquetipo && (
-          <div style={{ marginTop: 12 }}>
+          <div style={{ marginTop: 14 }}>
             <span className="chip" style={{ cursor: "default", background: "var(--bg)", color: "var(--text-2)" }}>
               Arquetipo #{ficha.arquetipo.cluster}: {ficha.arquetipo.etiqueta}
             </span>
           </div>
-        )}
-
-        {ficha.servicios && (
-          <>
-            <h3>Servicios (OSM)</h3>
-            <div style={{ color: "var(--text-2)" }}>
-              🏥 {ficha.servicios.salud ?? 0} · 🎓 {ficha.servicios.educacion ?? 0} · 🛒 {ficha.servicios.comercio ?? 0}
-              <span style={{ opacity: 0.7 }}> (total {ficha.servicios.total ?? 0})</span>
-            </div>
-          </>
         )}
 
         {ficha.similares.length > 0 && (

@@ -12,7 +12,7 @@ export default function Leyenda({
   const items = categorias ?? [...buckets].reverse().map(([u, c]) => ({ color: c, label: `≥ ${u.toLocaleString("es")}` }));
   return (
     <div className="panel" style={{ position: "absolute", bottom: 20, right: 16, zIndex: 1000, padding: "10px 12px", fontSize: 12, maxWidth: 220 }}>
-      <div style={{ fontWeight: 600, marginBottom: 6 }}>{titulo}</div>
+      <div style={{ fontSize: 10, fontWeight: 600, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-2)", marginBottom: 6 }}>{titulo}</div>
       {items.map((it, i) => (
         <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, margin: "2px 0" }}>
           <span style={{ width: 14, height: 14, background: it.color, display: "inline-block", flexShrink: 0, borderRadius: 3 }} />

@@ -2,8 +2,9 @@ import "leaflet/dist/leaflet.css";
 
 import type { Feature, FeatureCollection, GeoJsonProperties } from "geojson";
 import L, { type Layer, type PathOptions } from "leaflet";
+import { PanelLeftOpen } from "lucide-react";
 import { useEffect, useState } from "react";
-import { GeoJSON, MapContainer, TileLayer, useMap } from "react-leaflet";
+import { GeoJSON, MapContainer, ScaleControl, TileLayer, useMap, ZoomControl } from "react-leaflet";
 
 import Ficha from "./components/Ficha";
 import Leyenda from "./components/Leyenda";
@@ -130,9 +131,9 @@ export default function App() {
             className="panel btn-ghost"
             onClick={() => setSidebarAbierta(true)}
             title="Mostrar panel"
-            style={{ position: "absolute", top: 12, left: 12, zIndex: 1000, width: 32, height: 32, fontSize: 15, color: "var(--text)" }}
+            style={{ position: "absolute", top: 12, left: 12, zIndex: 1000, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text)" }}
           >
-            »
+            <PanelLeftOpen size={16} strokeWidth={1.75} />
           </button>
         )}
         <MapContainer center={[42.0, -4.5]} zoom={9} style={{ height: "100%" }} zoomControl={false}>
@@ -161,6 +162,8 @@ export default function App() {
               }}
             />
           )}
+          <ZoomControl position="bottomleft" />
+          <ScaleControl position="bottomleft" imperial={false} />
           <FitBounds geo={geo} />
           <Leyenda
             titulo={esc.titulo}
