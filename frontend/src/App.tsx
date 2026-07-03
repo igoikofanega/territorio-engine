@@ -27,7 +27,7 @@ function FitBounds({ geo }: { geo: FeatureCollection | null }) {
 
 export default function App() {
   const [provincias, setProvincias] = useState<Prov[]>([]);
-  const [prov, setProv] = useState("34");
+  const [prov, setProv] = useState("31"); // Navarra por defecto
   const [modo, setModo] = useState<Modo>("poblacion");
   const [anios, setAnios] = useState<number[]>([]);
   const [anioSel, setAnioSel] = useState<number | null>(null);
