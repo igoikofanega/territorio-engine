@@ -26,6 +26,8 @@ FEATURES = [
     "tasa_natalidad",
     "tasa_mortalidad",
     "crec_prev3",
+    "km_salud",
+    "km_capital",
 ]
 TARGET = "target"
 HORIZONTE = 5
@@ -57,7 +59,14 @@ def _leer(engine: Engine) -> dict[str, pd.DataFrame]:
         "FROM fact_municipio_anual WHERE anio = 2022",
         engine,
     )
-    return {"fma": fma, "dim": dim, "env": env, "prov": prov, "clima": clima}
+    try:
+        aisl = pd.read_sql(
+            "SELECT cod_municipio AS cod, km_salud, km_capital FROM municipio_aislamiento",
+            engine,
+        )
+    except Exception:  # tabla aún no creada/cargada: features quedarán NaN
+        aisl = pd.DataFrame(columns=["cod", "km_salud", "km_capital"])
+    return {"fma": fma, "dim": dim, "env": env, "prov": prov, "clima": clima, "aisl": aisl}
 
 
 def construir_dataset(
@@ -65,7 +74,9 @@ def construir_dataset(
 ) -> pd.DataFrame:
     """DataFrame con FEATURES + TARGET por (municipio, año base)."""
     d = _leer(engine)
-    fma, dim, env, prov, clima = d["fma"], d["dim"], d["env"], d["prov"], d["clima"]
+    fma, dim, env, prov, clima, aisl = (
+        d["fma"], d["dim"], d["env"], d["prov"], d["clima"], d["aisl"],
+    )
     pop_wide = fma.pivot_table(index="cod", columns="anio", values="pob")
 
     frames = []
@@ -77,6 +88,7 @@ def construir_dataset(
         base["log_pob"] = np.log(base["pob"].clip(lower=1))
         base = base.merge(env[env["anio"] == t][["cod", "envejecimiento"]], on="cod", how="left")
         base = base.merge(clima, on="cod", how="left")
+        base = base.merge(aisl, on="cod", how="left")
         pr = prov[prov["anio"] == t][["cod_provincia", "tasa_natalidad", "tasa_mortalidad"]]
         base = base.merge(pr, on="cod_provincia", how="left")
 

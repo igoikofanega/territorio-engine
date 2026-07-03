@@ -228,6 +228,17 @@ def similares(context: AssetExecutionContext) -> int:
     return result["municipios"]
 
 
+@asset(group_name="fuentes", deps=[servicios])
+def aislamiento(context: AssetExecutionContext) -> int:
+    """Distancias al servicio más cercano y a la capital (PostGIS). Requiere 0020."""
+    from .loaders import load_aislamiento
+
+    result = load_aislamiento()
+    context.add_output_metadata(result)
+    context.log.info(f"aislamiento: {result}")
+    return result["municipios"]
+
+
 @asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, clima])
 def rendimiento(context: AssetExecutionContext) -> int:
     """Residuo out-of-sample: municipios que desafían su predicción. Requiere 0019."""

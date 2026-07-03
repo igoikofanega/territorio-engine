@@ -278,6 +278,12 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
             </div>
           </>
         )}
+        {ficha.aislamiento && (ficha.aislamiento.km_salud ?? 0) > 0 && (
+          <div style={{ fontSize: 11, color: "var(--text-2)", marginTop: 4 }}>
+            Sanidad más cercana a {ficha.aislamiento.km_salud} km
+            {ficha.aislamiento.km_capital != null && <> · capital a {ficha.aislamiento.km_capital} km</>}
+          </div>
+        )}
 
         {ficha.arquetipo && (
           <div style={{ marginTop: 14 }}>

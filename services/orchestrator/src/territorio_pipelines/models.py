@@ -142,6 +142,29 @@ class MunicipioServicios(Base):
     n_total = Column(Integer)
 
 
+class LisaMunicipio(Base):
+    """Cluster espacial LISA (Moran local) por variable: hot/cold spots significativos."""
+
+    __tablename__ = "lisa_municipio"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    variable = Column(String(20), primary_key=True)
+    valor = Column(Float)
+    categoria = Column(String(10))
+    p = Column(Float)
+
+
+class MunicipioAislamiento(Base):
+    """Distancias en km al servicio más cercano y a la capital de provincia (proxy)."""
+
+    __tablename__ = "municipio_aislamiento"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    km_salud = Column(Float)
+    km_educacion = Column(Float)
+    km_capital = Column(Float)
+
+
 class RendimientoMunicipio(Base):
     """Residuo out-of-sample del modelo: crece más/menos de lo que sus features predicen."""
 

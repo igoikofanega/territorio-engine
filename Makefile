@@ -86,3 +86,6 @@ rendimiento: ## Residuos out-of-sample (municipios contra pronóstico) → rendi
 
 gemelos: ## Gemelos divergentes → gemelo_municipio
 	docker compose run --rm orchestrator uv run dagster asset materialize --select gemelos -m territorio_pipelines.definitions
+
+ingest-aislamiento: ## Distancias a servicios y capital (PostGIS) → municipio_aislamiento
+	docker compose run --rm orchestrator uv run dagster asset materialize --select aislamiento -m territorio_pipelines.definitions

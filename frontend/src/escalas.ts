@@ -7,6 +7,7 @@ import {
   Home,
   Hourglass,
   type LucideIcon,
+  MapPinOff,
   Shapes,
   Sparkles,
   Store,
@@ -57,6 +58,10 @@ export const ESCALAS: Record<
     endpoint: "clima.geojson", etiqueta: "Clima", icono: CloudSun, titulo: "Temp. media °C", campo: "temp", sufijo: " °C",
     buckets: [[18, "#d73027"], [15, "#fc8d59"], [12, "#fee090"], [9, "#91bfdb"], [0, "#4575b4"]],
   },
+  aislamiento: {
+    endpoint: "aislamiento.geojson", etiqueta: "Aislamiento", icono: MapPinOff, titulo: "Km a sanidad", campo: "km_salud", sufijo: " km",
+    buckets: [[20, "#54278f"], [10, "#756bb1"], [5, "#9e9ac8"], [2, "#cbc9e2"], [0, "#f2f0f7"]],
+  },
   envejecimiento: {
     endpoint: "envejecimiento.geojson", etiqueta: "Envejecimiento", icono: Hourglass, titulo: "Índice envejec.", campo: "indice", sufijo: "", anios: "envejecimiento/anios",
     buckets: [[400, "#800026"], [200, "#bd0026"], [120, "#e31a1c"], [80, "#fc4e2a"], [40, "#feb24c"], [0, "#ffffb2"]],
@@ -82,7 +87,7 @@ export const ESCALAS: Record<
 
 // agrupación de modos para la sidebar
 export const GRUPOS_MODOS: { titulo: string; modos: Modo[] }[] = [
-  { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "servicios", "clima", "envejecimiento"] },
+  { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "servicios", "aislamiento", "clima", "envejecimiento"] },
   { titulo: "Síntesis", modos: ["indice", "arquetipos", "rendimiento"] },
   { titulo: "Futuro", modos: ["prediccion", "futuro", "futuro_cohorte"] },
 ];
@@ -125,6 +130,9 @@ export function tooltip(modo: Modo, p: GeoJsonProperties, pesos?: Pesos): string
   }
   if (modo === "arquetipos") {
     return `${props.nombre}: arquetipo ${props.cluster ?? "—"} · ${props.etiqueta ?? ""}`;
+  }
+  if (modo === "aislamiento") {
+    return `${props.nombre}: sanidad a ${props.km_salud ?? "—"} km · educación a ${props.km_educacion ?? "—"} km · capital a ${props.km_capital ?? "—"} km`;
   }
   if (modo === "rendimiento") {
     const r = props.residuo as number | null;

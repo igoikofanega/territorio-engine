@@ -40,6 +40,8 @@ ETIQUETAS = {
     "tasa_natalidad": "natalidad",
     "tasa_mortalidad": "mortalidad",
     "crec_prev3": "tendencia",
+    "km_salud": "sanidad lejos",
+    "km_capital": "lejanía",
 }
 
 

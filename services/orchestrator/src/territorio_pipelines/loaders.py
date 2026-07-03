@@ -440,6 +440,72 @@ def load_gemelos() -> dict:
     return {"municipios": len(recs)}
 
 
+_INSERT_LISA = text("""
+INSERT INTO lisa_municipio (cod_municipio, variable, valor, categoria, p)
+VALUES (:cod, :variable, :valor, :categoria, :p)
+ON CONFLICT (cod_municipio, variable) DO UPDATE SET
+    valor = EXCLUDED.valor, categoria = EXCLUDED.categoria, p = EXCLUDED.p
+""")
+
+
+def load_lisa() -> dict[str, int]:
+    """Hot spots LISA (crecimiento y renta) → lisa_municipio."""
+    from .ml.lisa import calcular_lisa
+
+    total = 0
+    for variable in ("crecimiento", "renta"):
+        recs = calcular_lisa(engine, variable)
+        with engine.begin() as conn:
+            if recs:
+                conn.execute(_INSERT_LISA, recs)
+        total += len(recs)
+    return {"filas": total}
+
+
+def load_aislamiento() -> dict[str, int]:
+    """Distancias (km) al servicio más cercano y a la capital → municipio_aislamiento.
+
+    Todo en PostGIS sobre geom_25830 (metros): centroides temporales con índice gist
+    y búsqueda KNN (<->). 'Capital' = municipio más poblado de la provincia (proxy).
+    """
+    with engine.begin() as conn:
+        conn.execute(text("""
+            CREATE TEMP TABLE _cent ON COMMIT DROP AS
+            SELECT d.cod_municipio, d.cod_provincia, ST_Centroid(d.geom_25830) AS pt,
+                   COALESCE(s.n_salud, 0) AS n_salud,
+                   COALESCE(s.n_educacion, 0) AS n_educacion
+            FROM dim_municipio d
+            LEFT JOIN municipio_servicios s USING (cod_municipio)
+        """))
+        conn.execute(text("CREATE INDEX ON _cent USING gist (pt)"))
+        conn.execute(text("""
+            CREATE TEMP TABLE _cap ON COMMIT DROP AS
+            SELECT DISTINCT ON (d.cod_provincia) d.cod_provincia,
+                   ST_Centroid(d.geom_25830) AS pt
+            FROM dim_municipio d
+            JOIN fact_municipio_anual f ON f.cod_municipio = d.cod_municipio
+            WHERE f.anio = (SELECT max(anio) FROM fact_municipio_anual
+                            WHERE poblacion_total IS NOT NULL)
+            ORDER BY d.cod_provincia, f.poblacion_total DESC
+        """))
+        conn.execute(text("""
+            INSERT INTO municipio_aislamiento (cod_municipio, km_salud, km_educacion, km_capital)
+            SELECT c.cod_municipio,
+                   round((SELECT ST_Distance(c.pt, o.pt) FROM _cent o WHERE o.n_salud > 0
+                          ORDER BY c.pt <-> o.pt LIMIT 1)::numeric / 1000, 1),
+                   round((SELECT ST_Distance(c.pt, o.pt) FROM _cent o WHERE o.n_educacion > 0
+                          ORDER BY c.pt <-> o.pt LIMIT 1)::numeric / 1000, 1),
+                   round((SELECT ST_Distance(c.pt, cap.pt) FROM _cap cap
+                          WHERE cap.cod_provincia = c.cod_provincia)::numeric / 1000, 1)
+            FROM _cent c
+            ON CONFLICT (cod_municipio) DO UPDATE SET
+                km_salud = EXCLUDED.km_salud, km_educacion = EXCLUDED.km_educacion,
+                km_capital = EXCLUDED.km_capital
+        """))
+        n = conn.execute(text("SELECT count(*) FROM municipio_aislamiento")).scalar_one()
+    return {"municipios": n}
+
+
 def load_osm(batch_size: int = 20000) -> dict[str, int]:
     """Descarga servicios OSM por provincia (bbox) y los cuenta por municipio (PostGIS)."""
     bboxes = pd.read_sql(

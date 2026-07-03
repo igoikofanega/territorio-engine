@@ -422,6 +422,39 @@ async def indice(prov: str | None = None) -> dict:
     }
 
 
+@app.get("/aislamiento.geojson")
+async def aislamiento(prov: str | None = None) -> dict:
+    """Aislamiento: km al municipio con sanidad más cercano y a la capital de provincia."""
+    where = "WHERE d.cod_provincia = :prov" if prov else ""
+    sql = text(f"""
+        SELECT d.cod_municipio, d.nombre, a.km_salud, a.km_educacion, a.km_capital,
+               ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
+        FROM dim_municipio d
+        LEFT JOIN municipio_aislamiento a ON a.cod_municipio = d.cod_municipio
+        {where}
+        ORDER BY d.cod_municipio
+    """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
+    async with engine.connect() as conn:
+        rows = (await conn.execute(sql, {"prov": prov} if prov else {})).all()
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "cod_municipio": r.cod_municipio,
+                    "nombre": r.nombre,
+                    "km_salud": r.km_salud,
+                    "km_educacion": r.km_educacion,
+                    "km_capital": r.km_capital,
+                },
+                "geometry": r.geom,
+            }
+            for r in rows
+        ],
+    }
+
+
 @app.get("/rendimiento.geojson")
 async def rendimiento(prov: str | None = None) -> dict:
     """Residuo out-of-sample: cuánto crece cada municipio vs lo que sus features predicen."""
@@ -828,6 +861,16 @@ async def municipio_ficha(cod: str) -> dict:
             )
         ).one_or_none()
 
+        aisl = (
+            await conn.execute(
+                text("""
+                    SELECT km_salud, km_educacion, km_capital FROM municipio_aislamiento
+                    WHERE cod_municipio = :cod
+                """),
+                {"cod": cod},
+            )
+        ).one_or_none()
+
         rend = (
             await conn.execute(
                 text("""
@@ -972,6 +1015,11 @@ async def municipio_ficha(cod: str) -> dict:
                 "total": serv.n_total,
             }
             if serv
+            else None
+        ),
+        "aislamiento": (
+            {"km_salud": aisl.km_salud, "km_educacion": aisl.km_educacion, "km_capital": aisl.km_capital}
+            if aisl
             else None
         ),
         "similares": similares,

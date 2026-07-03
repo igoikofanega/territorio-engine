@@ -9,6 +9,7 @@ export type Modo =
   | "envejecimiento"
   | "arquetipos"
   | "rendimiento"
+  | "aislamiento"
   | "prediccion"
   | "futuro"
   | "futuro_cohorte";
@@ -80,6 +81,7 @@ export type FichaData = {
     comercio: number | null;
     total: number | null;
   } | null;
+  aislamiento: { km_salud: number | null; km_educacion: number | null; km_capital: number | null } | null;
   similares: { cod: string; nombre: string; provincia: string }[];
 };
 
