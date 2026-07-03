@@ -4,6 +4,7 @@ import {
   Briefcase,
   CloudSun,
   Compass,
+  Flame,
   Home,
   Hourglass,
   type LucideIcon,
@@ -66,6 +67,12 @@ export const ESCALAS: Record<
     endpoint: "envejecimiento.geojson", etiqueta: "Envejecimiento", icono: Hourglass, titulo: "Índice envejec.", campo: "indice", sufijo: "", anios: "envejecimiento/anios",
     buckets: [[400, "#800026"], [200, "#bd0026"], [120, "#e31a1c"], [80, "#fc4e2a"], [40, "#feb24c"], [0, "#ffffb2"]],
   },
+  lisa_crecimiento: {
+    endpoint: "lisa.geojson?var=crecimiento", etiqueta: "Hot spots crecimiento", icono: Flame, titulo: "Clusters de crecimiento (LISA)", campo: "categoria", sufijo: "", categorico: true, buckets: [],
+  },
+  lisa_renta: {
+    endpoint: "lisa.geojson?var=renta", etiqueta: "Hot spots renta", icono: Flame, titulo: "Clusters de renta (LISA)", campo: "categoria", sufijo: "", categorico: true, buckets: [],
+  },
   rendimiento: {
     endpoint: "rendimiento.geojson", etiqueta: "Contra pronóstico", icono: Target, titulo: "Residuo vs predicho (pp)", campo: "residuo", sufijo: " pp",
     // divergente RdBu: azul = sobre-rinde, rojo = bajo-rinde
@@ -85,10 +92,26 @@ export const ESCALAS: Record<
   },
 };
 
+// colores LISA (convención: HH rojo, LL azul, outliers naranjas/celestes)
+export const LISA_COLORES: Record<string, string> = {
+  "alto-alto": "#d7191c",
+  "bajo-bajo": "#2c7bb6",
+  "alto-bajo": "#fdae61",
+  "bajo-alto": "#abd9e9",
+  ns: "#e8e8e8",
+};
+export const LISA_LEYENDA = [
+  { color: "#d7191c", label: "Hot spot (alto entre altos)" },
+  { color: "#2c7bb6", label: "Cold spot (bajo entre bajos)" },
+  { color: "#fdae61", label: "Outlier alto entre bajos" },
+  { color: "#abd9e9", label: "Outlier bajo entre altos" },
+  { color: "#e8e8e8", label: "No significativo" },
+];
+
 // agrupación de modos para la sidebar
 export const GRUPOS_MODOS: { titulo: string; modos: Modo[] }[] = [
   { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "servicios", "aislamiento", "clima", "envejecimiento"] },
-  { titulo: "Síntesis", modos: ["indice", "arquetipos", "rendimiento"] },
+  { titulo: "Síntesis", modos: ["indice", "arquetipos", "rendimiento", "lisa_crecimiento", "lisa_renta"] },
   { titulo: "Futuro", modos: ["prediccion", "futuro", "futuro_cohorte"] },
 ];
 
@@ -138,6 +161,12 @@ export function tooltip(modo: Modo, p: GeoJsonProperties, pesos?: Pesos): string
     const r = props.residuo as number | null;
     const texto = r == null ? "sin datos" : r >= 0 ? `crece ${r} pp MÁS de lo predicho` : `crece ${Math.abs(r)} pp MENOS de lo predicho`;
     return `${props.nombre}: ${texto}`;
+  }
+  if (modo.startsWith("lisa_")) {
+    const cat = (props.categoria as string) ?? "—";
+    const etiqueta = cat === "ns" ? "no significativo" : cat;
+    const unidad = modo === "lisa_renta" ? " €" : "%";
+    return `${props.nombre}: ${etiqueta} · valor ${props.valor ?? "—"}${unidad} (p=${props.p ?? "—"})`;
   }
   if (modo === "prediccion") {
     const c = props.cambio_pct;

@@ -9,7 +9,7 @@ import { GeoJSON, MapContainer, ScaleControl, TileLayer, useMap, ZoomControl } f
 import Ficha from "./components/Ficha";
 import Leyenda from "./components/Leyenda";
 import Sidebar from "./components/Sidebar";
-import { color, combinaCustom, ESCALAS, PALETA_CAT, PESOS_DEFECTO, tooltip } from "./escalas";
+import { color, combinaCustom, ESCALAS, LISA_COLORES, LISA_LEYENDA, PALETA_CAT, PESOS_DEFECTO, tooltip } from "./escalas";
 import { CLAVES_INDICE, type FichaData, type Modo, type Pesos, type Prov } from "./types";
 
 const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
@@ -69,15 +69,17 @@ export default function App() {
   useEffect(() => {
     if (esc.anios && anioSel == null) return; // esperando a tener año
     setError(null);
-    const q = esc.anios ? `?prov=${prov}&anio=${anioSel}` : `?prov=${prov}`;
+    const sep = esc.endpoint.includes("?") ? "&" : "?";
+    const q = esc.anios ? `${sep}prov=${prov}&anio=${anioSel}` : `${sep}prov=${prov}`;
     fetch(`${API}/${esc.endpoint}${q}`)
       .then((r) => r.json())
       .then(setGeo)
       .catch(() => setError(`No se pudo cargar /${esc.endpoint}`));
   }, [prov, modo, anioSel, esc.endpoint, esc.anios]);
 
-  const categorias =
-    esc.categorico && geo
+  const categorias = modo.startsWith("lisa_")
+    ? LISA_LEYENDA
+    : esc.categorico && geo
       ? [...new Map(
           geo.features
             .filter((f) => f.properties?.cluster != null)
@@ -91,7 +93,9 @@ export default function App() {
 
   const estiloBase = (f?: Feature): PathOptions => {
     let fillColor = "#e2e8f0";
-    if (esc.categorico) {
+    if (modo.startsWith("lisa_")) {
+      fillColor = LISA_COLORES[(f?.properties?.categoria as string) ?? ""] ?? "#e2e8f0";
+    } else if (esc.categorico) {
       const c = f?.properties?.cluster as number | null;
       fillColor = c != null ? PALETA_CAT[c % PALETA_CAT.length] : "#e2e8f0";
     } else if (modo === "indice") {

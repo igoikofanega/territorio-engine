@@ -422,6 +422,46 @@ async def indice(prov: str | None = None) -> dict:
     }
 
 
+@app.get("/lisa.geojson")
+async def lisa(var: str = "crecimiento", prov: str | None = None) -> dict:
+    """Hot spots LISA (Moran local): clusters espaciales significativos de una variable."""
+    if var not in ("crecimiento", "renta"):
+        raise HTTPException(status_code=400, detail="var debe ser 'crecimiento' o 'renta'")
+    where = "AND d.cod_provincia = :prov" if prov else ""
+    sql = text(f"""
+        SELECT d.cod_municipio, d.nombre, l.valor, l.categoria, l.p,
+               ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
+        FROM dim_municipio d
+        LEFT JOIN lisa_municipio l
+               ON l.cod_municipio = d.cod_municipio AND l.variable = :var
+        WHERE true {where}
+        ORDER BY d.cod_municipio
+    """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
+    params: dict = {"var": var}
+    if prov:
+        params["prov"] = prov
+    async with engine.connect() as conn:
+        rows = (await conn.execute(sql, params)).all()
+    return {
+        "type": "FeatureCollection",
+        "properties": {"variable": var},
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "cod_municipio": r.cod_municipio,
+                    "nombre": r.nombre,
+                    "valor": r.valor,
+                    "categoria": r.categoria,
+                    "p": r.p,
+                },
+                "geometry": r.geom,
+            }
+            for r in rows
+        ],
+    }
+
+
 @app.get("/aislamiento.geojson")
 async def aislamiento(prov: str | None = None) -> dict:
     """Aislamiento: km al municipio con sanidad más cercano y a la capital de provincia."""

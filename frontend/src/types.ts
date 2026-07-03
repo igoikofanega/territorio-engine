@@ -10,6 +10,8 @@ export type Modo =
   | "arquetipos"
   | "rendimiento"
   | "aislamiento"
+  | "lisa_crecimiento"
+  | "lisa_renta"
   | "prediccion"
   | "futuro"
   | "futuro_cohorte";

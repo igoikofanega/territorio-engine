@@ -239,6 +239,17 @@ def aislamiento(context: AssetExecutionContext) -> int:
     return result["municipios"]
 
 
+@asset(group_name="modelo", deps=[padron, renta_adrh])
+def lisa(context: AssetExecutionContext) -> int:
+    """Hot spots LISA (Moran local) de crecimiento y renta. Requiere 0021."""
+    from .loaders import load_lisa
+
+    result = load_lisa()
+    context.add_output_metadata(result)
+    context.log.info(f"lisa: {result}")
+    return result["filas"]
+
+
 @asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, clima])
 def rendimiento(context: AssetExecutionContext) -> int:
     """Residuo out-of-sample: municipios que desafían su predicción. Requiere 0019."""

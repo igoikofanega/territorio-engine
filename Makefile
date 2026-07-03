@@ -89,3 +89,6 @@ gemelos: ## Gemelos divergentes → gemelo_municipio
 
 ingest-aislamiento: ## Distancias a servicios y capital (PostGIS) → municipio_aislamiento
 	docker compose run --rm orchestrator uv run dagster asset materialize --select aislamiento -m territorio_pipelines.definitions
+
+lisa: ## Hot spots LISA (Moran local) → lisa_municipio
+	docker compose run --rm orchestrator uv run dagster asset materialize --select lisa -m territorio_pipelines.definitions
