@@ -422,6 +422,39 @@ async def indice(prov: str | None = None) -> dict:
     }
 
 
+@app.get("/rendimiento.geojson")
+async def rendimiento(prov: str | None = None) -> dict:
+    """Residuo out-of-sample: cuánto crece cada municipio vs lo que sus features predicen."""
+    where = "WHERE d.cod_provincia = :prov" if prov else ""
+    sql = text(f"""
+        SELECT d.cod_municipio, d.nombre, r.residuo, r.z, r.clasificacion,
+               ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
+        FROM dim_municipio d
+        LEFT JOIN rendimiento_municipio r ON r.cod_municipio = d.cod_municipio
+        {where}
+        ORDER BY d.cod_municipio
+    """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
+    async with engine.connect() as conn:
+        rows = (await conn.execute(sql, {"prov": prov} if prov else {})).all()
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "cod_municipio": r.cod_municipio,
+                    "nombre": r.nombre,
+                    "residuo": r.residuo,
+                    "z": r.z,
+                    "clasificacion": r.clasificacion,
+                },
+                "geometry": r.geom,
+            }
+            for r in rows
+        ],
+    }
+
+
 @app.get("/servicios.geojson")
 async def servicios(prov: str | None = None) -> dict:
     """Servicios OSM per capita por municipio (‰ hab) para el coroplético."""
@@ -795,6 +828,29 @@ async def municipio_ficha(cod: str) -> dict:
             )
         ).one_or_none()
 
+        rend = (
+            await conn.execute(
+                text("""
+                    SELECT residuo, z, clasificacion FROM rendimiento_municipio
+                    WHERE cod_municipio = :cod
+                """),
+                {"cod": cod},
+            )
+        ).one_or_none()
+
+        gem = (
+            await conn.execute(
+                text("""
+                    SELECT g.cod_gemelo, d.nombre, d.cod_provincia, g.distancia,
+                           g.crec_propio, g.crec_gemelo, g.divergencia
+                    FROM gemelo_municipio g
+                    JOIN dim_municipio d ON d.cod_municipio = g.cod_gemelo
+                    WHERE g.cod_municipio = :cod
+                """),
+                {"cod": cod},
+            )
+        ).one_or_none()
+
         sim_row = (
             await conn.execute(
                 text("SELECT similares FROM similar_municipio WHERE cod_municipio = :cod"),
@@ -890,6 +946,24 @@ async def municipio_ficha(cod: str) -> dict:
             else None
         ),
         "arquetipo": ({"cluster": arq.cluster, "etiqueta": arq.etiqueta} if arq else None),
+        "rendimiento": (
+            {"residuo": rend.residuo, "z": rend.z, "clasificacion": rend.clasificacion}
+            if rend
+            else None
+        ),
+        "gemelo": (
+            {
+                "cod": gem.cod_gemelo,
+                "nombre": gem.nombre,
+                "provincia": PROVINCIAS.get(gem.cod_provincia, gem.cod_provincia),
+                "distancia": gem.distancia,
+                "crec_propio": gem.crec_propio,
+                "crec_gemelo": gem.crec_gemelo,
+                "divergencia": gem.divergencia,
+            }
+            if gem
+            else None
+        ),
         "servicios": (
             {
                 "salud": serv.n_salud,

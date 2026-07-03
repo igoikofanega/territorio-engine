@@ -398,6 +398,48 @@ def load_similares() -> dict:
     return {"municipios": len(recs)}
 
 
+_INSERT_RENDIMIENTO = text("""
+INSERT INTO rendimiento_municipio (cod_municipio, residuo, z, n_obs, clasificacion)
+VALUES (:cod, :residuo, :z, :n_obs, :clasificacion)
+ON CONFLICT (cod_municipio) DO UPDATE SET
+    residuo = EXCLUDED.residuo, z = EXCLUDED.z, n_obs = EXCLUDED.n_obs,
+    clasificacion = EXCLUDED.clasificacion
+""")
+
+
+def load_rendimiento() -> dict:
+    """Residuo out-of-sample del modelo por municipio → rendimiento_municipio."""
+    from .ml.rendimiento import calcular_rendimiento
+
+    recs = calcular_rendimiento(engine)
+    with engine.begin() as conn:
+        if recs:
+            conn.execute(_INSERT_RENDIMIENTO, recs)
+    return {"municipios": len(recs)}
+
+
+_INSERT_GEMELO = text("""
+INSERT INTO gemelo_municipio
+    (cod_municipio, cod_gemelo, distancia, crec_propio, crec_gemelo, divergencia)
+VALUES (:cod, :cod_gemelo, :distancia, :crec_propio, :crec_gemelo, :divergencia)
+ON CONFLICT (cod_municipio) DO UPDATE SET
+    cod_gemelo = EXCLUDED.cod_gemelo, distancia = EXCLUDED.distancia,
+    crec_propio = EXCLUDED.crec_propio, crec_gemelo = EXCLUDED.crec_gemelo,
+    divergencia = EXCLUDED.divergencia
+""")
+
+
+def load_gemelos() -> dict:
+    """Gemelo divergente por municipio → gemelo_municipio."""
+    from .ml.gemelos import calcular_gemelos
+
+    recs = calcular_gemelos(engine)
+    with engine.begin() as conn:
+        if recs:
+            conn.execute(_INSERT_GEMELO, recs)
+    return {"municipios": len(recs)}
+
+
 def load_osm(batch_size: int = 20000) -> dict[str, int]:
     """Descarga servicios OSM por provincia (bbox) y los cuenta por municipio (PostGIS)."""
     bboxes = pd.read_sql(

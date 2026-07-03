@@ -8,6 +8,7 @@ export type Modo =
   | "clima"
   | "envejecimiento"
   | "arquetipos"
+  | "rendimiento"
   | "prediccion"
   | "futuro"
   | "futuro_cohorte";
@@ -63,6 +64,16 @@ export type FichaData = {
     drivers: string | null;
   } | null;
   arquetipo: { cluster: number; etiqueta: string } | null;
+  rendimiento: { residuo: number | null; z: number | null; clasificacion: string | null } | null;
+  gemelo: {
+    cod: string;
+    nombre: string;
+    provincia: string;
+    distancia: number | null;
+    crec_propio: number | null;
+    crec_gemelo: number | null;
+    divergencia: number | null;
+  } | null;
   servicios: {
     salud: number | null;
     educacion: number | null;

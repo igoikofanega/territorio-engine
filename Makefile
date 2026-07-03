@@ -80,3 +80,9 @@ ingest-servicios: ## Servicios OSM por municipio → municipio_servicios
 
 similares: ## 'Pueblos como el tuyo' (vecinos en features) → similar_municipio
 	docker compose run --rm orchestrator uv run dagster asset materialize --select similares -m territorio_pipelines.definitions
+
+rendimiento: ## Residuos out-of-sample (municipios contra pronóstico) → rendimiento_municipio
+	docker compose run --rm orchestrator uv run dagster asset materialize --select rendimiento -m territorio_pipelines.definitions
+
+gemelos: ## Gemelos divergentes → gemelo_municipio
+	docker compose run --rm orchestrator uv run dagster asset materialize --select gemelos -m territorio_pipelines.definitions

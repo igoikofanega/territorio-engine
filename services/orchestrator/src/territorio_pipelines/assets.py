@@ -229,6 +229,28 @@ def similares(context: AssetExecutionContext) -> int:
 
 
 @asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, clima])
+def rendimiento(context: AssetExecutionContext) -> int:
+    """Residuo out-of-sample: municipios que desafían su predicción. Requiere 0019."""
+    from .loaders import load_rendimiento
+
+    result = load_rendimiento()
+    context.add_output_metadata(result)
+    context.log.info(f"rendimiento: {result}")
+    return result["municipios"]
+
+
+@asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, clima])
+def gemelos(context: AssetExecutionContext) -> int:
+    """Gemelos divergentes (vecino en features con destino opuesto). Requiere 0019."""
+    from .loaders import load_gemelos
+
+    result = load_gemelos()
+    context.add_output_metadata(result)
+    context.log.info(f"gemelos: {result}")
+    return result["municipios"]
+
+
+@asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, clima])
 def arquetipos(context: AssetExecutionContext) -> int:
     """Clustering de municipios en arquetipos ('pueblos como el tuyo'). Requiere 0013."""
     from .loaders import load_arquetipos

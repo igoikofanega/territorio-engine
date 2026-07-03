@@ -10,6 +10,7 @@ import {
   Shapes,
   Sparkles,
   Store,
+  Target,
   TrendingUp,
   Users,
   Wallet,
@@ -60,6 +61,11 @@ export const ESCALAS: Record<
     endpoint: "envejecimiento.geojson", etiqueta: "Envejecimiento", icono: Hourglass, titulo: "Índice envejec.", campo: "indice", sufijo: "", anios: "envejecimiento/anios",
     buckets: [[400, "#800026"], [200, "#bd0026"], [120, "#e31a1c"], [80, "#fc4e2a"], [40, "#feb24c"], [0, "#ffffb2"]],
   },
+  rendimiento: {
+    endpoint: "rendimiento.geojson", etiqueta: "Contra pronóstico", icono: Target, titulo: "Residuo vs predicho (pp)", campo: "residuo", sufijo: " pp",
+    // divergente RdBu: azul = sobre-rinde, rojo = bajo-rinde
+    buckets: [[15, "#2166ac"], [5, "#67a9cf"], [-5, "#f7f7f7"], [-15, "#ef8a62"], [-1000, "#b2182b"]],
+  },
   prediccion: {
     endpoint: "prediccion.geojson", etiqueta: "Predicción ML", icono: Sparkles, titulo: "Cambio a 2028", campo: "cambio_pct", sufijo: "%",
     buckets: FUT_BUCKETS,
@@ -77,7 +83,7 @@ export const ESCALAS: Record<
 // agrupación de modos para la sidebar
 export const GRUPOS_MODOS: { titulo: string; modos: Modo[] }[] = [
   { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "servicios", "clima", "envejecimiento"] },
-  { titulo: "Síntesis", modos: ["indice", "arquetipos"] },
+  { titulo: "Síntesis", modos: ["indice", "arquetipos", "rendimiento"] },
   { titulo: "Futuro", modos: ["prediccion", "futuro", "futuro_cohorte"] },
 ];
 
@@ -119,6 +125,11 @@ export function tooltip(modo: Modo, p: GeoJsonProperties, pesos?: Pesos): string
   }
   if (modo === "arquetipos") {
     return `${props.nombre}: arquetipo ${props.cluster ?? "—"} · ${props.etiqueta ?? ""}`;
+  }
+  if (modo === "rendimiento") {
+    const r = props.residuo as number | null;
+    const texto = r == null ? "sin datos" : r >= 0 ? `crece ${r} pp MÁS de lo predicho` : `crece ${Math.abs(r)} pp MENOS de lo predicho`;
+    return `${props.nombre}: ${texto}`;
   }
   if (modo === "prediccion") {
     const c = props.cambio_pct;

@@ -223,6 +223,44 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
           </>
         )}
 
+        {(ficha.rendimiento?.residuo != null || ficha.gemelo) && (
+          <>
+            <h3>Contra pronóstico</h3>
+            {ficha.rendimiento?.residuo != null && (
+              <div style={{ fontSize: 12, marginBottom: 6 }}>
+                {ficha.rendimiento.clasificacion === "sobre" && (
+                  <span style={{ color: "#15803d", fontWeight: 600 }}>
+                    Crece {ficha.rendimiento.residuo} pp más de lo que sus características predicen.
+                  </span>
+                )}
+                {ficha.rendimiento.clasificacion === "bajo" && (
+                  <span style={{ color: "#b91c1c", fontWeight: 600 }}>
+                    Crece {Math.abs(ficha.rendimiento.residuo)} pp menos de lo que sus características predicen.
+                  </span>
+                )}
+                {ficha.rendimiento.clasificacion === "esperado" && (
+                  <span style={{ color: "var(--text-2)" }}>
+                    Evoluciona según lo que sus características predicen ({ficha.rendimiento.residuo >= 0 ? "+" : ""}{ficha.rendimiento.residuo} pp).
+                  </span>
+                )}
+              </div>
+            )}
+            {ficha.gemelo && ficha.gemelo.divergencia != null && ficha.gemelo.divergencia >= 5 && (
+              <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.45 }}>
+                Su gemelo estadístico,{" "}
+                <button className="chip" onClick={() => onSelect(ficha.gemelo!.cod)} title={ficha.gemelo.provincia}>
+                  {ficha.gemelo.nombre}
+                </button>{" "}
+                — casi idéntico en datos — {(ficha.gemelo.crec_gemelo ?? 0) > (ficha.gemelo.crec_propio ?? 0) ? "creció" : "cayó"} un{" "}
+                <strong style={{ color: "var(--text)" }}>
+                  {ficha.gemelo.crec_gemelo}%
+                </strong>{" "}
+                (2020-2025) frente al {ficha.gemelo.crec_propio}% de {ficha.nombre}. Un experimento natural que invita a preguntarse por qué.
+              </div>
+            )}
+          </>
+        )}
+
         {ficha.servicios && (
           <>
             <h3>Servicios (OSM)</h3>

@@ -142,6 +142,31 @@ class MunicipioServicios(Base):
     n_total = Column(Integer)
 
 
+class RendimientoMunicipio(Base):
+    """Residuo out-of-sample del modelo: crece más/menos de lo que sus features predicen."""
+
+    __tablename__ = "rendimiento_municipio"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    residuo = Column(Float)
+    z = Column(Float)
+    n_obs = Column(Integer)
+    clasificacion = Column(String(10))
+
+
+class GemeloMunicipio(Base):
+    """Gemelo divergente: el municipio más parecido en features con destino distinto."""
+
+    __tablename__ = "gemelo_municipio"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    cod_gemelo = Column(String(5))
+    distancia = Column(Float)
+    crec_propio = Column(Float)
+    crec_gemelo = Column(Float)
+    divergencia = Column(Float)
+
+
 class SimilarMunicipio(Base):
     """'Pueblos como el tuyo': códigos de los municipios más parecidos (separados por coma)."""
 
