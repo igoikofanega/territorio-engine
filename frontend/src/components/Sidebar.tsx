@@ -1,0 +1,89 @@
+import { ESCALAS, GRUPOS_MODOS } from "../escalas";
+import type { Modo, Pesos, Prov } from "../types";
+import Buscador from "./Buscador";
+import PanelPesos from "./PanelPesos";
+
+export default function Sidebar({
+  provincias,
+  prov,
+  onProv,
+  modo,
+  onModo,
+  anios,
+  anioSel,
+  onAnio,
+  pesos,
+  onPesos,
+  onSelectMunicipio,
+  onColapsar,
+  nMunicipios,
+  error,
+}: {
+  provincias: Prov[];
+  prov: string;
+  onProv: (p: string) => void;
+  modo: Modo;
+  onModo: (m: Modo) => void;
+  anios: number[];
+  anioSel: number | null;
+  onAnio: (a: number) => void;
+  pesos: Pesos;
+  onPesos: (p: Pesos) => void;
+  onSelectMunicipio: (cod: string) => void;
+  onColapsar: () => void;
+  nMunicipios: number | null;
+  error: string | null;
+}) {
+  const esc = ESCALAS[modo];
+  return (
+    <aside className="sidebar">
+      <div style={{ display: "flex", alignItems: "flex-start" }}>
+        <div>
+          <div className="sidebar-marca">territorio-engine</div>
+          <div className="sidebar-sub">¿Dónde vivir en España? Datos por municipio.</div>
+        </div>
+        <button className="btn-ghost" onClick={onColapsar} title="Ocultar panel" style={{ marginLeft: "auto", fontSize: 15 }}>
+          «
+        </button>
+      </div>
+
+      <Buscador onSelect={onSelectMunicipio} />
+
+      <div style={{ display: "flex", gap: 8 }}>
+        <select className="input" value={prov} onChange={(e) => onProv(e.target.value)}>
+          {provincias.map((p) => (
+            <option key={p.cod} value={p.cod}>{p.nombre}</option>
+          ))}
+        </select>
+        {esc.anios && (
+          <select className="input" style={{ width: 90, flexShrink: 0 }} value={anioSel ?? ""} onChange={(e) => onAnio(Number(e.target.value))}>
+            {anios.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        )}
+      </div>
+
+      <nav>
+        {GRUPOS_MODOS.map((g) => (
+          <div key={g.titulo}>
+            <div className="grupo-titulo">{g.titulo}</div>
+            {g.modos.map((m) => (
+              <button key={m} className={`sidebar-item${modo === m ? " activo" : ""}`} onClick={() => onModo(m)}>
+                <span style={{ width: 18, textAlign: "center" }}>{ESCALAS[m].icono}</span>
+                {ESCALAS[m].etiqueta}
+              </button>
+            ))}
+          </div>
+        ))}
+      </nav>
+
+      {modo === "indice" && <PanelPesos pesos={pesos} onChange={onPesos} />}
+
+      {error && <div style={{ color: "#b91c1c", fontSize: 12 }}>{error}</div>}
+
+      <div className="sidebar-pie">
+        {nMunicipios != null && <div>{nMunicipios.toLocaleString("es")} municipios en el mapa</div>}
+        <div>INE · SEPE · AEAT · SERPAVI · AEMET · IGN · OSM · Wikidata</div>
+      </div>
+    </aside>
+  );
+}
