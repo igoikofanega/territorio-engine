@@ -440,6 +440,24 @@ def load_gemelos() -> dict:
     return {"municipios": len(recs)}
 
 
+_INSERT_RIESGO = text("""
+INSERT INTO riesgo_municipio (cod_municipio, prob, nivel)
+VALUES (:cod, :prob, :nivel)
+ON CONFLICT (cod_municipio) DO UPDATE SET prob = EXCLUDED.prob, nivel = EXCLUDED.nivel
+""")
+
+
+def load_riesgo() -> dict:
+    """Semáforo de despoblación (probabilidad calibrada) → riesgo_municipio."""
+    from .ml.riesgo import calcular_riesgo
+
+    recs, metricas = calcular_riesgo(engine)
+    with engine.begin() as conn:
+        if recs:
+            conn.execute(_INSERT_RIESGO, recs)
+    return {"municipios": len(recs), **metricas}
+
+
 _INSERT_LISA = text("""
 INSERT INTO lisa_municipio (cod_municipio, variable, valor, categoria, p)
 VALUES (:cod, :variable, :valor, :categoria, :p)

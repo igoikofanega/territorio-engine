@@ -223,6 +223,24 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
           </>
         )}
 
+        {ficha.riesgo && (
+          <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+            <span
+              style={{
+                width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
+                background: ficha.riesgo.nivel === "rojo" ? "#b91c1c" : ficha.riesgo.nivel === "ambar" ? "#f59e0b" : "#16a34a",
+              }}
+            />
+            <span style={{ color: "var(--text-2)" }}>
+              Riesgo de despoblación{" "}
+              <strong style={{ color: "var(--text)" }}>
+                {ficha.riesgo.nivel === "rojo" ? "alto" : ficha.riesgo.nivel === "ambar" ? "medio" : "bajo"}
+              </strong>{" "}
+              ({ficha.riesgo.prob}% de prob. de pérdida fuerte a 5 años)
+            </span>
+          </div>
+        )}
+
         {(ficha.rendimiento?.residuo != null || ficha.gemelo) && (
           <>
             <h3>Contra pronóstico</h3>

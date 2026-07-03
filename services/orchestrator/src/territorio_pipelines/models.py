@@ -142,6 +142,16 @@ class MunicipioServicios(Base):
     n_total = Column(Integer)
 
 
+class RiesgoMunicipio(Base):
+    """Semáforo de despoblación: probabilidad calibrada de pérdida fuerte a 5 años."""
+
+    __tablename__ = "riesgo_municipio"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    prob = Column(Float)
+    nivel = Column(String(6))
+
+
 class LisaMunicipio(Base):
     """Cluster espacial LISA (Moran local) por variable: hot/cold spots significativos."""
 

@@ -239,6 +239,17 @@ def aislamiento(context: AssetExecutionContext) -> int:
     return result["municipios"]
 
 
+@asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, clima])
+def riesgo(context: AssetExecutionContext) -> int:
+    """Semáforo de despoblación: P(pérdida fuerte a 5 años), calibrada. Requiere 0022."""
+    from .loaders import load_riesgo
+
+    result = load_riesgo()
+    context.add_output_metadata(result)
+    context.log.info(f"riesgo: {result}")
+    return result["municipios"]
+
+
 @asset(group_name="modelo", deps=[padron, renta_adrh])
 def lisa(context: AssetExecutionContext) -> int:
     """Hot spots LISA (Moran local) de crecimiento y renta. Requiere 0021."""

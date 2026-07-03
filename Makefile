@@ -92,3 +92,6 @@ ingest-aislamiento: ## Distancias a servicios y capital (PostGIS) → municipio_
 
 lisa: ## Hot spots LISA (Moran local) → lisa_municipio
 	docker compose run --rm orchestrator uv run dagster asset materialize --select lisa -m territorio_pipelines.definitions
+
+riesgo: ## Semáforo de despoblación (probabilidad calibrada) → riesgo_municipio
+	docker compose run --rm orchestrator uv run dagster asset materialize --select riesgo -m territorio_pipelines.definitions

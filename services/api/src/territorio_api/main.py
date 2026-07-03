@@ -422,6 +422,38 @@ async def indice(prov: str | None = None) -> dict:
     }
 
 
+@app.get("/riesgo.geojson")
+async def riesgo(prov: str | None = None) -> dict:
+    """Semáforo de despoblación: probabilidad calibrada de pérdida fuerte a 5 años."""
+    where = "WHERE d.cod_provincia = :prov" if prov else ""
+    sql = text(f"""
+        SELECT d.cod_municipio, d.nombre, r.prob, r.nivel,
+               ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
+        FROM dim_municipio d
+        LEFT JOIN riesgo_municipio r ON r.cod_municipio = d.cod_municipio
+        {where}
+        ORDER BY d.cod_municipio
+    """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
+    async with engine.connect() as conn:
+        rows = (await conn.execute(sql, {"prov": prov} if prov else {})).all()
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "cod_municipio": r.cod_municipio,
+                    "nombre": r.nombre,
+                    "prob": round(r.prob * 100, 1) if r.prob is not None else None,
+                    "nivel": r.nivel,
+                },
+                "geometry": r.geom,
+            }
+            for r in rows
+        ],
+    }
+
+
 @app.get("/lisa.geojson")
 async def lisa(var: str = "crecimiento", prov: str | None = None) -> dict:
     """Hot spots LISA (Moran local): clusters espaciales significativos de una variable."""
@@ -901,6 +933,13 @@ async def municipio_ficha(cod: str) -> dict:
             )
         ).one_or_none()
 
+        rsg = (
+            await conn.execute(
+                text("SELECT prob, nivel FROM riesgo_municipio WHERE cod_municipio = :cod"),
+                {"cod": cod},
+            )
+        ).one_or_none()
+
         aisl = (
             await conn.execute(
                 text("""
@@ -1055,6 +1094,11 @@ async def municipio_ficha(cod: str) -> dict:
                 "total": serv.n_total,
             }
             if serv
+            else None
+        ),
+        "riesgo": (
+            {"prob": round(rsg.prob * 100, 1), "nivel": rsg.nivel}
+            if rsg and rsg.prob is not None
             else None
         ),
         "aislamiento": (

@@ -12,6 +12,7 @@ export type Modo =
   | "aislamiento"
   | "lisa_crecimiento"
   | "lisa_renta"
+  | "riesgo"
   | "prediccion"
   | "futuro"
   | "futuro_cohorte";
@@ -83,6 +84,7 @@ export type FichaData = {
     comercio: number | null;
     total: number | null;
   } | null;
+  riesgo: { prob: number; nivel: "verde" | "ambar" | "rojo" } | null;
   aislamiento: { km_salud: number | null; km_educacion: number | null; km_capital: number | null } | null;
   similares: { cod: string; nombre: string; provincia: string }[];
 };

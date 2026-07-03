@@ -10,6 +10,7 @@ import {
   type LucideIcon,
   MapPinOff,
   Shapes,
+  Siren,
   Sparkles,
   Store,
   Target,
@@ -90,6 +91,11 @@ export const ESCALAS: Record<
     endpoint: "futuro-cohorte.geojson", etiqueta: "Futuro (cohorte)", icono: Baby, titulo: "Cambio a 2037", campo: "cambio_pct", sufijo: "%",
     buckets: FUT_BUCKETS,
   },
+  riesgo: {
+    endpoint: "riesgo.geojson", etiqueta: "Riesgo despoblación", icono: Siren, titulo: "P(pérdida fuerte) %", campo: "prob", sufijo: "%",
+    // semáforo: verde <30, ámbar 30-60, rojo >=60
+    buckets: [[60, "#b91c1c"], [30, "#f59e0b"], [0, "#16a34a"]],
+  },
 };
 
 // colores LISA (convención: HH rojo, LL azul, outliers naranjas/celestes)
@@ -112,7 +118,7 @@ export const LISA_LEYENDA = [
 export const GRUPOS_MODOS: { titulo: string; modos: Modo[] }[] = [
   { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "servicios", "aislamiento", "clima", "envejecimiento"] },
   { titulo: "Síntesis", modos: ["indice", "arquetipos", "rendimiento", "lisa_crecimiento", "lisa_renta"] },
-  { titulo: "Futuro", modos: ["prediccion", "futuro", "futuro_cohorte"] },
+  { titulo: "Futuro", modos: ["prediccion", "riesgo", "futuro", "futuro_cohorte"] },
 ];
 
 export const PESOS_DEFECTO: Pesos = { renta: 0.25, paro: 0.20, alquiler: 0.20, envejecimiento: 0.15, servicios: 0.20 };
@@ -161,6 +167,10 @@ export function tooltip(modo: Modo, p: GeoJsonProperties, pesos?: Pesos): string
     const r = props.residuo as number | null;
     const texto = r == null ? "sin datos" : r >= 0 ? `crece ${r} pp MÁS de lo predicho` : `crece ${Math.abs(r)} pp MENOS de lo predicho`;
     return `${props.nombre}: ${texto}`;
+  }
+  if (modo === "riesgo") {
+    const niveles: Record<string, string> = { verde: "riesgo bajo", ambar: "riesgo medio", rojo: "riesgo ALTO" };
+    return `${props.nombre}: ${niveles[(props.nivel as string) ?? ""] ?? "sin datos"} · P(pérdida fuerte a 5 años) = ${props.prob ?? "—"}%`;
   }
   if (modo.startsWith("lisa_")) {
     const cat = (props.categoria as string) ?? "—";
