@@ -17,7 +17,19 @@ from . import indice as idx
 from . import proyeccion as proy
 from . import proyeccion_cohorte as hp
 from .db import engine
-from .sources import aemet, alquiler, mnp, osm, padron, paro, piramide, renta, wikidata, wikipedia
+from .sources import (
+    aemet,
+    alquiler,
+    mnp,
+    nacionalidad,
+    osm,
+    padron,
+    paro,
+    piramide,
+    renta,
+    wikidata,
+    wikipedia,
+)
 from .sources.ign import feature_to_row, read_features
 
 # Calcula la geometría 4326 una sola vez (CTE) y deriva 25830 y superficie.
@@ -494,6 +506,33 @@ ON CONFLICT (cod_municipio) DO UPDATE SET
     anio_inflexion = EXCLUDED.anio_inflexion, pend_antes = EXCLUDED.pend_antes,
     pend_despues = EXCLUDED.pend_despues, tipo = EXCLUDED.tipo, magnitud = EXCLUDED.magnitud
 """)
+
+
+_INSERT_EXTRANJEROS = text("""
+INSERT INTO fact_municipio_anual (cod_municipio, anio, poblacion_extranjera, pct_extranjeros)
+VALUES (:cod, :anio, :extranjera, :pct)
+ON CONFLICT (cod_municipio, anio) DO UPDATE SET
+    poblacion_extranjera = EXCLUDED.poblacion_extranjera,
+    pct_extranjeros = EXCLUDED.pct_extranjeros
+""")
+
+
+def load_nacionalidad(path: Path, batch_size: int = 5000) -> dict[str, int]:
+    """Población extranjera y % por municipio·año (INE 33571) → fact_municipio_anual."""
+    df = nacionalidad.parse_px(path)
+    batch: list[dict] = []
+    rows = 0
+    with engine.begin() as conn:
+        for rec in nacionalidad.records_from_df(df):
+            batch.append(rec)
+            if len(batch) >= batch_size:
+                conn.execute(_INSERT_EXTRANJEROS, batch)
+                rows += len(batch)
+                batch = []
+        if batch:
+            conn.execute(_INSERT_EXTRANJEROS, batch)
+            rows += len(batch)
+    return {"filas": rows}
 
 
 def load_inflexiones() -> dict:

@@ -42,6 +42,20 @@ def padron(context: AssetExecutionContext) -> int:
     return result["filas"]
 
 
+@asset(group_name="fuentes", deps=[padron])
+def nacionalidad(context: AssetExecutionContext) -> int:
+    """Población extranjera y % por municipio (INE 33571). Requiere 0025."""
+    from .loaders import load_nacionalidad
+    from .sources.nacionalidad import download_raw
+
+    path = download_raw()
+    context.log.info(f"Crudo aterrizado en {path}")
+    result = load_nacionalidad(path)
+    context.add_output_metadata(result)
+    context.log.info(f"nacionalidad: {result}")
+    return result["filas"]
+
+
 @asset(group_name="fuentes")
 def piramide(context: AssetExecutionContext) -> int:
     """Pirámide de edad municipal (INE quinquenal, bucle por 52 provincias), 2015→.

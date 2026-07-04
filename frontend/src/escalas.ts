@@ -16,6 +16,7 @@ import {
   Store,
   Target,
   TrendingUp,
+  UsersRound,
   Users,
   Wallet,
 } from "lucide-react";
@@ -52,6 +53,10 @@ export const ESCALAS: Record<
   paro: {
     endpoint: "paro.geojson", etiqueta: "Paro", icono: Briefcase, titulo: "Paro ‰ hab", campo: "paro_1000", sufijo: "‰", anios: "paro/anios",
     buckets: [[150, "#67000d"], [100, "#cb181d"], [60, "#fb6a4a"], [30, "#fcae91"], [0, "#fee5d9"]],
+  },
+  extranjeros: {
+    endpoint: "extranjeros.geojson", etiqueta: "Extranjeros", icono: UsersRound, titulo: "% población extranjera", campo: "pct_extranjeros", sufijo: "%", anios: "extranjeros/anios",
+    buckets: [[25, "#4a1486"], [15, "#6a51a3"], [10, "#807dba"], [5, "#bcbddc"], [0, "#f2f0f7"]],
   },
   servicios: {
     endpoint: "servicios.geojson", etiqueta: "Servicios", icono: Store, titulo: "Servicios ‰ hab (OSM)", campo: "serv_1000", sufijo: "‰",
@@ -139,7 +144,7 @@ export const INFLEXION_LEYENDA = [
 
 // agrupación de modos para la sidebar
 export const GRUPOS_MODOS: { titulo: string; modos: Modo[] }[] = [
-  { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "servicios", "aislamiento", "clima", "envejecimiento"] },
+  { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "extranjeros", "servicios", "aislamiento", "clima", "envejecimiento"] },
   { titulo: "Síntesis", modos: ["indice", "arquetipos", "rendimiento", "inflexion", "lisa_crecimiento", "lisa_renta"] },
   { titulo: "Futuro", modos: ["prediccion", "riesgo", "futuro", "futuro_cohorte"] },
 ];

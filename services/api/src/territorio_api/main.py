@@ -272,6 +272,66 @@ async def renta_anios() -> list[int]:
     return [r.anio for r in rows]
 
 
+@app.get("/extranjeros/anios")
+async def extranjeros_anios() -> list[int]:
+    async with engine.connect() as conn:
+        rows = (
+            await conn.execute(
+                text(
+                    "SELECT DISTINCT anio FROM fact_municipio_anual "
+                    "WHERE pct_extranjeros IS NOT NULL ORDER BY anio DESC"
+                )
+            )
+        ).all()
+    return [r.anio for r in rows]
+
+
+@app.get("/extranjeros.geojson")
+async def extranjeros(prov: str | None = None, anio: int | None = None) -> dict:
+    """Porcentaje de población extranjera por municipio (INE padrón por nacionalidad)."""
+    async with engine.connect() as conn:
+        if anio is None:
+            anio = (
+                await conn.execute(
+                    text(
+                        "SELECT max(anio) FROM fact_municipio_anual "
+                        "WHERE pct_extranjeros IS NOT NULL"
+                    )
+                )
+            ).scalar_one_or_none()
+        where = "WHERE d.cod_provincia = :prov" if prov else ""
+        sql = text(f"""
+            SELECT d.cod_municipio, d.nombre, f.pct_extranjeros, f.poblacion_extranjera,
+                   ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
+            FROM dim_municipio d
+            LEFT JOIN fact_municipio_anual f
+                   ON f.cod_municipio = d.cod_municipio AND f.anio = :anio
+            {where}
+            ORDER BY d.cod_municipio
+        """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
+        params = {"anio": anio}
+        if prov:
+            params["prov"] = prov
+        rows = (await conn.execute(sql, params)).all()
+    return {
+        "type": "FeatureCollection",
+        "properties": {"anio": anio},
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "cod_municipio": r.cod_municipio,
+                    "nombre": r.nombre,
+                    "pct_extranjeros": r.pct_extranjeros,
+                    "poblacion_extranjera": r.poblacion_extranjera,
+                },
+                "geometry": r.geom,
+            }
+            for r in rows
+        ],
+    }
+
+
 @app.get("/renta.geojson")
 async def renta(prov: str | None = None, anio: int | None = None) -> dict:
     """Renta neta media por persona (€/año) por municipio (INE ADRH)."""
@@ -1011,7 +1071,8 @@ async def municipio_ficha(cod: str) -> dict:
                 text("""
                     SELECT anio, poblacion_total, paro_media_anual,
                            renta_neta_media_persona AS renta, alquiler_eur_m2 AS alquiler,
-                           temp_media_anual AS temp, precip_anual_mm AS precip
+                           temp_media_anual AS temp, precip_anual_mm AS precip,
+                           pct_extranjeros
                     FROM fact_municipio_anual
                     WHERE cod_municipio = :cod
                     ORDER BY anio
@@ -1185,6 +1246,7 @@ async def municipio_ficha(cod: str) -> dict:
                 "alquiler": r.alquiler,
                 "temp": r.temp,
                 "precip": r.precip,
+                "pct_extranjeros": r.pct_extranjeros,
             }
             for r in serie
         ],

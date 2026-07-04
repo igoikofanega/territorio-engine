@@ -4,6 +4,7 @@ export type Modo =
   | "renta"
   | "alquiler"
   | "paro"
+  | "extranjeros"
   | "servicios"
   | "clima"
   | "envejecimiento"
@@ -30,6 +31,7 @@ export type SerieRow = {
   alquiler: number | null;
   temp: number | null;
   precip: number | null;
+  pct_extranjeros: number | null;
 };
 
 export type FichaData = {

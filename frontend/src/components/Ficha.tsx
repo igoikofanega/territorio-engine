@@ -7,6 +7,7 @@ import {
   ShoppingCart,
   Stethoscope,
   Users,
+  UsersRound,
   Wallet,
   X,
 } from "lucide-react";
@@ -115,6 +116,7 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
   const renta = ultimo(ficha.serie, "renta");
   const alquiler = ultimo(ficha.serie, "alquiler");
   const paro = ultimo(ficha.serie, "paro");
+  const extranjeros = ultimo(ficha.serie, "pct_extranjeros");
   // paro absoluto → ‰ sobre la población del mismo año (si la hay)
   const paroPct =
     paro && pob
@@ -184,6 +186,13 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
               icono={Home} label="Alquiler" anio={alquiler.anio}
               valor={alquiler.valor.toFixed(1)} unidad="€/m²"
               delta={deltaPct(alquiler)}
+            />
+          )}
+          {extranjeros && (
+            <StatCard
+              icono={UsersRound} label="Extranjeros" anio={extranjeros.anio}
+              valor={extranjeros.valor.toFixed(1)} unidad="%"
+              delta={deltaPct(extranjeros)}
             />
           )}
         </div>
