@@ -217,10 +217,16 @@ def load_indice(anio: int = _ANIO_INDICE) -> dict[str, int]:
 
 
 _INSERT_CLIMA = text("""
-INSERT INTO fact_municipio_anual (cod_municipio, anio, temp_media_anual, precip_anual_mm)
-VALUES (:cod, :anio, :temp, :precip)
+INSERT INTO fact_municipio_anual
+    (cod_municipio, anio, temp_media_anual, precip_anual_mm,
+     temp_max_media, temp_min_media, temp_min_abs, dias_despejados, humedad_media)
+VALUES (:cod, :anio, :temp, :precip,
+        :temp_max, :temp_min, :temp_min_abs, :dias_despejados, :humedad)
 ON CONFLICT (cod_municipio, anio) DO UPDATE SET
-    temp_media_anual = EXCLUDED.temp_media_anual, precip_anual_mm = EXCLUDED.precip_anual_mm
+    temp_media_anual = EXCLUDED.temp_media_anual, precip_anual_mm = EXCLUDED.precip_anual_mm,
+    temp_max_media = EXCLUDED.temp_max_media, temp_min_media = EXCLUDED.temp_min_media,
+    temp_min_abs = EXCLUDED.temp_min_abs, dias_despejados = EXCLUDED.dias_despejados,
+    humedad_media = EXCLUDED.humedad_media
 """)
 _ANIO_CLIMA = 2022  # normal reciente (media 2015-2024) almacenada en el año del índice
 
@@ -254,19 +260,41 @@ def load_clima(anio: int = _ANIO_CLIMA) -> dict[str, int]:
     )
     slon = np.array([e["lon"] for e in ests])
     slat = np.array([e["lat"] for e in ests])
-    stemp = np.array([e["tm"] if e["tm"] is not None else np.nan for e in ests])
-    sprec = np.array([e["prec"] if e["prec"] is not None else np.nan for e in ests])
     mlon, mlat = munis["lon"].to_numpy(), munis["lat"].to_numpy()
 
-    temp = _idw(mlon, mlat, slon, slat, stemp)
-    precip = _idw(mlon, mlat, slon, slat, sprec)
+    def interp(clave: str) -> np.ndarray:
+        sval = np.array([e.get(clave) if e.get(clave) is not None else np.nan for e in ests])
+        return _idw(mlon, mlat, slon, slat, sval)
+
+    # cada variable climática interpolada por IDW desde las estaciones que la reportan
+    temp = interp("tm")
+    precip = interp("prec")
+    tmax = interp("tm_max")
+    tmin = interp("tm_min")
+    tminabs = interp("ta_min")
+    despej = interp("n_des")
+    hum = interp("hr")
+
+    def r1(v: float) -> float | None:
+        return None if np.isnan(v) else round(float(v), 1)
+
     rows = []
-    for cod, t, p in zip(munis["cod_municipio"], temp, precip, strict=False):
-        celsius = None if np.isnan(t) else round(float(t), 1)
-        mm = None if np.isnan(p) else round(float(p))
-        if celsius is None and mm is None:
+    for i, cod in enumerate(munis["cod_municipio"]):
+        celsius, mm = r1(temp[i]), (None if np.isnan(precip[i]) else round(float(precip[i])))
+        fila = {
+            "cod": cod,
+            "anio": anio,
+            "temp": celsius,
+            "precip": mm,
+            "temp_max": r1(tmax[i]),
+            "temp_min": r1(tmin[i]),
+            "temp_min_abs": r1(tminabs[i]),
+            "dias_despejados": (None if np.isnan(despej[i]) else round(float(despej[i]))),
+            "humedad": r1(hum[i]),
+        }
+        if all(v is None for k, v in fila.items() if k not in ("cod", "anio")):
             continue
-        rows.append({"cod": cod, "anio": anio, "temp": celsius, "precip": mm})
+        rows.append(fila)
     with engine.begin() as conn:
         if rows:
             conn.execute(_INSERT_CLIMA, rows)
@@ -456,6 +484,28 @@ def load_riesgo() -> dict:
         if recs:
             conn.execute(_INSERT_RIESGO, recs)
     return {"municipios": len(recs), **metricas}
+
+
+_INSERT_INFLEXION = text("""
+INSERT INTO inflexion_municipio
+    (cod_municipio, anio_inflexion, pend_antes, pend_despues, tipo, magnitud)
+VALUES (:cod, :anio_inflexion, :pend_antes, :pend_despues, :tipo, :magnitud)
+ON CONFLICT (cod_municipio) DO UPDATE SET
+    anio_inflexion = EXCLUDED.anio_inflexion, pend_antes = EXCLUDED.pend_antes,
+    pend_despues = EXCLUDED.pend_despues, tipo = EXCLUDED.tipo, magnitud = EXCLUDED.magnitud
+""")
+
+
+def load_inflexiones() -> dict:
+    """Puntos de inflexión de la serie de población → inflexion_municipio."""
+    from .ml.inflexion import calcular_inflexiones
+
+    recs = calcular_inflexiones(engine)
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM inflexion_municipio"))
+        if recs:
+            conn.execute(_INSERT_INFLEXION, recs)
+    return {"municipios": len(recs)}
 
 
 _INSERT_LISA = text("""

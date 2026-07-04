@@ -142,6 +142,19 @@ class MunicipioServicios(Base):
     n_total = Column(Integer)
 
 
+class InflexionMunicipio(Base):
+    """Punto de inflexión de la serie de población: el año en que el pueblo se dio la vuelta."""
+
+    __tablename__ = "inflexion_municipio"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    anio_inflexion = Column(Integer)
+    pend_antes = Column(Float)
+    pend_despues = Column(Float)
+    tipo = Column(String(16))
+    magnitud = Column(Float)
+
+
 class RiesgoMunicipio(Base):
     """Semáforo de despoblación: probabilidad calibrada de pérdida fuerte a 5 años."""
 

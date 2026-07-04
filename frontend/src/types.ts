@@ -9,6 +9,7 @@ export type Modo =
   | "envejecimiento"
   | "arquetipos"
   | "rendimiento"
+  | "inflexion"
   | "aislamiento"
   | "lisa_crecimiento"
   | "lisa_renta"
@@ -85,6 +86,13 @@ export type FichaData = {
     total: number | null;
   } | null;
   riesgo: { prob: number; nivel: "verde" | "ambar" | "rojo" } | null;
+  inflexion: {
+    anio: number;
+    pend_antes: number | null;
+    pend_despues: number | null;
+    tipo: string;
+    magnitud: number | null;
+  } | null;
   aislamiento: { km_salud: number | null; km_educacion: number | null; km_capital: number | null } | null;
   similares: { cod: string; nombre: string; provincia: string }[];
 };

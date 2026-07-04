@@ -10,7 +10,7 @@ import Ficha from "./components/Ficha";
 import Leyenda from "./components/Leyenda";
 import Recomendador from "./components/Recomendador";
 import Sidebar from "./components/Sidebar";
-import { color, combinaCustom, ESCALAS, LISA_COLORES, LISA_LEYENDA, PALETA_CAT, PESOS_DEFECTO, tooltip } from "./escalas";
+import { color, combinaCustom, ESCALAS, INFLEXION_COLORES, INFLEXION_LEYENDA, LISA_COLORES, LISA_LEYENDA, PALETA_CAT, PESOS_DEFECTO, tooltip } from "./escalas";
 import { CLAVES_INDICE, type FichaData, type Modo, type Pesos, type Prov } from "./types";
 
 const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
@@ -81,6 +81,8 @@ export default function App() {
 
   const categorias = modo.startsWith("lisa_")
     ? LISA_LEYENDA
+    : modo === "inflexion"
+    ? INFLEXION_LEYENDA
     : esc.categorico && geo
       ? [...new Map(
           geo.features
@@ -97,6 +99,8 @@ export default function App() {
     let fillColor = "#e2e8f0";
     if (modo.startsWith("lisa_")) {
       fillColor = LISA_COLORES[(f?.properties?.categoria as string) ?? ""] ?? "#e2e8f0";
+    } else if (modo === "inflexion") {
+      fillColor = INFLEXION_COLORES[(f?.properties?.tipo as string) ?? ""] ?? "#e8e8e8";
     } else if (esc.categorico) {
       const c = f?.properties?.cluster as number | null;
       fillColor = c != null ? PALETA_CAT[c % PALETA_CAT.length] : "#e2e8f0";

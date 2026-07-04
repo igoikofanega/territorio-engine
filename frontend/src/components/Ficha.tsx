@@ -241,6 +241,17 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
           </div>
         )}
 
+        {ficha.inflexion && (
+          <>
+            <h3>Punto de inflexión</h3>
+            <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.45 }}>
+              Su población <strong style={{ color: "var(--text)" }}>{ficha.inflexion.tipo}</strong>{" "}
+              en torno a <strong style={{ color: "var(--text)" }}>{ficha.inflexion.anio}</strong>: pasó de{" "}
+              {ficha.inflexion.pend_antes} a {ficha.inflexion.pend_despues} hab/año.
+            </div>
+          </>
+        )}
+
         {(ficha.rendimiento?.residuo != null || ficha.gemelo) && (
           <>
             <h3>Contra pronóstico</h3>

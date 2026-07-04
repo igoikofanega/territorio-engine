@@ -560,6 +560,42 @@ async def rendimiento(prov: str | None = None) -> dict:
     }
 
 
+@app.get("/inflexion.geojson")
+async def inflexion(prov: str | None = None) -> dict:
+    """Punto de inflexión de la población: tipo de giro y año en que cambió la tendencia."""
+    where = "WHERE d.cod_provincia = :prov" if prov else ""
+    sql = text(f"""
+        SELECT d.cod_municipio, d.nombre,
+               i.anio_inflexion, i.pend_antes, i.pend_despues, i.tipo, i.magnitud,
+               ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
+        FROM dim_municipio d
+        LEFT JOIN inflexion_municipio i ON i.cod_municipio = d.cod_municipio
+        {where}
+        ORDER BY d.cod_municipio
+    """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
+    async with engine.connect() as conn:
+        rows = (await conn.execute(sql, {"prov": prov} if prov else {})).all()
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "cod_municipio": r.cod_municipio,
+                    "nombre": r.nombre,
+                    "anio_inflexion": r.anio_inflexion,
+                    "pend_antes": r.pend_antes,
+                    "pend_despues": r.pend_despues,
+                    "tipo": r.tipo,
+                    "magnitud": r.magnitud,
+                },
+                "geometry": r.geom,
+            }
+            for r in rows
+        ],
+    }
+
+
 @app.get("/servicios.geojson")
 async def servicios(prov: str | None = None) -> dict:
     """Servicios OSM per capita por municipio (‰ hab) para el coroplético."""
@@ -1064,6 +1100,16 @@ async def municipio_ficha(cod: str) -> dict:
             )
         ).one_or_none()
 
+        infl = (
+            await conn.execute(
+                text("""
+                    SELECT anio_inflexion, pend_antes, pend_despues, tipo, magnitud
+                    FROM inflexion_municipio WHERE cod_municipio = :cod
+                """),
+                {"cod": cod},
+            )
+        ).one_or_none()
+
         gem = (
             await conn.execute(
                 text("""
@@ -1172,6 +1218,17 @@ async def municipio_ficha(cod: str) -> dict:
             else None
         ),
         "arquetipo": ({"cluster": arq.cluster, "etiqueta": arq.etiqueta} if arq else None),
+        "inflexion": (
+            {
+                "anio": infl.anio_inflexion,
+                "pend_antes": infl.pend_antes,
+                "pend_despues": infl.pend_despues,
+                "tipo": infl.tipo,
+                "magnitud": infl.magnitud,
+            }
+            if infl
+            else None
+        ),
         "rendimiento": (
             {"residuo": rend.residuo, "z": rend.z, "clasificacion": rend.clasificacion}
             if rend

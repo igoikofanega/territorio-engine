@@ -95,3 +95,6 @@ lisa: ## Hot spots LISA (Moran local) → lisa_municipio
 
 riesgo: ## Semáforo de despoblación (probabilidad calibrada) → riesgo_municipio
 	docker compose run --rm orchestrator uv run dagster asset materialize --select riesgo -m territorio_pipelines.definitions
+
+inflexiones: ## Puntos de inflexión de la población (change points) → inflexion_municipio
+	docker compose run --rm orchestrator uv run dagster asset materialize --select inflexiones -m territorio_pipelines.definitions

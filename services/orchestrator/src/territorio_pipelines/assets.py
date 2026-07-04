@@ -250,6 +250,17 @@ def riesgo(context: AssetExecutionContext) -> int:
     return result["municipios"]
 
 
+@asset(group_name="modelo", deps=[padron])
+def inflexiones(context: AssetExecutionContext) -> int:
+    """Puntos de inflexión de la serie de población (change points). Requiere 0024."""
+    from .loaders import load_inflexiones
+
+    result = load_inflexiones()
+    context.add_output_metadata(result)
+    context.log.info(f"inflexiones: {result}")
+    return result["municipios"]
+
+
 @asset(group_name="modelo", deps=[padron, renta_adrh])
 def lisa(context: AssetExecutionContext) -> int:
     """Hot spots LISA (Moran local) de crecimiento y renta. Requiere 0021."""

@@ -9,6 +9,7 @@ import {
   Hourglass,
   type LucideIcon,
   MapPinOff,
+  Milestone,
   Shapes,
   Siren,
   Sparkles,
@@ -79,6 +80,9 @@ export const ESCALAS: Record<
     // divergente RdBu: azul = sobre-rinde, rojo = bajo-rinde
     buckets: [[15, "#2166ac"], [5, "#67a9cf"], [-5, "#f7f7f7"], [-15, "#ef8a62"], [-1000, "#b2182b"]],
   },
+  inflexion: {
+    endpoint: "inflexion.geojson", etiqueta: "Punto de inflexión", icono: Milestone, titulo: "¿Cómo cambió la tendencia?", campo: "tipo", sufijo: "", categorico: true, buckets: [],
+  },
   prediccion: {
     endpoint: "prediccion.geojson", etiqueta: "Predicción ML", icono: Sparkles, titulo: "Cambio a 2028", campo: "cambio_pct", sufijo: "%",
     buckets: FUT_BUCKETS,
@@ -114,10 +118,29 @@ export const LISA_LEYENDA = [
   { color: "#e8e8e8", label: "No significativo" },
 ];
 
+// colores del tipo de giro (verde = mejora la trayectoria, rojo = empeora)
+export const INFLEXION_COLORES: Record<string, string> = {
+  remonta: "#1a9850",
+  acelera: "#66bd63",
+  "frena caída": "#a6d96a",
+  frena: "#fee08b",
+  "acelera caída": "#d73027",
+  "se hunde": "#f46d43",
+};
+export const INFLEXION_LEYENDA = [
+  { color: "#1a9850", label: "Remonta (caía y sube)" },
+  { color: "#66bd63", label: "Acelera crecimiento" },
+  { color: "#a6d96a", label: "Frena la caída" },
+  { color: "#fee08b", label: "Frena crecimiento" },
+  { color: "#f46d43", label: "Se hunde (subía y cae)" },
+  { color: "#d73027", label: "Acelera la caída" },
+  { color: "#e8e8e8", label: "Sin inflexión clara" },
+];
+
 // agrupación de modos para la sidebar
 export const GRUPOS_MODOS: { titulo: string; modos: Modo[] }[] = [
   { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "servicios", "aislamiento", "clima", "envejecimiento"] },
-  { titulo: "Síntesis", modos: ["indice", "arquetipos", "rendimiento", "lisa_crecimiento", "lisa_renta"] },
+  { titulo: "Síntesis", modos: ["indice", "arquetipos", "rendimiento", "inflexion", "lisa_crecimiento", "lisa_renta"] },
   { titulo: "Futuro", modos: ["prediccion", "riesgo", "futuro", "futuro_cohorte"] },
 ];
 
@@ -177,6 +200,11 @@ export function tooltip(modo: Modo, p: GeoJsonProperties, pesos?: Pesos): string
     const etiqueta = cat === "ns" ? "no significativo" : cat;
     const unidad = modo === "lisa_renta" ? " €" : "%";
     return `${props.nombre}: ${etiqueta} · valor ${props.valor ?? "—"}${unidad} (p=${props.p ?? "—"})`;
+  }
+  if (modo === "inflexion") {
+    const tipo = props.tipo as string | null;
+    if (!tipo) return `${props.nombre}: sin inflexión clara`;
+    return `${props.nombre}: ${tipo} en ${props.anio_inflexion} (${props.pend_antes}→${props.pend_despues} hab/año)`;
   }
   if (modo === "prediccion") {
     const c = props.cambio_pct;
