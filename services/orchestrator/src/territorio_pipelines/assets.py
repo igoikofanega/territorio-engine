@@ -264,6 +264,17 @@ def riesgo(context: AssetExecutionContext) -> int:
     return result["municipios"]
 
 
+@asset(group_name="modelo", deps=[padron, mnp])
+def demografia(context: AssetExecutionContext) -> int:
+    """Descomposición vegetativo vs migratorio del cambio de población. Requiere 0026."""
+    from .loaders import load_demografia
+
+    result = load_demografia()
+    context.add_output_metadata(result)
+    context.log.info(f"demografia: {result}")
+    return result["municipios"]
+
+
 @asset(group_name="modelo", deps=[padron])
 def inflexiones(context: AssetExecutionContext) -> int:
     """Puntos de inflexión de la serie de población (change points). Requiere 0024."""

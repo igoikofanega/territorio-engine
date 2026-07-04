@@ -142,6 +142,19 @@ class MunicipioServicios(Base):
     n_total = Column(Integer)
 
 
+class DemografiaMunicipio(Base):
+    """Descomposición del cambio de población 2015-2024 en vegetativo y migratorio."""
+
+    __tablename__ = "demografia_municipio"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    saldo_vegetativo = Column(Integer)
+    saldo_migratorio = Column(Integer)
+    cambio_total = Column(Integer)
+    dominante = Column(String(12))
+    tipo = Column(String(32))
+
+
 class InflexionMunicipio(Base):
     """Punto de inflexión de la serie de población: el año en que el pueblo se dio la vuelta."""
 

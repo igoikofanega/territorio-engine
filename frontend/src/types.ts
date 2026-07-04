@@ -7,10 +7,13 @@ export type Modo =
   | "extranjeros"
   | "servicios"
   | "clima"
+  | "sol"
+  | "frio"
   | "envejecimiento"
   | "arquetipos"
   | "rendimiento"
   | "inflexion"
+  | "demografia"
   | "aislamiento"
   | "lisa_crecimiento"
   | "lisa_renta"
@@ -95,7 +98,23 @@ export type FichaData = {
     tipo: string;
     magnitud: number | null;
   } | null;
+  demografia: {
+    saldo_vegetativo: number | null;
+    saldo_migratorio: number | null;
+    cambio_total: number | null;
+    dominante: string | null;
+    tipo: string;
+  } | null;
   aislamiento: { km_salud: number | null; km_educacion: number | null; km_capital: number | null } | null;
+  clima: {
+    temp: number | null;
+    precip: number | null;
+    temp_max_media: number | null;
+    temp_min_media: number | null;
+    temp_min_abs: number | null;
+    dias_despejados: number | null;
+    humedad_media: number | null;
+  } | null;
   similares: { cod: string; nombre: string; provincia: string }[];
 };
 

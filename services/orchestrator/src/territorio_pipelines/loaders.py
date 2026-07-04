@@ -547,6 +547,28 @@ def load_inflexiones() -> dict:
     return {"municipios": len(recs)}
 
 
+_INSERT_DEMOGRAFIA = text("""
+INSERT INTO demografia_municipio
+    (cod_municipio, saldo_vegetativo, saldo_migratorio, cambio_total, dominante, tipo)
+VALUES (:cod, :saldo_vegetativo, :saldo_migratorio, :cambio_total, :dominante, :tipo)
+ON CONFLICT (cod_municipio) DO UPDATE SET
+    saldo_vegetativo = EXCLUDED.saldo_vegetativo, saldo_migratorio = EXCLUDED.saldo_migratorio,
+    cambio_total = EXCLUDED.cambio_total, dominante = EXCLUDED.dominante, tipo = EXCLUDED.tipo
+""")
+
+
+def load_demografia() -> dict:
+    """Descomposición vegetativo/migratorio del cambio de población → demografia_municipio."""
+    from .ml.demografia import calcular_demografia
+
+    recs = calcular_demografia(engine)
+    with engine.begin() as conn:
+        conn.execute(text("DELETE FROM demografia_municipio"))
+        if recs:
+            conn.execute(_INSERT_DEMOGRAFIA, recs)
+    return {"municipios": len(recs)}
+
+
 _INSERT_LISA = text("""
 INSERT INTO lisa_municipio (cod_municipio, variable, valor, categoria, p)
 VALUES (:cod, :variable, :valor, :categoria, :p)

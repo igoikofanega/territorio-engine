@@ -759,6 +759,42 @@ async def rendimiento(prov: str | None = None) -> dict:
     }
 
 
+@app.get("/demografia.geojson")
+async def demografia(prov: str | None = None) -> dict:
+    """Descomposición vegetativo vs migratorio del cambio de población 2015-2024."""
+    where = "WHERE d.cod_provincia = :prov" if prov else ""
+    sql = text(f"""
+        SELECT d.cod_municipio, d.nombre,
+               x.saldo_vegetativo, x.saldo_migratorio, x.cambio_total, x.dominante, x.tipo,
+               ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
+        FROM dim_municipio d
+        LEFT JOIN demografia_municipio x ON x.cod_municipio = d.cod_municipio
+        {where}
+        ORDER BY d.cod_municipio
+    """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
+    async with engine.connect() as conn:
+        rows = (await conn.execute(sql, {"prov": prov} if prov else {})).all()
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "cod_municipio": r.cod_municipio,
+                    "nombre": r.nombre,
+                    "saldo_vegetativo": r.saldo_vegetativo,
+                    "saldo_migratorio": r.saldo_migratorio,
+                    "cambio_total": r.cambio_total,
+                    "dominante": r.dominante,
+                    "tipo": r.tipo,
+                },
+                "geometry": r.geom,
+            }
+            for r in rows
+        ],
+    }
+
+
 @app.get("/inflexion.geojson")
 async def inflexion(prov: str | None = None) -> dict:
     """Punto de inflexión de la población: tipo de giro y año en que cambió la tendencia."""
@@ -863,6 +899,8 @@ async def clima(prov: str | None = None) -> dict:
         sql = text(f"""
             SELECT d.cod_municipio, d.nombre,
                    f.temp_media_anual AS temp, f.precip_anual_mm AS precip,
+                   f.temp_max_media, f.temp_min_media, f.temp_min_abs,
+                   f.dias_despejados, f.humedad_media,
                    ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
             FROM dim_municipio d
             LEFT JOIN fact_municipio_anual f
@@ -885,6 +923,11 @@ async def clima(prov: str | None = None) -> dict:
                     "nombre": r.nombre,
                     "temp": r.temp,
                     "precip": r.precip,
+                    "temp_max_media": r.temp_max_media,
+                    "temp_min_media": r.temp_min_media,
+                    "temp_min_abs": r.temp_min_abs,
+                    "dias_despejados": r.dias_despejados,
+                    "humedad_media": r.humedad_media,
                 },
                 "geometry": r.geom,
             }
@@ -1290,6 +1333,20 @@ async def municipio_ficha(cod: str) -> dict:
             )
         ).one_or_none()
 
+        clima_row = (
+            await conn.execute(
+                text("""
+                    SELECT temp_media_anual AS temp, precip_anual_mm AS precip,
+                           temp_max_media, temp_min_media, temp_min_abs,
+                           dias_despejados, humedad_media
+                    FROM fact_municipio_anual
+                    WHERE cod_municipio = :cod AND temp_media_anual IS NOT NULL
+                    ORDER BY anio DESC LIMIT 1
+                """),
+                {"cod": cod},
+            )
+        ).one_or_none()
+
         rend = (
             await conn.execute(
                 text("""
@@ -1305,6 +1362,16 @@ async def municipio_ficha(cod: str) -> dict:
                 text("""
                     SELECT anio_inflexion, pend_antes, pend_despues, tipo, magnitud
                     FROM inflexion_municipio WHERE cod_municipio = :cod
+                """),
+                {"cod": cod},
+            )
+        ).one_or_none()
+
+        demo = (
+            await conn.execute(
+                text("""
+                    SELECT saldo_vegetativo, saldo_migratorio, cambio_total, dominante, tipo
+                    FROM demografia_municipio WHERE cod_municipio = :cod
                 """),
                 {"cod": cod},
             )
@@ -1430,6 +1497,17 @@ async def municipio_ficha(cod: str) -> dict:
             if infl
             else None
         ),
+        "demografia": (
+            {
+                "saldo_vegetativo": demo.saldo_vegetativo,
+                "saldo_migratorio": demo.saldo_migratorio,
+                "cambio_total": demo.cambio_total,
+                "dominante": demo.dominante,
+                "tipo": demo.tipo,
+            }
+            if demo
+            else None
+        ),
         "rendimiento": (
             {"residuo": rend.residuo, "z": rend.z, "clasificacion": rend.clasificacion}
             if rend
@@ -1466,6 +1544,19 @@ async def municipio_ficha(cod: str) -> dict:
         "aislamiento": (
             {"km_salud": aisl.km_salud, "km_educacion": aisl.km_educacion, "km_capital": aisl.km_capital}
             if aisl
+            else None
+        ),
+        "clima": (
+            {
+                "temp": clima_row.temp,
+                "precip": clima_row.precip,
+                "temp_max_media": clima_row.temp_max_media,
+                "temp_min_media": clima_row.temp_min_media,
+                "temp_min_abs": clima_row.temp_min_abs,
+                "dias_despejados": clima_row.dias_despejados,
+                "humedad_media": clima_row.humedad_media,
+            }
+            if clima_row
             else None
         ),
         "similares": similares,

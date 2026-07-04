@@ -12,7 +12,7 @@ import Comparar from "./components/Comparar";
 import Dashboard from "./components/Dashboard";
 import Recomendador from "./components/Recomendador";
 import Sidebar from "./components/Sidebar";
-import { color, combinaCustom, ESCALAS, INFLEXION_COLORES, INFLEXION_LEYENDA, LISA_COLORES, LISA_LEYENDA, PALETA_CAT, PESOS_DEFECTO, tooltip } from "./escalas";
+import { color, combinaCustom, DEMOGRAFIA_COLORES, DEMOGRAFIA_LEYENDA, ESCALAS, INFLEXION_COLORES, INFLEXION_LEYENDA, LISA_COLORES, LISA_LEYENDA, PALETA_CAT, PESOS_DEFECTO, tooltip } from "./escalas";
 import { CLAVES_INDICE, type FichaData, type Modo, type Pesos, type Prov } from "./types";
 
 const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
@@ -87,6 +87,8 @@ export default function App() {
     ? LISA_LEYENDA
     : modo === "inflexion"
     ? INFLEXION_LEYENDA
+    : modo === "demografia"
+    ? DEMOGRAFIA_LEYENDA
     : esc.categorico && geo
       ? [...new Map(
           geo.features
@@ -105,6 +107,8 @@ export default function App() {
       fillColor = LISA_COLORES[(f?.properties?.categoria as string) ?? ""] ?? "#e2e8f0";
     } else if (modo === "inflexion") {
       fillColor = INFLEXION_COLORES[(f?.properties?.tipo as string) ?? ""] ?? "#e8e8e8";
+    } else if (modo === "demografia") {
+      fillColor = DEMOGRAFIA_COLORES[(f?.properties?.tipo as string) ?? ""] ?? "#e8e8e8";
     } else if (esc.categorico) {
       const c = f?.properties?.cluster as number | null;
       fillColor = c != null ? PALETA_CAT[c % PALETA_CAT.length] : "#e2e8f0";

@@ -12,8 +12,10 @@ import {
   Milestone,
   Shapes,
   Siren,
+  Snowflake,
   Sparkles,
   Store,
+  Sun,
   Target,
   TrendingUp,
   UsersRound,
@@ -70,6 +72,14 @@ export const ESCALAS: Record<
     endpoint: "aislamiento.geojson", etiqueta: "Aislamiento", icono: MapPinOff, titulo: "Km a sanidad", campo: "km_salud", sufijo: " km",
     buckets: [[20, "#54278f"], [10, "#756bb1"], [5, "#9e9ac8"], [2, "#cbc9e2"], [0, "#f2f0f7"]],
   },
+  sol: {
+    endpoint: "clima.geojson", etiqueta: "Días de sol", icono: Sun, titulo: "Días despejados/año", campo: "dias_despejados", sufijo: " días",
+    buckets: [[120, "#b30000"], [90, "#e34a33"], [60, "#fc8d59"], [40, "#fdcc8a"], [0, "#fef0d9"]],
+  },
+  frio: {
+    endpoint: "clima.geojson", etiqueta: "Frío invernal", icono: Snowflake, titulo: "Media de mínimas (°C)", campo: "temp_min_media", sufijo: " °C",
+    buckets: [[12, "#fee5d9"], [8, "#c6dbef"], [5, "#9ecae1"], [2, "#4292c6"], [-100, "#08519c"]],
+  },
   envejecimiento: {
     endpoint: "envejecimiento.geojson", etiqueta: "Envejecimiento", icono: Hourglass, titulo: "Índice envejec.", campo: "indice", sufijo: "", anios: "envejecimiento/anios",
     buckets: [[400, "#800026"], [200, "#bd0026"], [120, "#e31a1c"], [80, "#fc4e2a"], [40, "#feb24c"], [0, "#ffffb2"]],
@@ -87,6 +97,9 @@ export const ESCALAS: Record<
   },
   inflexion: {
     endpoint: "inflexion.geojson", etiqueta: "Punto de inflexión", icono: Milestone, titulo: "¿Cómo cambió la tendencia?", campo: "tipo", sufijo: "", categorico: true, buckets: [],
+  },
+  demografia: {
+    endpoint: "demografia.geojson", etiqueta: "Motor demográfico", icono: Baby, titulo: "¿Qué mueve la población?", campo: "tipo", sufijo: "", categorico: true, buckets: [],
   },
   prediccion: {
     endpoint: "prediccion.geojson", etiqueta: "Predicción ML", icono: Sparkles, titulo: "Cambio a 2028", campo: "cambio_pct", sufijo: "%",
@@ -142,10 +155,27 @@ export const INFLEXION_LEYENDA = [
   { color: "#e8e8e8", label: "Sin inflexión clara" },
 ];
 
+// motor demográfico: verde = crece, rojo = declive; morado = sostenido por migración
+export const DEMOGRAFIA_COLORES: Record<string, string> = {
+  "doble motor": "#1a9850",
+  "sostenido por migración": "#7b3294",
+  "migración frena la caída": "#c2a5cf",
+  "pierde por éxodo": "#fdae61",
+  "doble declive": "#d7191c",
+};
+export const DEMOGRAFIA_LEYENDA = [
+  { color: "#1a9850", label: "Doble motor (nace y llega gente)" },
+  { color: "#7b3294", label: "Sostenido por migración" },
+  { color: "#c2a5cf", label: "Migración frena la caída" },
+  { color: "#fdae61", label: "Pierde por éxodo" },
+  { color: "#d7191c", label: "Doble declive" },
+  { color: "#e8e8e8", label: "Sin datos" },
+];
+
 // agrupación de modos para la sidebar
 export const GRUPOS_MODOS: { titulo: string; modos: Modo[] }[] = [
-  { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "extranjeros", "servicios", "aislamiento", "clima", "envejecimiento"] },
-  { titulo: "Síntesis", modos: ["indice", "arquetipos", "rendimiento", "inflexion", "lisa_crecimiento", "lisa_renta"] },
+  { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "extranjeros", "servicios", "aislamiento", "clima", "sol", "frio", "envejecimiento"] },
+  { titulo: "Síntesis", modos: ["indice", "arquetipos", "rendimiento", "inflexion", "demografia", "lisa_crecimiento", "lisa_renta"] },
   { titulo: "Futuro", modos: ["prediccion", "riesgo", "futuro", "futuro_cohorte"] },
 ];
 
@@ -210,6 +240,12 @@ export function tooltip(modo: Modo, p: GeoJsonProperties, pesos?: Pesos): string
     const tipo = props.tipo as string | null;
     if (!tipo) return `${props.nombre}: sin inflexión clara`;
     return `${props.nombre}: ${tipo} en ${props.anio_inflexion} (${props.pend_antes}→${props.pend_despues} hab/año)`;
+  }
+  if (modo === "demografia") {
+    const tipo = props.tipo as string | null;
+    if (!tipo) return `${props.nombre}: sin datos`;
+    const veg = props.saldo_vegetativo as number, mig = props.saldo_migratorio as number;
+    return `${props.nombre}: ${tipo} · vegetativo ${veg >= 0 ? "+" : ""}${veg}, migratorio ${mig >= 0 ? "+" : ""}${mig}`;
   }
   if (modo === "prediccion") {
     const c = props.cambio_pct;

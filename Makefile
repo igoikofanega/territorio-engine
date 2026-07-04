@@ -101,3 +101,6 @@ riesgo: ## Semáforo de despoblación (probabilidad calibrada) → riesgo_munici
 
 inflexiones: ## Puntos de inflexión de la población (change points) → inflexion_municipio
 	docker compose run --rm orchestrator uv run dagster asset materialize --select inflexiones -m territorio_pipelines.definitions
+
+demografia: ## Descomposición vegetativo vs migratorio → demografia_municipio
+	docker compose run --rm orchestrator uv run dagster asset materialize --select demografia -m territorio_pipelines.definitions

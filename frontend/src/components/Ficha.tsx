@@ -261,6 +261,24 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
           </>
         )}
 
+        {ficha.demografia && (
+          <>
+            <h3>Motor demográfico (2015-2024)</h3>
+            <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.5 }}>
+              <strong style={{ color: "var(--text)", textTransform: "capitalize" }}>{ficha.demografia.tipo}</strong>.{" "}
+              Saldo vegetativo{" "}
+              <strong style={{ color: (ficha.demografia.saldo_vegetativo ?? 0) >= 0 ? "#15803d" : "#b91c1c" }}>
+                {(ficha.demografia.saldo_vegetativo ?? 0) >= 0 ? "+" : ""}{(ficha.demografia.saldo_vegetativo ?? 0).toLocaleString("es")}
+              </strong>{" "}
+              (nac−def), migratorio{" "}
+              <strong style={{ color: (ficha.demografia.saldo_migratorio ?? 0) >= 0 ? "#15803d" : "#b91c1c" }}>
+                {(ficha.demografia.saldo_migratorio ?? 0) >= 0 ? "+" : ""}{(ficha.demografia.saldo_migratorio ?? 0).toLocaleString("es")}
+              </strong>.
+              <div style={{ fontSize: 10, marginTop: 3, opacity: 0.8 }}>Vegetativo estimado con tasas provinciales.</div>
+            </div>
+          </>
+        )}
+
         {(ficha.rendimiento?.residuo != null || ficha.gemelo) && (
           <>
             <h3>Contra pronóstico</h3>
@@ -321,6 +339,21 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
             Sanidad más cercana a {ficha.aislamiento.km_salud} km
             {ficha.aislamiento.km_capital != null && <> · capital a {ficha.aislamiento.km_capital} km</>}
           </div>
+        )}
+
+        {ficha.clima && ficha.clima.temp != null && (
+          <>
+            <h3>Clima</h3>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", fontSize: 12, color: "var(--text-2)" }}>
+              <span>🌡️ {ficha.clima.temp} °C media</span>
+              {ficha.clima.temp_max_media != null && ficha.clima.temp_min_media != null && (
+                <span>({ficha.clima.temp_min_media}–{ficha.clima.temp_max_media} °C)</span>
+              )}
+              {ficha.clima.dias_despejados != null && <span>☀️ {ficha.clima.dias_despejados} días despejados</span>}
+              {ficha.clima.precip != null && <span>🌧️ {ficha.clima.precip} mm/año</span>}
+              {ficha.clima.humedad_media != null && <span>💧 {ficha.clima.humedad_media}% hum.</span>}
+            </div>
+          </>
         )}
 
         {ficha.arquetipo && (
