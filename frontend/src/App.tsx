@@ -8,6 +8,7 @@ import { GeoJSON, MapContainer, ScaleControl, TileLayer, useMap, ZoomControl } f
 
 import Ficha from "./components/Ficha";
 import Leyenda from "./components/Leyenda";
+import Comparar from "./components/Comparar";
 import Recomendador from "./components/Recomendador";
 import Sidebar from "./components/Sidebar";
 import { color, combinaCustom, ESCALAS, INFLEXION_COLORES, INFLEXION_LEYENDA, LISA_COLORES, LISA_LEYENDA, PALETA_CAT, PESOS_DEFECTO, tooltip } from "./escalas";
@@ -39,6 +40,7 @@ export default function App() {
   const [pesos, setPesos] = useState<Pesos>(PESOS_DEFECTO);
   const [sidebarAbierta, setSidebarAbierta] = useState(true);
   const [recomendadorAbierto, setRecomendadorAbierto] = useState(false);
+  const [compararAbierto, setCompararAbierto] = useState(false);
   const esc = ESCALAS[modo];
 
   useEffect(() => {
@@ -132,6 +134,7 @@ export default function App() {
           onSelectMunicipio={setCodSel}
           onColapsar={() => setSidebarAbierta(false)}
           onRecomendador={() => setRecomendadorAbierto((v) => !v)}
+          onComparar={() => setCompararAbierto(true)}
           nMunicipios={geo?.features.length ?? null}
           error={error}
         />
@@ -189,6 +192,9 @@ export default function App() {
             onSelect={(c) => setCodSel(c)}
             onClose={() => setRecomendadorAbierto(false)}
           />
+        )}
+        {compararAbierto && (
+          <Comparar codA={codSel} codB={null} onClose={() => setCompararAbierto(false)} />
         )}
         {codSel && (
           <Ficha

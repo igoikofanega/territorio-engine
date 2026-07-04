@@ -1,4 +1,4 @@
-import { PanelLeftClose, Wand2 } from "lucide-react";
+import { GitCompareArrows, PanelLeftClose, Wand2 } from "lucide-react";
 
 import { ESCALAS, GRUPOS_MODOS } from "../escalas";
 import type { Modo, Pesos, Prov } from "../types";
@@ -19,6 +19,7 @@ export default function Sidebar({
   onSelectMunicipio,
   onColapsar,
   onRecomendador,
+  onComparar,
   nMunicipios,
   error,
 }: {
@@ -35,6 +36,7 @@ export default function Sidebar({
   onSelectMunicipio: (cod: string) => void;
   onColapsar: () => void;
   onRecomendador: () => void;
+  onComparar: () => void;
   nMunicipios: number | null;
   error: string | null;
 }) {
@@ -59,6 +61,14 @@ export default function Sidebar({
       >
         <Wand2 size={14} strokeWidth={2} />
         ¿Dónde debería vivir yo?
+      </button>
+
+      <button
+        onClick={onComparar}
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 6, width: "100%", padding: "6px 0", border: "1px solid var(--border)", borderRadius: 6, background: "white", color: "var(--text)", fontWeight: 500, fontSize: 12, cursor: "pointer", marginTop: -6 }}
+      >
+        <GitCompareArrows size={14} strokeWidth={1.75} />
+        Comparar municipios
       </button>
 
       <div style={{ display: "flex", gap: 8 }}>
