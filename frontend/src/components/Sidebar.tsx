@@ -1,4 +1,4 @@
-import { GitCompareArrows, PanelLeftClose, Wand2 } from "lucide-react";
+import { GitCompareArrows, LayoutDashboard, Map as MapIcon, PanelLeftClose, Wand2 } from "lucide-react";
 
 import { ESCALAS, GRUPOS_MODOS } from "../escalas";
 import type { Modo, Pesos, Prov } from "../types";
@@ -20,6 +20,8 @@ export default function Sidebar({
   onColapsar,
   onRecomendador,
   onComparar,
+  vista,
+  onVista,
   nMunicipios,
   error,
 }: {
@@ -37,6 +39,8 @@ export default function Sidebar({
   onColapsar: () => void;
   onRecomendador: () => void;
   onComparar: () => void;
+  vista: "mapa" | "resumen";
+  onVista: (v: "mapa" | "resumen") => void;
   nMunicipios: number | null;
   error: string | null;
 }) {
@@ -77,11 +81,25 @@ export default function Sidebar({
             <option key={p.cod} value={p.cod}>{p.nombre}</option>
           ))}
         </select>
-        {esc.anios && (
+        {esc.anios && vista === "mapa" && (
           <select className="input" style={{ width: 90, flexShrink: 0 }} value={anioSel ?? ""} onChange={(e) => onAnio(Number(e.target.value))}>
             {anios.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         )}
+      </div>
+
+      {/* conmutador de vista: mapa coroplético ↔ resumen agregado */}
+      <div style={{ display: "flex", gap: 4, padding: 3, background: "var(--bg)", borderRadius: 8 }}>
+        {([["mapa", "Mapa", MapIcon], ["resumen", "Resumen", LayoutDashboard]] as const).map(([v, label, Ic]) => (
+          <button
+            key={v}
+            onClick={() => onVista(v)}
+            style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: 5, padding: "6px 0", border: 0, borderRadius: 6, cursor: "pointer", fontSize: 12, fontWeight: 600, background: vista === v ? "white" : "transparent", color: vista === v ? "var(--accent)" : "var(--text-2)", boxShadow: vista === v ? "var(--shadow)" : "none" }}
+          >
+            <Ic size={14} strokeWidth={1.75} />
+            {label}
+          </button>
+        ))}
       </div>
 
       <nav>

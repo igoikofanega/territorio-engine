@@ -55,6 +55,145 @@ async def provincias() -> list[dict]:
     ]
 
 
+@app.get("/resumen")
+async def resumen(prov: str | None = None) -> dict:
+    """Panel-resumen (España o una provincia): agregados, rankings y distribución."""
+    filtro = "WHERE d.cod_provincia = :prov" if prov else ""
+    p = {"prov": prov} if prov else {}
+
+    async def top(orden: str, extra_join: str = "", extra_where: str = "", campo: str = "") -> list:
+        sel = f", {campo}" if campo else ""
+        sql = text(f"""
+            SELECT d.cod_municipio AS cod, d.nombre {sel}
+            FROM dim_municipio d {extra_join}
+            {filtro} {("AND " + extra_where) if (filtro and extra_where) else (("WHERE " + extra_where) if extra_where else "")}
+            ORDER BY {orden} LIMIT 6
+        """)  # noqa: S608 — fragmentos literales fijos, `prov` va parametrizado
+        async with engine.connect() as conn:
+            return (await conn.execute(sql, p)).all()
+
+    anio_idx = "(SELECT max(anio) FROM indice_municipio)"
+    async with engine.connect() as conn:
+        agg = (
+            await conn.execute(
+                text(f"""
+                    SELECT count(*) AS n,
+                           sum(f.poblacion_total) AS pob,
+                           round(avg(i.score)::numeric, 1) AS indice_medio
+                    FROM dim_municipio d
+                    LEFT JOIN indice_municipio i
+                           ON i.cod_municipio = d.cod_municipio AND i.anio = {anio_idx}
+                    LEFT JOIN fact_municipio_anual f
+                           ON f.cod_municipio = d.cod_municipio
+                          AND f.anio = (SELECT max(anio) FROM fact_municipio_anual
+                                        WHERE poblacion_total IS NOT NULL)
+                    {filtro}
+                """),  # noqa: S608
+                p,
+            )
+        ).one()
+        ext_medio = (
+            await conn.execute(
+                text(f"""
+                    SELECT round(avg(f.pct_extranjeros)::numeric, 1) AS m
+                    FROM fact_municipio_anual f JOIN dim_municipio d USING (cod_municipio)
+                    WHERE f.anio = (SELECT max(anio) FROM fact_municipio_anual
+                                    WHERE pct_extranjeros IS NOT NULL)
+                    {("AND d.cod_provincia = :prov") if prov else ""}
+                """),  # noqa: S608
+                p,
+            )
+        ).scalar_one_or_none()
+        riesgo = dict(
+            (r.nivel, r.n)
+            for r in (
+                await conn.execute(
+                    text(f"""
+                        SELECT r.nivel, count(*) AS n
+                        FROM riesgo_municipio r JOIN dim_municipio d USING (cod_municipio)
+                        {filtro} GROUP BY r.nivel
+                    """),  # noqa: S608
+                    p,
+                )
+            ).all()
+        )
+        giros = dict(
+            (r.tipo, r.n)
+            for r in (
+                await conn.execute(
+                    text(f"""
+                        SELECT i.tipo, count(*) AS n
+                        FROM inflexion_municipio i JOIN dim_municipio d USING (cod_municipio)
+                        {filtro} GROUP BY i.tipo
+                    """),  # noqa: S608
+                    p,
+                )
+            ).all()
+        )
+        # distribución del índice en tramos de 20
+        dist = (
+            await conn.execute(
+                text(f"""
+                    SELECT width_bucket(i.score, 0, 100, 5) AS tramo, count(*) AS n
+                    FROM indice_municipio i JOIN dim_municipio d USING (cod_municipio)
+                    WHERE i.anio = {anio_idx} {("AND d.cod_provincia = :prov") if prov else ""}
+                    GROUP BY tramo ORDER BY tramo
+                """),  # noqa: S608
+                p,
+            )
+        ).all()
+
+    def fmt(rows, campo):
+        return [
+            {"cod": r.cod, "nombre": r.nombre, "valor": getattr(r, campo)}
+            for r in rows
+            if getattr(r, campo) is not None
+        ][:5]
+
+    join_i = f"JOIN indice_municipio i ON i.cod_municipio = d.cod_municipio AND i.anio = {anio_idx}"
+    mejor_indice = await top("i.score DESC NULLS LAST", join_i, campo="i.score AS score")
+    peor_riesgo = await top(
+        "r.prob DESC NULLS LAST",
+        "JOIN riesgo_municipio r ON r.cod_municipio = d.cod_municipio",
+        campo="r.prob AS prob",
+    )
+    mas_crecen = await top(
+        "p.cambio_pct DESC NULLS LAST",
+        "JOIN prediccion_ml p ON p.cod_municipio = d.cod_municipio",
+        campo="p.cambio_pct AS cambio",
+    )
+    remontan = await top(
+        "inf.magnitud DESC NULLS LAST",
+        "JOIN inflexion_municipio inf ON inf.cod_municipio = d.cod_municipio",
+        "inf.tipo = 'remonta'",
+        campo="inf.anio_inflexion AS anio",
+    )
+
+    return {
+        "ambito": PROVINCIAS.get(prov, prov) if prov else "España",
+        "n_municipios": agg.n,
+        "poblacion": agg.pob,
+        "indice_medio": float(agg.indice_medio) if agg.indice_medio is not None else None,
+        "extranjeros_medio": float(ext_medio) if ext_medio is not None else None,
+        "riesgo": {k: riesgo.get(k, 0) for k in ("verde", "ambar", "rojo")},
+        "giros": {
+            "remonta": giros.get("remonta", 0),
+            "se_hunde": giros.get("se hunde", 0) + giros.get("acelera caída", 0),
+        },
+        "distribucion_indice": [{"tramo": r.tramo, "n": r.n} for r in dist if r.tramo],
+        "rankings": {
+            "mejor_indice": fmt(mejor_indice, "score"),
+            "mayor_riesgo": [
+                {"cod": r.cod, "nombre": r.nombre, "valor": round(r.prob * 100, 1)}
+                for r in peor_riesgo
+                if r.prob is not None
+            ][:5],
+            "mas_crecen": fmt(mas_crecen, "cambio"),
+            "remontan": fmt(remontan, "anio"),
+        },
+    }
+
+
 @app.get("/municipios/count")
 async def municipios_count() -> dict[str, int]:
     async with engine.connect() as conn:

@@ -9,6 +9,7 @@ import { GeoJSON, MapContainer, ScaleControl, TileLayer, useMap, ZoomControl } f
 import Ficha from "./components/Ficha";
 import Leyenda from "./components/Leyenda";
 import Comparar from "./components/Comparar";
+import Dashboard from "./components/Dashboard";
 import Recomendador from "./components/Recomendador";
 import Sidebar from "./components/Sidebar";
 import { color, combinaCustom, ESCALAS, INFLEXION_COLORES, INFLEXION_LEYENDA, LISA_COLORES, LISA_LEYENDA, PALETA_CAT, PESOS_DEFECTO, tooltip } from "./escalas";
@@ -41,6 +42,7 @@ export default function App() {
   const [sidebarAbierta, setSidebarAbierta] = useState(true);
   const [recomendadorAbierto, setRecomendadorAbierto] = useState(false);
   const [compararAbierto, setCompararAbierto] = useState(false);
+  const [vista, setVista] = useState<"mapa" | "resumen">("mapa");
   const esc = ESCALAS[modo];
 
   useEffect(() => {
@@ -135,6 +137,8 @@ export default function App() {
           onColapsar={() => setSidebarAbierta(false)}
           onRecomendador={() => setRecomendadorAbierto((v) => !v)}
           onComparar={() => setCompararAbierto(true)}
+          vista={vista}
+          onVista={setVista}
           nMunicipios={geo?.features.length ?? null}
           error={error}
         />
@@ -150,6 +154,13 @@ export default function App() {
             <PanelLeftOpen size={16} strokeWidth={1.75} />
           </button>
         )}
+        {vista === "resumen" ? (
+          <Dashboard
+            prov={prov}
+            ambitoNombre={provincias.find((p) => p.cod === prov)?.nombre ?? "España"}
+            onSelect={(c) => { setVista("mapa"); setCodSel(c); }}
+          />
+        ) : (
         <MapContainer center={[42.0, -4.5]} zoom={9} style={{ height: "100%" }} zoomControl={false}>
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
@@ -186,6 +197,7 @@ export default function App() {
             nota={modo === "indice" && pesosDirty ? "pesos ajustados" : null}
           />
         </MapContainer>
+        )}
         {recomendadorAbierto && (
           <Recomendador
             pesos={pesos}
