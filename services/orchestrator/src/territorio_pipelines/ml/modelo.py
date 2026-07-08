@@ -42,6 +42,9 @@ ETIQUETAS = {
     "crec_prev3": "tendencia",
     "km_salud": "sanidad lejos",
     "km_capital": "lejanía",
+    "dias_despejados": "sol",
+    "temp_min_media": "frío",
+    "pct_extranjeros": "inmigración",
 }
 
 

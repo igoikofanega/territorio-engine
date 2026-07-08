@@ -28,6 +28,9 @@ FEATURES = [
     "crec_prev3",
     "km_salud",
     "km_capital",
+    "dias_despejados",
+    "temp_min_media",
+    "pct_extranjeros",
 ]
 TARGET = "target"
 HORIZONTE = 5
@@ -54,9 +57,18 @@ def _leer(engine: Engine) -> dict[str, pd.DataFrame]:
         "SELECT cod_provincia, anio, tasa_natalidad, tasa_mortalidad FROM fact_provincia_anual",
         engine,
     )
+    # clima y % extranjeros se tratan como atributos casi-estáticos del municipio (se toma
+    # el valor más reciente disponible y se aplica a todos los años base, como ya se hacía
+    # con temp/precip). Así el modelo puede usarlos también en el año de predicción.
     clima = pd.read_sql(
-        "SELECT cod_municipio AS cod, temp_media_anual AS temp, precip_anual_mm AS precip "
-        "FROM fact_municipio_anual WHERE anio = 2022",
+        "SELECT cod_municipio AS cod, temp_media_anual AS temp, precip_anual_mm AS precip, "
+        "dias_despejados, temp_min_media FROM fact_municipio_anual WHERE anio = 2022",
+        engine,
+    )
+    ext = pd.read_sql(
+        "SELECT DISTINCT ON (cod_municipio) cod_municipio AS cod, pct_extranjeros "
+        "FROM fact_municipio_anual WHERE pct_extranjeros IS NOT NULL "
+        "ORDER BY cod_municipio, anio DESC",
         engine,
     )
     try:
@@ -66,7 +78,10 @@ def _leer(engine: Engine) -> dict[str, pd.DataFrame]:
         )
     except Exception:  # tabla aún no creada/cargada: features quedarán NaN
         aisl = pd.DataFrame(columns=["cod", "km_salud", "km_capital"])
-    return {"fma": fma, "dim": dim, "env": env, "prov": prov, "clima": clima, "aisl": aisl}
+    return {
+        "fma": fma, "dim": dim, "env": env, "prov": prov,
+        "clima": clima, "aisl": aisl, "ext": ext,
+    }
 
 
 def construir_dataset(
@@ -74,8 +89,8 @@ def construir_dataset(
 ) -> pd.DataFrame:
     """DataFrame con FEATURES + TARGET por (municipio, año base)."""
     d = _leer(engine)
-    fma, dim, env, prov, clima, aisl = (
-        d["fma"], d["dim"], d["env"], d["prov"], d["clima"], d["aisl"],
+    fma, dim, env, prov, clima, aisl, ext = (
+        d["fma"], d["dim"], d["env"], d["prov"], d["clima"], d["aisl"], d["ext"],
     )
     pop_wide = fma.pivot_table(index="cod", columns="anio", values="pob")
 
@@ -89,6 +104,7 @@ def construir_dataset(
         base = base.merge(env[env["anio"] == t][["cod", "envejecimiento"]], on="cod", how="left")
         base = base.merge(clima, on="cod", how="left")
         base = base.merge(aisl, on="cod", how="left")
+        base = base.merge(ext, on="cod", how="left")
         pr = prov[prov["anio"] == t][["cod_provincia", "tasa_natalidad", "tasa_mortalidad"]]
         base = base.merge(pr, on="cod_provincia", how="left")
 
