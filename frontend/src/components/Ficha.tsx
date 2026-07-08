@@ -342,6 +342,28 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
           </div>
         )}
 
+        {ficha.aire && ficha.aire.pm25 != null && (
+          <>
+            <h3>Calidad del aire</h3>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
+              <span
+                style={{
+                  width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
+                  background: ficha.aire.pm25 <= 5 ? "#16a34a" : ficha.aire.pm25 <= 10 ? "#f59e0b" : "#b91c1c",
+                }}
+              />
+              <span style={{ color: "var(--text-2)" }}>
+                PM2.5 <strong style={{ color: "var(--text)" }}>{ficha.aire.pm25} µg/m³</strong>
+                {ficha.aire.no2 != null && <> · NO₂ {ficha.aire.no2}</>}
+                {ficha.aire.pm10 != null && <> · PM10 {ficha.aire.pm10}</>}
+              </span>
+            </div>
+            <div style={{ fontSize: 10, color: "var(--text-2)", marginTop: 2 }}>
+              Guía OMS: PM2.5 ≤ 5 µg/m³ anual. Rejilla EEA 1 km (2025).
+            </div>
+          </>
+        )}
+
         {ficha.conectividad && ficha.conectividad.pct_fibra != null && (
           <>
             <h3>Conectividad</h3>

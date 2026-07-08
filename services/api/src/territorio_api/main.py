@@ -693,6 +693,40 @@ async def lisa(var: str = "crecimiento", prov: str | None = None) -> dict:
     }
 
 
+@app.get("/aire.geojson")
+async def aire(prov: str | None = None) -> dict:
+    """Calidad del aire por municipio (EEA interpolado): PM2.5, NO2, PM10, O3 (µg/m³)."""
+    where = "WHERE d.cod_provincia = :prov" if prov else ""
+    sql = text(f"""
+        SELECT d.cod_municipio, d.nombre, a.pm25, a.no2, a.pm10, a.o3,
+               ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
+        FROM dim_municipio d
+        LEFT JOIN municipio_aire a ON a.cod_municipio = d.cod_municipio
+        {where}
+        ORDER BY d.cod_municipio
+    """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
+    async with engine.connect() as conn:
+        rows = (await conn.execute(sql, {"prov": prov} if prov else {})).all()
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "cod_municipio": r.cod_municipio,
+                    "nombre": r.nombre,
+                    "pm25": r.pm25,
+                    "no2": r.no2,
+                    "pm10": r.pm10,
+                    "o3": r.o3,
+                },
+                "geometry": r.geom,
+            }
+            for r in rows
+        ],
+    }
+
+
 @app.get("/fibra.geojson")
 async def fibra(prov: str | None = None) -> dict:
     """Cobertura de banda ancha por municipio: % hogares con fibra (FTTH), ≥100 Mbps y 5G."""
@@ -1376,6 +1410,13 @@ async def municipio_ficha(cod: str) -> dict:
             )
         ).one_or_none()
 
+        aire_row = (
+            await conn.execute(
+                text("SELECT pm25, no2, pm10, o3 FROM municipio_aire WHERE cod_municipio = :cod"),
+                {"cod": cod},
+            )
+        ).one_or_none()
+
         clima_row = (
             await conn.execute(
                 text("""
@@ -1592,6 +1633,11 @@ async def municipio_ficha(cod: str) -> dict:
         "conectividad": (
             {"pct_fibra": conect.pct_fibra, "pct_100mbps": conect.pct_100mbps, "pct_5g": conect.pct_5g}
             if conect
+            else None
+        ),
+        "aire": (
+            {"pm25": aire_row.pm25, "no2": aire_row.no2, "pm10": aire_row.pm10, "o3": aire_row.o3}
+            if aire_row
             else None
         ),
         "clima": (

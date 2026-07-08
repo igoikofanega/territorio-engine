@@ -617,6 +617,31 @@ def load_lisa() -> dict[str, int]:
     return {"filas": total}
 
 
+_INSERT_AIRE = text("""
+INSERT INTO municipio_aire (cod_municipio, pm25, no2, pm10, o3)
+VALUES (:cod, :pm25, :no2, :pm10, :o3)
+ON CONFLICT (cod_municipio) DO UPDATE SET
+    pm25 = EXCLUDED.pm25, no2 = EXCLUDED.no2, pm10 = EXCLUDED.pm10, o3 = EXCLUDED.o3
+""")
+
+
+def load_aire(batch_size: int = 5000) -> dict[str, int]:
+    """Calidad del aire (rasters EEA muestreados en el centroide) → municipio_aire."""
+    from .sources import aire
+
+    munis = pd.read_sql(
+        "SELECT cod_municipio AS cod, ST_X(ST_Centroid(geom_4326)) AS lon, "
+        "ST_Y(ST_Centroid(geom_4326)) AS lat FROM dim_municipio",
+        engine,
+    )
+    centroides = list(munis.itertuples(index=False, name=None))
+    recs = list(aire.muestrear(centroides))
+    with engine.begin() as conn:
+        for i in range(0, len(recs), batch_size):
+            conn.execute(_INSERT_AIRE, recs[i : i + batch_size])
+    return {"municipios": len(recs)}
+
+
 def load_aislamiento() -> dict[str, int]:
     """Distancias (km) al servicio más cercano y a la capital → municipio_aislamiento.
 

@@ -43,6 +43,17 @@ def padron(context: AssetExecutionContext) -> int:
 
 
 @asset(group_name="fuentes")
+def aire(context: AssetExecutionContext) -> int:
+    """Calidad del aire (PM2.5, NO2, PM10, O3) muestreando rasters EEA. Requiere 0028."""
+    from .loaders import load_aire
+
+    result = load_aire()
+    context.add_output_metadata(result)
+    context.log.info(f"aire: {result}")
+    return result["municipios"]
+
+
+@asset(group_name="fuentes")
 def fibra(context: AssetExecutionContext) -> int:
     """Cobertura de banda ancha por municipio (SETELECO). Requiere 0027."""
     from .loaders import load_fibra

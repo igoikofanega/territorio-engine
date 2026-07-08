@@ -75,6 +75,9 @@ ingest-nacionalidad: ## Población extranjera y % por municipio (INE 33571) → 
 ingest-fibra: ## Cobertura de banda ancha (SETELECO) → municipio_conectividad
 	docker compose run --rm orchestrator uv run dagster asset materialize --select fibra -m territorio_pipelines.definitions
 
+ingest-aire: ## Calidad del aire (rasters EEA: PM2.5, NO2, PM10, O3) → municipio_aire
+	docker compose run --rm orchestrator uv run dagster asset materialize --select aire -m territorio_pipelines.definitions
+
 ingest-wikidata: ## Hechos Wikidata por municipio → municipio_wiki
 	docker compose run --rm orchestrator uv run dagster asset materialize --select wikidata -m territorio_pipelines.definitions
 

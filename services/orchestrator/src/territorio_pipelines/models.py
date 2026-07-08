@@ -190,6 +190,18 @@ class LisaMunicipio(Base):
     p = Column(Float)
 
 
+class MunicipioAire(Base):
+    """Calidad del aire por municipio (EEA, mapas interpolados): PM2.5, NO2, PM10, O3."""
+
+    __tablename__ = "municipio_aire"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    pm25 = Column(Float)
+    no2 = Column(Float)
+    pm10 = Column(Float)
+    o3 = Column(Float)
+
+
 class MunicipioConectividad(Base):
     """Cobertura de banda ancha por municipio (SETELECO): fibra, ≥100 Mbps y 5G."""
 

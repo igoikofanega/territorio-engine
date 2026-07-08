@@ -20,6 +20,8 @@ dependencies = [
     "mlflow>=2.17,<3",
     "libpysal>=4.9",
     "esda>=2.5",
+    "rasterio>=1.4",
+    "pyproj>=3.6",
 ]
 
 [dependency-groups]

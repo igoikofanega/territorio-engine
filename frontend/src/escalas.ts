@@ -18,6 +18,7 @@ import {
   Sun,
   Target,
   Wifi,
+  Wind,
   TrendingUp,
   UsersRound,
   Users,
@@ -64,6 +65,11 @@ export const ESCALAS: Record<
   fibra: {
     endpoint: "fibra.geojson", etiqueta: "Fibra / banda ancha", icono: Wifi, titulo: "% hogares con fibra (FTTH)", campo: "pct_fibra", sufijo: "%",
     buckets: [[95, "#08519c"], [80, "#3182bd"], [50, "#6baed6"], [20, "#bdd7e7"], [0, "#eff3ff"]],
+  },
+  aire: {
+    endpoint: "aire.geojson", etiqueta: "Calidad del aire", icono: Wind, titulo: "PM2.5 media anual (µg/m³)", campo: "pm25", sufijo: " µg/m³",
+    // más oscuro = más contaminación (referencia OMS: 5 µg/m³ anual)
+    buckets: [[15, "#7a0177"], [12, "#c51b8a"], [10, "#f768a1"], [7, "#fbb4b9"], [0, "#feebe2"]],
   },
   servicios: {
     endpoint: "servicios.geojson", etiqueta: "Servicios", icono: Store, titulo: "Servicios ‰ hab (OSM)", campo: "serv_1000", sufijo: "‰",
@@ -179,7 +185,7 @@ export const DEMOGRAFIA_LEYENDA = [
 
 // agrupación de modos para la sidebar
 export const GRUPOS_MODOS: { titulo: string; modos: Modo[] }[] = [
-  { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "extranjeros", "servicios", "fibra", "aislamiento", "clima", "sol", "frio", "envejecimiento"] },
+  { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "extranjeros", "servicios", "fibra", "aire", "aislamiento", "clima", "sol", "frio", "envejecimiento"] },
   { titulo: "Síntesis", modos: ["indice", "arquetipos", "rendimiento", "inflexion", "demografia", "lisa_crecimiento", "lisa_renta"] },
   { titulo: "Futuro", modos: ["prediccion", "riesgo", "futuro", "futuro_cohorte"] },
 ];
@@ -225,6 +231,9 @@ export function tooltip(modo: Modo, p: GeoJsonProperties, pesos?: Pesos): string
   }
   if (modo === "aislamiento") {
     return `${props.nombre}: sanidad a ${props.km_salud ?? "—"} km · educación a ${props.km_educacion ?? "—"} km · capital a ${props.km_capital ?? "—"} km`;
+  }
+  if (modo === "aire") {
+    return `${props.nombre}: PM2.5 ${props.pm25 ?? "—"} · NO₂ ${props.no2 ?? "—"} · PM10 ${props.pm10 ?? "—"} µg/m³`;
   }
   if (modo === "rendimiento") {
     const r = props.residuo as number | null;
