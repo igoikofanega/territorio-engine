@@ -9,6 +9,7 @@ import {
   Users,
   UsersRound,
   Wallet,
+  Wifi,
   X,
 } from "lucide-react";
 
@@ -339,6 +340,17 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
             Sanidad más cercana a {ficha.aislamiento.km_salud} km
             {ficha.aislamiento.km_capital != null && <> · capital a {ficha.aislamiento.km_capital} km</>}
           </div>
+        )}
+
+        {ficha.conectividad && ficha.conectividad.pct_fibra != null && (
+          <>
+            <h3>Conectividad</h3>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", fontSize: 12, color: "var(--text-2)" }}>
+              <span><Wifi size={12} strokeWidth={1.75} style={{ verticalAlign: "-1px" }} /> {ficha.conectividad.pct_fibra}% fibra</span>
+              {ficha.conectividad.pct_100mbps != null && <span>· {ficha.conectividad.pct_100mbps}% ≥100 Mbps</span>}
+              {ficha.conectividad.pct_5g != null && <span>· {ficha.conectividad.pct_5g}% 5G</span>}
+            </div>
+          </>
         )}
 
         {ficha.clima && ficha.clima.temp != null && (

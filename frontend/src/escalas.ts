@@ -17,6 +17,7 @@ import {
   Store,
   Sun,
   Target,
+  Wifi,
   TrendingUp,
   UsersRound,
   Users,
@@ -59,6 +60,10 @@ export const ESCALAS: Record<
   extranjeros: {
     endpoint: "extranjeros.geojson", etiqueta: "Extranjeros", icono: UsersRound, titulo: "% población extranjera", campo: "pct_extranjeros", sufijo: "%", anios: "extranjeros/anios",
     buckets: [[25, "#4a1486"], [15, "#6a51a3"], [10, "#807dba"], [5, "#bcbddc"], [0, "#f2f0f7"]],
+  },
+  fibra: {
+    endpoint: "fibra.geojson", etiqueta: "Fibra / banda ancha", icono: Wifi, titulo: "% hogares con fibra (FTTH)", campo: "pct_fibra", sufijo: "%",
+    buckets: [[95, "#08519c"], [80, "#3182bd"], [50, "#6baed6"], [20, "#bdd7e7"], [0, "#eff3ff"]],
   },
   servicios: {
     endpoint: "servicios.geojson", etiqueta: "Servicios", icono: Store, titulo: "Servicios ‰ hab (OSM)", campo: "serv_1000", sufijo: "‰",
@@ -174,7 +179,7 @@ export const DEMOGRAFIA_LEYENDA = [
 
 // agrupación de modos para la sidebar
 export const GRUPOS_MODOS: { titulo: string; modos: Modo[] }[] = [
-  { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "extranjeros", "servicios", "aislamiento", "clima", "sol", "frio", "envejecimiento"] },
+  { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "extranjeros", "servicios", "fibra", "aislamiento", "clima", "sol", "frio", "envejecimiento"] },
   { titulo: "Síntesis", modos: ["indice", "arquetipos", "rendimiento", "inflexion", "demografia", "lisa_crecimiento", "lisa_renta"] },
   { titulo: "Futuro", modos: ["prediccion", "riesgo", "futuro", "futuro_cohorte"] },
 ];

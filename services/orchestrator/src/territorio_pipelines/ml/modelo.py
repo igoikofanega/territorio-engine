@@ -45,6 +45,7 @@ ETIQUETAS = {
     "dias_despejados": "sol",
     "temp_min_media": "frío",
     "pct_extranjeros": "inmigración",
+    "pct_fibra": "fibra",
 }
 
 

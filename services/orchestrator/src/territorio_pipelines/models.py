@@ -190,6 +190,17 @@ class LisaMunicipio(Base):
     p = Column(Float)
 
 
+class MunicipioConectividad(Base):
+    """Cobertura de banda ancha por municipio (SETELECO): fibra, ≥100 Mbps y 5G."""
+
+    __tablename__ = "municipio_conectividad"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    pct_fibra = Column(Float)
+    pct_100mbps = Column(Float)
+    pct_5g = Column(Float)
+
+
 class MunicipioAislamiento(Base):
     """Distancias en km al servicio más cercano y a la capital de provincia (proxy)."""
 

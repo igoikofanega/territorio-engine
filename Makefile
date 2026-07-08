@@ -72,6 +72,9 @@ arquetipos: ## Clustering de municipios en arquetipos → arquetipo_municipio
 ingest-nacionalidad: ## Población extranjera y % por municipio (INE 33571) → fact_municipio_anual
 	docker compose run --rm orchestrator uv run dagster asset materialize --select nacionalidad -m territorio_pipelines.definitions
 
+ingest-fibra: ## Cobertura de banda ancha (SETELECO) → municipio_conectividad
+	docker compose run --rm orchestrator uv run dagster asset materialize --select fibra -m territorio_pipelines.definitions
+
 ingest-wikidata: ## Hechos Wikidata por municipio → municipio_wiki
 	docker compose run --rm orchestrator uv run dagster asset materialize --select wikidata -m territorio_pipelines.definitions
 

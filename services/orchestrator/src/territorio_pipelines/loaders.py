@@ -20,6 +20,7 @@ from .db import engine
 from .sources import (
     aemet,
     alquiler,
+    fibra,
     mnp,
     nacionalidad,
     osm,
@@ -515,6 +516,31 @@ ON CONFLICT (cod_municipio, anio) DO UPDATE SET
     poblacion_extranjera = EXCLUDED.poblacion_extranjera,
     pct_extranjeros = EXCLUDED.pct_extranjeros
 """)
+
+
+_INSERT_CONECTIVIDAD = text("""
+INSERT INTO municipio_conectividad (cod_municipio, pct_fibra, pct_100mbps, pct_5g)
+VALUES (:cod, :pct_fibra, :pct_100mbps, :pct_5g)
+ON CONFLICT (cod_municipio) DO UPDATE SET
+    pct_fibra = EXCLUDED.pct_fibra, pct_100mbps = EXCLUDED.pct_100mbps, pct_5g = EXCLUDED.pct_5g
+""")
+
+
+def load_fibra(path: Path, batch_size: int = 5000) -> dict[str, int]:
+    """Cobertura de banda ancha (SETELECO) → municipio_conectividad."""
+    batch: list[dict] = []
+    rows = 0
+    with engine.begin() as conn:
+        for rec in fibra.records(path):
+            batch.append(rec)
+            if len(batch) >= batch_size:
+                conn.execute(_INSERT_CONECTIVIDAD, batch)
+                rows += len(batch)
+                batch = []
+        if batch:
+            conn.execute(_INSERT_CONECTIVIDAD, batch)
+            rows += len(batch)
+    return {"municipios": rows}
 
 
 def load_nacionalidad(path: Path, batch_size: int = 5000) -> dict[str, int]:

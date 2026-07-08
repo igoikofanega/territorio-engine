@@ -6,6 +6,7 @@ export type Modo =
   | "paro"
   | "extranjeros"
   | "servicios"
+  | "fibra"
   | "clima"
   | "sol"
   | "frio"
@@ -106,6 +107,7 @@ export type FichaData = {
     tipo: string;
   } | null;
   aislamiento: { km_salud: number | null; km_educacion: number | null; km_capital: number | null } | null;
+  conectividad: { pct_fibra: number | null; pct_100mbps: number | null; pct_5g: number | null } | null;
   clima: {
     temp: number | null;
     precip: number | null;

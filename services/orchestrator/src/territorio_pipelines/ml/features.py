@@ -31,6 +31,7 @@ FEATURES = [
     "dias_despejados",
     "temp_min_media",
     "pct_extranjeros",
+    "pct_fibra",
 ]
 TARGET = "target"
 HORIZONTE = 5
@@ -78,9 +79,15 @@ def _leer(engine: Engine) -> dict[str, pd.DataFrame]:
         )
     except Exception:  # tabla aún no creada/cargada: features quedarán NaN
         aisl = pd.DataFrame(columns=["cod", "km_salud", "km_capital"])
+    try:
+        fib = pd.read_sql(
+            "SELECT cod_municipio AS cod, pct_fibra FROM municipio_conectividad", engine
+        )
+    except Exception:
+        fib = pd.DataFrame(columns=["cod", "pct_fibra"])
     return {
         "fma": fma, "dim": dim, "env": env, "prov": prov,
-        "clima": clima, "aisl": aisl, "ext": ext,
+        "clima": clima, "aisl": aisl, "ext": ext, "fib": fib,
     }
 
 
@@ -89,8 +96,8 @@ def construir_dataset(
 ) -> pd.DataFrame:
     """DataFrame con FEATURES + TARGET por (municipio, año base)."""
     d = _leer(engine)
-    fma, dim, env, prov, clima, aisl, ext = (
-        d["fma"], d["dim"], d["env"], d["prov"], d["clima"], d["aisl"], d["ext"],
+    fma, dim, env, prov, clima, aisl, ext, fib = (
+        d["fma"], d["dim"], d["env"], d["prov"], d["clima"], d["aisl"], d["ext"], d["fib"],
     )
     pop_wide = fma.pivot_table(index="cod", columns="anio", values="pob")
 
@@ -105,6 +112,7 @@ def construir_dataset(
         base = base.merge(clima, on="cod", how="left")
         base = base.merge(aisl, on="cod", how="left")
         base = base.merge(ext, on="cod", how="left")
+        base = base.merge(fib, on="cod", how="left")
         pr = prov[prov["anio"] == t][["cod_provincia", "tasa_natalidad", "tasa_mortalidad"]]
         base = base.merge(pr, on="cod_provincia", how="left")
 

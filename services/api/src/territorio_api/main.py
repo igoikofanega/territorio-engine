@@ -693,6 +693,39 @@ async def lisa(var: str = "crecimiento", prov: str | None = None) -> dict:
     }
 
 
+@app.get("/fibra.geojson")
+async def fibra(prov: str | None = None) -> dict:
+    """Cobertura de banda ancha por municipio: % hogares con fibra (FTTH), ≥100 Mbps y 5G."""
+    where = "WHERE d.cod_provincia = :prov" if prov else ""
+    sql = text(f"""
+        SELECT d.cod_municipio, d.nombre, c.pct_fibra, c.pct_100mbps, c.pct_5g,
+               ST_AsGeoJSON(ST_SimplifyPreserveTopology(d.geom_4326, 0.001))::json AS geom
+        FROM dim_municipio d
+        LEFT JOIN municipio_conectividad c ON c.cod_municipio = d.cod_municipio
+        {where}
+        ORDER BY d.cod_municipio
+    """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
+    async with engine.connect() as conn:
+        rows = (await conn.execute(sql, {"prov": prov} if prov else {})).all()
+    return {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": {
+                    "cod_municipio": r.cod_municipio,
+                    "nombre": r.nombre,
+                    "pct_fibra": r.pct_fibra,
+                    "pct_100mbps": r.pct_100mbps,
+                    "pct_5g": r.pct_5g,
+                },
+                "geometry": r.geom,
+            }
+            for r in rows
+        ],
+    }
+
+
 @app.get("/aislamiento.geojson")
 async def aislamiento(prov: str | None = None) -> dict:
     """Aislamiento: km al municipio con sanidad más cercano y a la capital de provincia."""
@@ -1333,6 +1366,16 @@ async def municipio_ficha(cod: str) -> dict:
             )
         ).one_or_none()
 
+        conect = (
+            await conn.execute(
+                text("""
+                    SELECT pct_fibra, pct_100mbps, pct_5g FROM municipio_conectividad
+                    WHERE cod_municipio = :cod
+                """),
+                {"cod": cod},
+            )
+        ).one_or_none()
+
         clima_row = (
             await conn.execute(
                 text("""
@@ -1544,6 +1587,11 @@ async def municipio_ficha(cod: str) -> dict:
         "aislamiento": (
             {"km_salud": aisl.km_salud, "km_educacion": aisl.km_educacion, "km_capital": aisl.km_capital}
             if aisl
+            else None
+        ),
+        "conectividad": (
+            {"pct_fibra": conect.pct_fibra, "pct_100mbps": conect.pct_100mbps, "pct_5g": conect.pct_5g}
+            if conect
             else None
         ),
         "clima": (

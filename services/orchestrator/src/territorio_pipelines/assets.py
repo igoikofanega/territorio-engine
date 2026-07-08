@@ -42,6 +42,20 @@ def padron(context: AssetExecutionContext) -> int:
     return result["filas"]
 
 
+@asset(group_name="fuentes")
+def fibra(context: AssetExecutionContext) -> int:
+    """Cobertura de banda ancha por municipio (SETELECO). Requiere 0027."""
+    from .loaders import load_fibra
+    from .sources.fibra import download_raw
+
+    path = download_raw()
+    context.log.info(f"Crudo aterrizado en {path}")
+    result = load_fibra(path)
+    context.add_output_metadata(result)
+    context.log.info(f"fibra: {result}")
+    return result["municipios"]
+
+
 @asset(group_name="fuentes", deps=[padron])
 def nacionalidad(context: AssetExecutionContext) -> int:
     """Población extranjera y % por municipio (INE 33571). Requiere 0025."""
