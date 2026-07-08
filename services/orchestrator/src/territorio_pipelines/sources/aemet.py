@@ -95,27 +95,40 @@ def estaciones(client: httpx.Client) -> list[dict]:
     return out
 
 
+# Campos del registro anual ("AAAA-13") que promediamos por estación. Clave interna → clave
+# AEMET. Se eligieron por cobertura real (sondeo): días despejados como proxy de sol
+# (inso/n_llu NO existen en este dataset), medias de máx/mín, extremo mínimo (heladas) y
+# humedad relativa. Todos pasan por `_num`, que limpia las anotaciones "valor(13/ago)".
+CAMPOS_ANUALES = {
+    "tm": "tm_mes",  # temperatura media anual
+    "prec": "p_mes",  # precipitación anual (mm)
+    "tm_max": "tm_max",  # media de las máximas
+    "tm_min": "tm_min",  # media de las mínimas
+    "ta_min": "ta_min",  # temperatura mínima absoluta (heladas)
+    "n_des": "n_des",  # días despejados al año (proxy de sol)
+    "hr": "hr",  # humedad relativa media (%)
+}
+
+
 def clima_estacion(
     client: httpx.Client, indicativo: str, ini: int = ANIO_INI, fin: int = ANIO_FIN
 ) -> dict | None:
-    """Temperatura media y precipitación, promediadas sobre los años disponibles."""
+    """Variables climáticas anuales por estación, promediadas sobre los años disponibles."""
     recs = _get2(
         client,
         f"/valores/climatologicos/mensualesanuales/datos/anioini/{ini}/aniofin/{fin}/estacion/{indicativo}",
     )
     if not recs:
         return None
-    tms, precs = [], []
+    acum: dict[str, list[float]] = {k: [] for k in CAMPOS_ANUALES}
     for r in recs:
         if not str(r.get("fecha", "")).endswith("-13"):  # solo el registro anual
             continue
-        tm, pr = _num(r.get("tm_mes")), _num(r.get("p_mes"))
-        if tm is not None:
-            tms.append(tm)
-        if pr is not None:
-            precs.append(pr)
-    tm = sum(tms) / len(tms) if tms else None
-    pr = sum(precs) / len(precs) if precs else None
-    if tm is None and pr is None:
+        for interna, aemet_key in CAMPOS_ANUALES.items():
+            v = _num(r.get(aemet_key))
+            if v is not None:
+                acum[interna].append(v)
+    out = {k: (sum(v) / len(v) if v else None) for k, v in acum.items()}
+    if all(v is None for v in out.values()):
         return None
-    return {"tm": tm, "prec": pr}
+    return out
