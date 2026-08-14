@@ -1,7 +1,12 @@
 # ADR 0001 — Alcance del MVP y disciplina
 
-- **Estado:** aceptado
+- **Estado:** aceptado, **superado parcialmente** por [ADR 0004](0004-alcance-y-arquitectura-reales.md)
 - **Fecha:** 2026-06-25
+
+> El alcance de este ADR se amplió de facto entre junio y agosto de 2026: hoy hay
+> 14 fuentes en vez de 6 y el modelo bandera es de gradient boosting, no el
+> cohorte-componente. El ADR 0004 registra qué cambió y por qué. Se conserva sin
+> reescribir: un ADR superado es información histórica, no un error.
 
 ## Contexto
 El dominio invita a un alcance enorme (location intelligence, riesgo climático, alt-data,

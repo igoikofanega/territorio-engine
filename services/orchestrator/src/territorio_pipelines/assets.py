@@ -1,8 +1,16 @@
 """Assets de Dagster que construyen la matriz municipio×año.
 
-Cada asset es un nodo del grafo de datos. De momento son STUBS: declaran la
-estructura y las dependencias del MVP. La lógica de ingesta se añadirá fuente a
-fuente (ver docs/matrix-spec.md). El asset `matriz_municipio_anual` es el objetivo.
+Cada asset es un nodo del grafo de datos y un envoltorio fino: la lógica vive en
+`sources/` (descarga y parseo) y `loaders.py` (carga en PostGIS).
+
+**Dónde ocurre la fusión.** No hay un asset que "funda" las fuentes: cada `load_*`
+hace UPSERT de sus columnas sobre la clave `(cod_municipio, anio)` de
+`fact_municipio_anual`. La matriz se construye por acumulación, no en un paso final.
+El diseño original preveía un asset `matriz_municipio_anual` que centralizase esa
+fusión; se eliminó al comprobar que era un stub que devolvía 0 mientras el trabajo
+real ya lo hacían los loaders. Ver docs/adr/0004-alcance-y-arquitectura-reales.md.
+
+Grupos: `dimensiones` (geometría) · `fuentes` (ingesta) · `modelo` (derivados y ML).
 """
 
 from dagster import AssetExecutionContext, asset
@@ -150,20 +158,6 @@ def paro_sepe(context: AssetExecutionContext) -> int:
     context.add_output_metadata(result)
     context.log.info(f"paro_sepe: {result}")
     return result["filas"]
-
-
-@asset(
-    group_name="matriz",
-    deps=[dim_municipio, padron, mnp, renta_adrh, paro_sepe],
-)
-def matriz_municipio_anual(context: AssetExecutionContext) -> int:
-    """Matriz unificada `(cod_municipio, anio)` — objetivo del MVP.
-
-    Funde las fuentes sobre la clave municipal. Alimenta a la API y al modelo
-    bandera (trayectoria poblacional por cohorte-componente).
-    """
-    context.log.info("STUB: fusión de fuentes → fact_municipio_anual (2015→).")
-    return 0
 
 
 @asset(group_name="modelo", deps=[padron])

@@ -17,8 +17,11 @@ con un volumen `raw/` como landing zone. Python con **uv**.
   es un asset derivado"; más ligero de operar en solitario.
 
 ## Reglas duras
-- JOIN espaciales **precalculados offline**; la API solo lee vistas materializadas
-  (particionadas por año).
+- JOIN espaciales **precalculados offline**; la API no calcula geometría en tiempo de
+  petición.
+  > **Nota (2026-08-14):** la redacción original exigía que la API leyese solo de vistas
+  > materializadas. Nunca llegaron a crearse y la regla se ha ajustado a lo que de verdad
+  > protegía. Ver [ADR 0004](0004-alcance-y-arquitectura-reales.md).
 - Crudo inmutable en `raw/` antes de transformar; validación de esquema entrante.
 
 ## Crece hacia

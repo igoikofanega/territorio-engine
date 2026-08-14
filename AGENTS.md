@@ -22,17 +22,25 @@ Alma: bien público / civic tech.
 4. **Honestidad sobre los datos.** Marca con flags lo imputado/enmascarado/estimado.
    `cod_municipio` es **texto de 5 dígitos** (ceros a la izquierda importan).
 
-## Arquitectura (topología MVP, 4 servicios)
+## Arquitectura (5 servicios)
 Ver detalle en [`docs/architecture.md`](docs/architecture.md).
 - **db** PostgreSQL+PostGIS · **api** FastAPI async (solo lectura) ·
-  **orchestrator** Dagster (escribe la matriz) · **frontend** React+Vite.
-- Regla dura: **los JOIN espaciales se precalculan offline** en pipelines; la API solo
-  lee de vistas materializadas. PostGIS no calcula geometría en tiempo de petición.
+  **orchestrator** Dagster (único que escribe) · **mlflow** tracking · **frontend** React+Vite.
+- Regla dura: **los JOIN espaciales se precalculan offline** en pipelines. La API no
+  calcula geometría en tiempo de petición: solo `ST_AsGeoJSON` sobre geometría ya
+  simplificada. (No hay vistas materializadas; ver [ADR 0004](docs/adr/0004-alcance-y-arquitectura-reales.md).)
 
 ## Modelo de datos
 Especificación completa en [`docs/matrix-spec.md`](docs/matrix-spec.md).
-Tablas: `dim_municipio` (SCD2, linaje INE), `fact_municipio_anual`, `fact_piramide`,
-`municipio_vecinos`. Grano de hechos: `(cod_municipio, anio)`, ventana **2015→**.
+21 tablas. Núcleo: `dim_municipio` (geometría; **aún no es SCD2**, deuda conocida),
+`fact_municipio_anual`, `fact_piramide`, `fact_provincia_anual`. El resto son atributos
+casi-estáticos (`municipio_*`) y salidas de modelo. Grano de hechos:
+`(cod_municipio, anio)`, ventana **2015→**. `municipio_vecinos` de la spec nunca se creó:
+LISA usa KNN sobre centroides.
+
+**Los años no se fijan a mano.** `calendario.py` los deriva de la cobertura real; la
+matriz contiene años a medio cargar (2026 tiene paro pero no población) y un `max(anio)`
+ingenuo produce datasets vacíos en silencio.
 
 ## Convenciones
 - **Python** 3.12, gestionado con **uv**. Lint/formato: **ruff** (`ruff.toml`). Layout
@@ -51,12 +59,15 @@ make logs    # logs                           make fmt    # formatea
 make hooks   # instala pre-commit
 ```
 
-## Alcance congelado (MVP)
-DENTRO: geometrías IGN · Padrón (población+pirámide) · MNP (nacimientos/defunciones) ·
-Atlas de Renta ADRH · Paro registrado SEPE · AEMET (clima). Modelo bandera:
-**cohorte-componente + suavizado espacial** de migración neta.
-FUERA de v1: SAE bayesiano, Kriging Universal, NDVI/Copernicus, SERPAVI, GDELT,
-sección censal como grano operativo, y el menú de cruces avanzados.
+## Alcance vigente
+**14 fuentes** y varias capas de ML. El alcance real lo documenta el README; el ADR 0001
+quedó superado y el [ADR 0004](docs/adr/0004-alcance-y-arquitectura-reales.md) registra
+qué cambió. Modelo bandera de facto: **HistGradientBoosting** con backtest temporal
+(el cohorte-componente se mantiene como contraste metodológico).
+
+Regla vigente para fuentes nuevas: basta con registrarlas en `NOTICE` (licencia) y en el
+README. **Solo requieren ADR** si cambian el grano, añaden un servicio o meten una
+dependencia pesada.
 
 ## ponytail
 La disciplina de código mínimo la refuerza el plugin **ponytail** (instálalo aparte:

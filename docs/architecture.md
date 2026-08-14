@@ -8,10 +8,10 @@
         └──────┬───────┘
                │ HTTP
         ┌──────▼───────┐   FastAPI + async SQLAlchemy + asyncpg
-        │     api      │   :8000 — SOLO lectura de vistas materializadas
+        │     api      │   :8000 — SOLO lectura (sin cálculo de geometría)
         └──────┬───────┘
         ┌──────▼───────┐   PostgreSQL + PostGIS
-        │     db       │   :5432 — matriz + geometrías + mat. views
+        │     db       │   :5432 — matriz + geometrías
         └──────▲───────┘   (Alembic para migraciones)
                │ escribe
         ┌──────┴───────┐   Dagster (assets)
@@ -25,8 +25,12 @@
 
 ## Reglas duras
 - **Los JOIN espaciales se precalculan offline** en pipelines de Dagster y se
-  persisten. La API nunca calcula geometría en tiempo de petición: lee de **vistas
-  materializadas** particionadas por año.
+  persisten. La API nunca calcula geometría en tiempo de petición: solo aplica
+  `ST_AsGeoJSON` sobre geometría ya simplificada.
+  Los JOIN por clave con índice sobre `(cod_municipio, anio)` sí ocurren en tiempo de
+  petición y no son un problema medido. Las vistas materializadas quedan como
+  optimización para cuando haya que servir el coroplético nacional completo en lugar de
+  una provincia (ver [ADR 0004](adr/0004-alcance-y-arquitectura-reales.md)).
 - Toda ingesta **aterriza el crudo en `raw/` antes de transformar** y valida esquema.
 - Python con **uv**; cada servicio es una imagen Docker independiente.
 
