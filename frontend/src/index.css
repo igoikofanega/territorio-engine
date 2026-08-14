@@ -1,19 +1,31 @@
-/* Design tokens + estilos base. Los componentes usan estas clases; los estilos
-   inline quedan solo para lo dinámico (colores de datos, anchos de barras). */
+/* Sistema de diseño "Sovereign Analytics" (Stripe/Vercel, corporativo-moderno).
+   Los componentes usan estas variables y clases; los estilos inline quedan solo para
+   lo dinámico (colores de datos, anchos de barras). */
 
 :root {
-  --bg: #f8fafc;
-  --panel: #ffffff;
-  --border: #e2e8f0;
-  --text: #0f172a;
-  --text-2: #64748b;
-  --accent: #2563eb;
-  --accent-hover: #1d4ed8;
-  --accent-soft: #eff6ff;
+  /* superficies */
+  --bg: #f7f9fb; /* background / surface */
+  --panel: #ffffff; /* surface-container-lowest (cards, sidebar) */
+  --panel-alt: #f2f4f6; /* surface-container-low (inputs) */
+  --track: #e6e8ea; /* surface-container-high (barras de progreso) */
+  --border: #c2c6d8; /* outline-variant */
+  /* texto */
+  --text: #191c1e; /* on-surface */
+  --text-2: #424656; /* on-surface-variant */
+  /* acento (electric blue) */
+  --accent: #0050cb; /* primary */
+  --accent-hover: #003fa4; /* on-primary-fixed-variant */
+  --accent-soft: #e8eeff; /* tinte claro del primario */
+  --active-bg: #dae2fd; /* secondary-container (item de nav activo) */
+  --active-text: #3f465c; /* on-secondary-container */
+  /* radios (4px baseline; botones/inputs 8, cards 16) */
   --radius: 8px;
   --radius-sm: 6px;
-  --shadow: 0 1px 3px rgba(15, 23, 42, 0.08), 0 4px 12px rgba(15, 23, 42, 0.06);
-  --shadow-lg: 0 4px 6px rgba(15, 23, 42, 0.05), 0 12px 32px rgba(15, 23, 42, 0.14);
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  /* elevación: capas tonales + bordes finos, sombras muy sutiles */
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.06);
+  --shadow-lg: -8px 0 24px rgba(15, 23, 42, 0.06);
 }
 
 * {
@@ -28,67 +40,117 @@ body,
 }
 
 body {
-  font-family: "Inter", system-ui, -apple-system, sans-serif;
+  font-family: "Hanken Grotesk", system-ui, -apple-system, sans-serif;
   font-size: 14px;
+  line-height: 20px;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
 }
 
+/* números y datos técnicos: Geist (tabular) */
+.mono,
+.stat-valor {
+  font-family: "Geist", "Hanken Grotesk", sans-serif;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* overline en mayúsculas (Geist), para cabeceras de sección y etiquetas */
+.label-caps {
+  font-family: "Geist", sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-2);
+}
+
 /* scrollbars finos y discretos */
 * {
   scrollbar-width: thin;
-  scrollbar-color: #cbd5e1 transparent;
+  scrollbar-color: var(--border) transparent;
 }
 *::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 *::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
-  border-radius: 3px;
+  background: var(--border);
+  border-radius: 10px;
 }
 
 /* ---------- componentes ---------- */
 
+/* card / panel flotante: fondo blanco, borde fino, radio grande */
 .panel {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow);
 }
 
 .input {
   width: 100%;
-  padding: 7px 10px;
+  padding: 8px 10px;
   font: inherit;
   font-size: 13px;
   color: var(--text);
-  background: var(--panel);
+  background: var(--panel-alt);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
+}
+.input::placeholder {
+  color: color-mix(in srgb, var(--text-2) 55%, transparent);
 }
 .input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
 }
 
-.chip {
-  display: inline-block;
-  padding: 3px 10px;
-  font-size: 11px;
-  font-weight: 500;
-  color: #3730a3;
-  background: #eef2ff;
+/* botón primario (electric blue sólido) */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   border: 0;
-  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  font-weight: 600;
+  font-size: 13px;
+  padding: 8px 14px;
+  border-radius: var(--radius);
   cursor: pointer;
   transition: background 0.15s;
 }
+.btn-primary:hover {
+  background: var(--accent-hover);
+}
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+/* chip / tag pill: borde primario tenue */
+.chip {
+  display: inline-block;
+  padding: 4px 12px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--panel);
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
 .chip:hover {
-  background: #e0e7ff;
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 40%, transparent);
 }
 
 .btn-ghost {
@@ -98,18 +160,69 @@ body {
   cursor: pointer;
   font: inherit;
   padding: 4px;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   line-height: 1;
 }
 .btn-ghost:hover {
-  background: var(--bg);
-  color: var(--text);
+  background: var(--panel-alt);
+  color: var(--accent);
+}
+
+/* superficie glassmorphic (controles de mapa) */
+.glass {
+  background: color-mix(in srgb, var(--panel) 80%, transparent);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow);
+}
+
+/* ---------- barra superior ---------- */
+
+.topbar {
+  height: 56px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 0 20px;
+  background: color-mix(in srgb, var(--bg) 80%, transparent);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--border);
+  z-index: 500;
+}
+
+.topbar-tab {
+  height: 56px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 2px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--text-2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.topbar-tab:hover {
+  color: var(--accent);
+}
+.topbar-tab.activo {
+  color: var(--accent);
+  font-weight: 700;
+  border-bottom-color: var(--accent);
 }
 
 /* ---------- sidebar ---------- */
 
 .sidebar {
-  width: 300px;
+  width: 280px;
   flex-shrink: 0;
   height: 100%;
   display: flex;
@@ -117,68 +230,104 @@ body {
   background: var(--panel);
   border-right: 1px solid var(--border);
   overflow-y: auto;
-  padding: 16px 14px;
+  padding: 0;
+}
+
+.sidebar-head {
+  padding: 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
   gap: 14px;
+}
+
+.sidebar-logo {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  font-family: "Geist", sans-serif;
+  font-weight: 700;
+  font-size: 15px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sidebar-marca {
   font-size: 16px;
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
 }
 .sidebar-sub {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--text-2);
-  margin-top: 2px;
+  margin-top: 1px;
+}
+
+.sidebar-body {
+  padding: 8px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1;
 }
 
 .grupo-titulo {
-  font-size: 10px;
+  font-family: "Geist", sans-serif;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--text-2);
-  margin: 10px 0 4px;
+  margin: 10px 0 4px 6px;
 }
 
 .sidebar-item {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 7px 10px;
+  padding: 8px 12px;
   font: inherit;
-  font-size: 13px;
-  color: var(--text);
+  font-size: 14px;
+  color: var(--text-2);
   background: transparent;
   border: 0;
-  border-left: 3px solid transparent;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   text-align: left;
-  transition: background 0.12s;
+  transition: background 0.12s, color 0.12s, transform 0.12s;
 }
 .sidebar-item:hover {
-  background: var(--bg);
+  background: var(--panel-alt);
+  color: var(--text);
+}
+.sidebar-item:active {
+  transform: scale(0.98);
 }
 .sidebar-item.activo {
-  background: var(--accent-soft);
-  border-left-color: var(--accent);
-  color: var(--accent-hover);
+  background: var(--active-bg);
+  color: var(--active-text);
   font-weight: 600;
 }
 
 .sidebar-icono {
-  color: var(--text-2);
+  color: currentColor;
+  opacity: 0.75;
   flex-shrink: 0;
 }
 .sidebar-item.activo .sidebar-icono {
   color: var(--accent);
+  opacity: 1;
 }
 
 .sidebar-pie {
   margin-top: auto;
-  padding-top: 12px;
+  padding: 12px 16px;
   border-top: 1px solid var(--border);
   font-size: 11px;
   color: var(--text-2);
@@ -188,37 +337,38 @@ body {
 /* ---------- stat cards (KPIs de la ficha) ---------- */
 
 .stat-card {
-  padding: 8px 10px;
+  padding: 10px 12px;
   background: var(--bg);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
 }
 
 .stat-label {
   display: flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
+  font-family: "Geist", sans-serif;
+  font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.05em;
   color: var(--text-2);
-  margin-bottom: 3px;
+  margin-bottom: 4px;
 }
 
 .stat-valor {
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
-  letter-spacing: -0.01em;
-  font-variant-numeric: tabular-nums;
   line-height: 1.2;
 }
 
 .stat-unidad {
+  font-family: "Hanken Grotesk", sans-serif;
   font-size: 10px;
   font-weight: 500;
   color: var(--text-2);
   margin-left: 3px;
+  letter-spacing: 0;
 }
 
 .stat-delta {
@@ -237,14 +387,16 @@ body {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 360px;
+  width: 400px;
   z-index: 1100;
   background: var(--panel);
   border-left: 1px solid var(--border);
   box-shadow: var(--shadow-lg);
-  overflow-y: auto;
-  font-size: 13px;
-  animation: ficha-entra 0.2s ease-out;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  font-size: 14px;
+  animation: ficha-entra 0.22s ease-out;
 }
 @keyframes ficha-entra {
   from {
@@ -257,8 +409,12 @@ body {
   }
 }
 
+/* cabeceras de sección de la ficha: overline Geist con separador inferior */
 .ficha h3 {
-  margin: 16px 0 6px;
+  margin: 22px 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+  font-family: "Geist", sans-serif;
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
@@ -268,10 +424,10 @@ body {
 
 /* tooltips de leaflet acordes al tema */
 .leaflet-tooltip {
-  font-family: "Inter", system-ui, sans-serif;
+  font-family: "Hanken Grotesk", sans-serif;
   font-size: 12px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius);
   box-shadow: var(--shadow);
   color: var(--text);
 }
@@ -280,19 +436,24 @@ body {
   font: inherit;
 }
 
-/* controles de leaflet (zoom, escala, atribución) acordes al tema */
+/* controles de leaflet (zoom, escala, atribución) glassmorphic acordes al tema */
 .leaflet-bar {
   border: 1px solid var(--border) !important;
   box-shadow: var(--shadow) !important;
-  border-radius: var(--radius-sm) !important;
+  border-radius: var(--radius-lg) !important;
   overflow: hidden;
+  background: color-mix(in srgb, #fff 80%, transparent) !important;
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 .leaflet-bar a {
   color: var(--text) !important;
+  background: transparent !important;
   border-bottom-color: var(--border) !important;
 }
 .leaflet-bar a:hover {
-  background: var(--bg) !important;
+  background: var(--panel-alt) !important;
+  color: var(--accent) !important;
 }
 .leaflet-control-scale-line {
   background: rgba(255, 255, 255, 0.75) !important;

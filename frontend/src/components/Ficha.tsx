@@ -128,25 +128,25 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
 
   return (
     <div className="ficha">
-      {/* cabecera: foto con gradiente o bloque de color plano */}
+      {/* cabecera héroe: foto o gradiente del primario (on-primary-fixed → primary) */}
       <div
         style={{
           position: "relative",
-          height: foto ? 150 : 84,
-          background: foto ? `url(${foto}) center/cover` : "linear-gradient(135deg, #1e3a8a, #2563eb)",
+          flexShrink: 0,
+          height: foto ? 176 : 120,
+          background: foto ? `url(${foto}) center/cover` : "linear-gradient(135deg, #001849, #0050cb)",
         }}
       >
-        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(15,23,42,0) 30%, rgba(15,23,42,.75))" }} />
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(0,24,73,0) 30%, rgba(0,24,73,.78))" }} />
         <button
-          className="btn-ghost"
           onClick={onClose}
-          style={{ position: "absolute", top: 8, right: 8, color: "white", background: "rgba(15,23,42,.45)", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 6 }}
+          style={{ position: "absolute", top: 12, right: 12, color: "white", background: "rgba(255,255,255,.18)", backdropFilter: "blur(4px)", border: 0, width: 30, height: 30, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 999, cursor: "pointer" }}
         >
-          <X size={15} strokeWidth={2} />
+          <X size={16} strokeWidth={2} />
         </button>
-        <div style={{ position: "absolute", left: 16, right: 16, bottom: 10, color: "white" }}>
-          <div style={{ fontSize: 20, fontWeight: 700, letterSpacing: "-0.02em", textShadow: "0 1px 3px rgba(0,0,0,.5)" }}>{ficha.nombre}</div>
-          <div style={{ fontSize: 11, opacity: 0.9 }}>
+        <div style={{ position: "absolute", left: 20, right: 20, bottom: 14, color: "white" }}>
+          <div style={{ fontFamily: "'Hanken Grotesk', sans-serif", fontSize: 24, fontWeight: 700, letterSpacing: "-0.01em", lineHeight: 1.1, textShadow: "0 1px 3px rgba(0,0,0,.5)" }}>{ficha.nombre}</div>
+          <div style={{ fontSize: 13, opacity: 0.9, marginTop: 2 }}>
             {ficha.provincia.nombre}
             {ficha.wiki?.gentilicio ? ` · ${ficha.wiki.gentilicio}` : ""}
             {ficha.superficie_km2 ? ` · ${ficha.superficie_km2.toFixed(1)} km²` : ""}
@@ -155,7 +155,7 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
         </div>
       </div>
 
-      <div style={{ padding: 16 }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
         {ficha.wiki?.descripcion && (
           <p style={{ margin: "0 0 14px", lineHeight: 1.45, color: "var(--text)" }}>{ficha.wiki.descripcion}</p>
         )}

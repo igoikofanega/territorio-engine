@@ -27,6 +27,9 @@ dist/
 raw/*
 !raw/.gitkeep
 
+# Mockups de diseño generados (el sistema de diseño vive en docs/design-system.md)
+diseño_ideas/
+
 # Sistema
 .DS_Store
 *.log

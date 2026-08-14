@@ -2,7 +2,6 @@ import "leaflet/dist/leaflet.css";
 
 import type { Feature, FeatureCollection, GeoJsonProperties } from "geojson";
 import L, { type Layer, type PathOptions } from "leaflet";
-import { PanelLeftOpen } from "lucide-react";
 import { useEffect, useState } from "react";
 import { GeoJSON, MapContainer, ScaleControl, TileLayer, useMap, ZoomControl } from "react-leaflet";
 
@@ -12,6 +11,7 @@ import Comparar from "./components/Comparar";
 import Dashboard from "./components/Dashboard";
 import Recomendador from "./components/Recomendador";
 import Sidebar from "./components/Sidebar";
+import TopBar from "./components/TopBar";
 import { color, combinaCustom, DEMOGRAFIA_COLORES, DEMOGRAFIA_LEYENDA, ESCALAS, INFLEXION_COLORES, INFLEXION_LEYENDA, LISA_COLORES, LISA_LEYENDA, PALETA_CAT, PESOS_DEFECTO, tooltip } from "./escalas";
 import { CLAVES_INDICE, type FichaData, type Modo, type Pesos, type Prov } from "./types";
 
@@ -119,8 +119,20 @@ export default function App() {
     }
     const seleccionado = codSel != null && f?.properties?.cod_municipio === codSel;
     return seleccionado
-      ? { fillColor, weight: 2.5, color: "#2563eb", fillOpacity: 0.9 }
+      ? { fillColor, weight: 2.5, color: "#0050cb", fillOpacity: 0.9 }
       : { fillColor, weight: 0.6, color: "#ffffff", fillOpacity: 0.85 };
+  };
+
+  const ambito = provincias.find((p) => p.cod === prov)?.nombre ?? "España";
+
+  const exportar = () => {
+    if (!geo) return;
+    const blob = new Blob([JSON.stringify(geo)], { type: "application/geo+json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${modo}-${prov}.geojson`;
+    a.click();
+    URL.revokeObjectURL(a.href);
   };
 
   return (
@@ -142,22 +154,20 @@ export default function App() {
           onRecomendador={() => setRecomendadorAbierto((v) => !v)}
           onComparar={() => setCompararAbierto(true)}
           vista={vista}
-          onVista={setVista}
           nMunicipios={geo?.features.length ?? null}
           error={error}
         />
       )}
-      <div style={{ flex: 1, position: "relative" }}>
-        {!sidebarAbierta && (
-          <button
-            className="panel btn-ghost"
-            onClick={() => setSidebarAbierta(true)}
-            title="Mostrar panel"
-            style={{ position: "absolute", top: 12, left: 12, zIndex: 1000, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text)" }}
-          >
-            <PanelLeftOpen size={16} strokeWidth={1.75} />
-          </button>
-        )}
+      <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+        <TopBar
+          vista={vista}
+          onVista={setVista}
+          ambito={ambito}
+          sidebarAbierta={sidebarAbierta}
+          onAbrirSidebar={() => setSidebarAbierta(true)}
+          onExport={exportar}
+        />
+        <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
         {vista === "resumen" ? (
           <Dashboard
             prov={prov}
@@ -219,6 +229,7 @@ export default function App() {
             onSelect={(c) => setCodSel(c)}
           />
         )}
+        </div>
       </div>
     </div>
   );
