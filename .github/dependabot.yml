@@ -1,0 +1,59 @@
+# Actualizaciones agrupadas: en un monorepo con 4 ecosistemas, sin agrupar
+# esto genera una avalancha de PRs que nadie revisa.
+version: 2
+updates:
+  - package-ecosystem: "uv"
+    directory: "/services/api"
+    schedule:
+      interval: "weekly"
+    groups:
+      api-minor-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: "uv"
+    directory: "/services/orchestrator"
+    schedule:
+      interval: "weekly"
+    groups:
+      orchestrator-minor-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "chore(deps)"
+    ignore:
+      # greenlet >= 3.5 no publica rueda para aarch64 y rompe el build en ARM.
+      # La restricción vive en pyproject.toml; esto evita PRs que la contradigan.
+      - dependency-name: "greenlet"
+        versions: [">=3.5"]
+
+  - package-ecosystem: "npm"
+    directory: "/frontend"
+    schedule:
+      interval: "weekly"
+    groups:
+      frontend-minor-patch:
+        update-types: ["minor", "patch"]
+    commit-message:
+      prefix: "chore(deps)"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "monthly"
+    groups:
+      actions:
+        patterns: ["*"]
+    commit-message:
+      prefix: "chore(ci)"
+
+  - package-ecosystem: "docker"
+    directories:
+      - "/services/api"
+      - "/services/orchestrator"
+      - "/services/mlflow"
+      - "/frontend"
+    schedule:
+      interval: "monthly"
+    commit-message:
+      prefix: "chore(docker)"

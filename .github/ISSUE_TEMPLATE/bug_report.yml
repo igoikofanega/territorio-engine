@@ -1,0 +1,56 @@
+name: Bug
+description: Algo no funciona como debería
+title: "[bug]: "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: servicio
+    attributes:
+      label: Servicio afectado
+      options:
+        - api (FastAPI)
+        - orchestrator (Dagster / ingesta / ML)
+        - frontend (React)
+        - db (PostGIS / migraciones)
+        - mlflow
+        - docker compose / arranque
+        - No lo sé
+    validations:
+      required: true
+
+  - type: textarea
+    id: que-pasa
+    attributes:
+      label: Qué ocurre
+      description: Y qué esperabas que ocurriera.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproducir
+    attributes:
+      label: Cómo reproducirlo
+      placeholder: |
+        1. make up
+        2. make migrate && make ingest-municipios
+        3. curl 'http://localhost:8000/renta.geojson?prov=31'
+        4. Devuelve 500
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: >
+        `docker compose logs <servicio>`. Revisa que no incluya tu AEMET_API_KEY
+        ni ninguna otra credencial antes de pegarlo.
+      render: shell
+
+  - type: input
+    id: entorno
+    attributes:
+      label: Entorno
+      placeholder: "Ubuntu 22.04, arm64, Docker 28.1.1"
+    validations:
+      required: true

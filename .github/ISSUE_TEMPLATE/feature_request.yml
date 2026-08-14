@@ -1,0 +1,51 @@
+name: Propuesta
+description: Sugiere una funcionalidad, un análisis o una capa de mapa
+title: "[propuesta]: "
+labels: ["propuesta"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        El proyecto sigue una disciplina de **código mínimo**: antes de añadir algo
+        se comprueba si ya existe en el repo, si lo resuelve la plataforma o si es
+        un one-liner. Una propuesta que explique por qué lo existente no basta
+        tiene mucho más recorrido que una que solo describa la idea.
+
+  - type: textarea
+    id: problema
+    attributes:
+      label: Qué problema resuelve
+      description: La necesidad, no la solución.
+    validations:
+      required: true
+
+  - type: textarea
+    id: propuesta
+    attributes:
+      label: Propuesta
+    validations:
+      required: true
+
+  - type: textarea
+    id: existente
+    attributes:
+      label: Por qué no basta con lo que ya hay
+      description: >
+        Hay 24 capas de mapa, ~36 endpoints, un recomendador con filtros y pesos,
+        y 12 módulos de ML. ¿Qué falta exactamente?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: tipo
+    attributes:
+      label: Tipo
+      options:
+        - Capa de mapa o visualización
+        - Análisis o modelo nuevo
+        - Endpoint de API
+        - Mejora de interfaz
+        - Capa de LLM / noticias
+        - Infraestructura o tooling
+    validations:
+      required: true

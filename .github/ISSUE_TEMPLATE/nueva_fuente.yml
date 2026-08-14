@@ -1,0 +1,90 @@
+name: Nueva fuente de datos
+description: Propón una fuente pública para incorporar a la matriz municipio × año
+title: "[fuente]: "
+labels: ["fuente-de-datos"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Gracias por proponer una fuente. Antes de escribir código conviene cerrar
+        tres cosas: **la licencia**, **la clave municipal** y **la ventana temporal**.
+        Son las que deciden si la fuente es utilizable, no la riqueza del dato.
+
+  - type: input
+    id: nombre
+    attributes:
+      label: Fuente
+      description: Organismo y nombre del conjunto de datos
+      placeholder: "INE — Indicadores de calidad de vida (tabla 12345)"
+    validations:
+      required: true
+
+  - type: input
+    id: url
+    attributes:
+      label: URL de descarga
+      description: Enlace directo al fichero o al endpoint, no a la página de portada
+    validations:
+      required: true
+
+  - type: dropdown
+    id: licencia
+    attributes:
+      label: Licencia
+      options:
+        - Reutilización libre con atribución (INE / SEPE / ministerios)
+        - CC BY 4.0
+        - CC BY-SA 4.0 (share-alike)
+        - CC0 / dominio público
+        - ODbL (share-alike)
+        - Requiere API key gratuita
+        - Otra / no está clara
+    validations:
+      required: true
+
+  - type: dropdown
+    id: clave
+    attributes:
+      label: Clave municipal
+      description: >
+        Lo crítico. `cod_municipio` es texto de 5 dígitos y los ceros a la
+        izquierda importan. Una fuente que solo trae el nombre del municipio
+        requiere un emparejamiento difuso y eso es una fuente de errores.
+      options:
+        - Código INE de 5 dígitos
+        - Código INE sin ceros a la izquierda
+        - Solo nombre del municipio
+        - Provincia o CCAA (no municipal)
+        - Coordenadas / geometría
+        - Otra
+    validations:
+      required: true
+
+  - type: input
+    id: ventana
+    attributes:
+      label: Ventana temporal
+      description: Años disponibles. El proyecto trabaja de 2015 en adelante.
+      placeholder: "2015–2024, anual"
+    validations:
+      required: true
+
+  - type: textarea
+    id: valor
+    attributes:
+      label: Qué aporta
+      description: >
+        ¿Qué pregunta permite responder que hoy no se puede? Si duplica algo que
+        ya está en la matriz, dilo — no es descalificante, pero cambia la
+        prioridad.
+    validations:
+      required: true
+
+  - type: textarea
+    id: trampas
+    attributes:
+      label: Trampas conocidas
+      description: >
+        Secreto estadístico, valores enmascarados, cambios de metodología entre
+        años, alteraciones municipales (fusiones o segregaciones), unidades
+        raras, codificación del fichero.

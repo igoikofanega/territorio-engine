@@ -1,0 +1,74 @@
+territorio-engine
+Copyright 2026 igoikofanega
+
+This product includes software developed by igoikofanega, licensed under the
+Apache License, Version 2.0 (see LICENSE).
+
+================================================================================
+DATA ATTRIBUTION
+================================================================================
+
+The Apache-2.0 license above covers the SOURCE CODE of this project only. It
+does NOT cover the third-party public datasets the project ingests. Those
+datasets remain under the licences of their respective producers, listed below.
+Anyone redistributing data derived from this project must comply with them.
+
+Two of these licences carry obligations beyond attribution and deserve explicit
+attention:
+
+  * OpenStreetMap data is licensed under the Open Database License (ODbL 1.0),
+    which is a SHARE-ALIKE licence. Redistributing a derived database that
+    incorporates OSM data requires releasing it under ODbL as well.
+  * Wikipedia text is licensed under CC BY-SA 4.0, also share-alike.
+
+In this project both are used only to derive per-municipality summary
+attributes (service counts, descriptive text). If you redistribute those
+tables, the corresponding licence follows them.
+
+--------------------------------------------------------------------------------
+Source                          Producer                     Licence
+--------------------------------------------------------------------------------
+Municipal boundaries            IGN / CNIG (via              CC BY 4.0
+                                OpenDataSoft georef-spain)
+
+Padrón (population)             Instituto Nacional de        Free reuse with
+Population pyramid              Estadística (INE)            attribution
+Vital statistics (MNP)                                       (INE reuse terms)
+Household income (ADRH)
+Foreign-born population
+
+Registered unemployment         Servicio Público de Empleo   Free reuse with
+                                Estatal (SEPE)               attribution
+
+Reference rental prices         Ministerio de Vivienda y     Free reuse with
+(SERPAVI)                       Agenda Urbana (MIVAU)        attribution
+
+Climate observations            Agencia Estatal de           AEMET OpenData
+                                Meteorología (AEMET)         terms; "© AEMET"
+
+Air quality rasters             European Environment         EEA reuse policy
+(PM2.5, NO2, PM10, O3)          Agency (EEA)                 (attribution)
+
+Broadband coverage              Secretaría de Estado de      Free reuse with
+                                Telecomunicaciones           attribution
+                                (SETELECO)
+
+Points of interest              OpenStreetMap contributors   ODbL 1.0
+                                                             (SHARE-ALIKE)
+
+Municipal facts                 Wikidata                     CC0 1.0
+
+Municipal descriptions          Wikipedia (Spanish)          CC BY-SA 4.0
+and images                                                   (SHARE-ALIKE)
+
+News metadata                   GDELT Project                GDELT terms;
+(headline, date, outlet, URL)                                see docs/adr/
+--------------------------------------------------------------------------------
+
+News handling: this project stores and serves only headline, publication date,
+outlet domain, URL, and machine-generated classification labels. It does not
+download, store, or redistribute article bodies. Every item links back to the
+original publisher.
+
+No dataset is redistributed in this repository. The `raw/` landing zone is
+git-ignored; all data is fetched at run time from the producers above.
