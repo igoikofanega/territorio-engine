@@ -6,11 +6,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends libexpat1 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY pyproject.toml ./
+# uv.lock se copia para que el build use las versiones exactas del repo (--frozen falla
+# si el lock no está sincronizado con pyproject.toml). Sin él, uv resolvería de nuevo en
+# cada build y la imagen no sería reproducible.
+COPY pyproject.toml uv.lock ./
 COPY src ./src
 COPY alembic.ini ./
 COPY migrations ./migrations
-RUN uv sync
+RUN uv sync --frozen
 
 EXPOSE 3000
 # Dagster UI (dev). DAGSTER_HOME en /tmp para desarrollo.
