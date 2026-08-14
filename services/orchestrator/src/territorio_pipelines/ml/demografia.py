@@ -15,7 +15,10 @@ from __future__ import annotations
 import pandas as pd
 from sqlalchemy.engine import Engine
 
-ANIO_INI, ANIO_FIN = 2015, 2024
+from .. import calendario as cal
+
+# Ventana de la serie de población: primer y último año con cobertura real.
+COLUMNA_SERIE = "poblacion_total"
 
 
 def _clasificar(veg: float, mig: float) -> str:
@@ -29,8 +32,19 @@ def _clasificar(veg: float, mig: float) -> str:
     return "doble declive"
 
 
-def calcular_demografia(engine: Engine, ini: int = ANIO_INI, fin: int = ANIO_FIN) -> list[dict]:
-    """[{cod, saldo_vegetativo, saldo_migratorio, cambio_total, dominante, tipo}]."""
+def calcular_demografia(
+    engine: Engine, ini: int | None = None, fin: int | None = None
+) -> list[dict]:
+    """[{cod, saldo_vegetativo, saldo_migratorio, cambio_total, dominante, tipo}].
+
+    Sin `ini`/`fin` usa toda la ventana con cobertura de población.
+    """
+    if ini is None:
+        ini = cal.primer_anio(engine, COLUMNA_SERIE)
+    if fin is None:
+        fin = cal.ultimo_anio(engine, COLUMNA_SERIE)
+    if ini is None or fin is None or ini >= fin:
+        raise RuntimeError(f"ventana de población insuficiente: {ini}-{fin}")
     pop = pd.read_sql(
         "SELECT cod_municipio AS cod, anio, poblacion_total AS pob "
         "FROM fact_municipio_anual WHERE poblacion_total IS NOT NULL",

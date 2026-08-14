@@ -15,8 +15,9 @@ from sklearn.frozen import FrozenEstimator
 from sklearn.metrics import brier_score_loss, roc_auc_score
 from sqlalchemy.engine import Engine
 
+from .. import calendario
 from .features import FEATURES, TARGET, construir_dataset
-from .modelo import ANIO_PRED, ANIOS_TRAIN, ANIOS_VAL
+from .modelo import COLUMNAS_PRED, HORIZONTE
 
 UMBRAL_PERDIDA = -10.0  # % en 5 años que define el evento 'despoblación fuerte'
 CORTES = (0.30, 0.60)  # verde < .30 <= ámbar < .60 <= rojo
@@ -31,12 +32,23 @@ def _nivel(p: float) -> str:
 
 
 def calcular_riesgo(engine: Engine) -> tuple[list[dict], dict]:
-    """([{cod, prob, nivel}], métricas) del semáforo de despoblación."""
-    df = construir_dataset(engine, ANIOS_TRAIN + ANIOS_VAL)
+    """([{cod, prob, nivel}], métricas) del semáforo de despoblación.
+
+    Comparte el mismo corte temporal que el modelo de regresión, para que las dos
+    salidas del proyecto hablen de la misma ventana de datos.
+    """
+    _, anios_train, anios_val = calendario.anios_backtest(engine, HORIZONTE)
+    if not anios_val:
+        raise RuntimeError(f"no hay años suficientes para el backtest a {HORIZONTE} años")
+    anio_pred = calendario.ultimo_anio_comun(engine, COLUMNAS_PRED)
+    if anio_pred is None:
+        raise RuntimeError(f"ningún año cubre a la vez {COLUMNAS_PRED}")
+
+    df = construir_dataset(engine, anios_train + anios_val)
     df = df[df[TARGET].notna() & df["pob"].notna()]
     df["evento"] = (df[TARGET] <= UMBRAL_PERDIDA).astype(int)
-    tr = df[df["anio_base"].isin(ANIOS_TRAIN)]
-    va = df[df["anio_base"].isin(ANIOS_VAL)]
+    tr = df[df["anio_base"].isin(anios_train)]
+    va = df[df["anio_base"].isin(anios_val)]
 
     base = HistGradientBoostingClassifier(
         max_iter=400, learning_rate=0.05, max_leaf_nodes=31, l2_regularization=1.0, random_state=0
@@ -53,7 +65,7 @@ def calcular_riesgo(engine: Engine) -> tuple[list[dict], dict]:
         "tasa_evento": round(float(va["evento"].mean()), 3),
     }
 
-    dp = construir_dataset(engine, [ANIO_PRED])
+    dp = construir_dataset(engine, [anio_pred])
     dp = dp[dp["pob"].notna()]
     prob = cal.predict_proba(dp[FEATURES])[:, 1]
     recs = [

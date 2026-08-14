@@ -18,14 +18,15 @@ from sklearn.inspection import permutation_importance
 from sklearn.metrics import mean_absolute_error, r2_score
 from sqlalchemy.engine import Engine
 
+from .. import calendario as cal
 from .features import FEATURES, TARGET, construir_dataset
 
-ANIOS_BASE = [2015, 2016, 2017, 2018, 2019, 2020]
-ANIOS_TRAIN = [2015, 2016, 2017, 2018]
-ANIOS_VAL = [2019, 2020]
-ANIO_PRED = 2023  # año base para la predicción de futuro (features recientes completas)
 HORIZONTE = 5
 EXPERIMENTO = "vaciamiento"
+
+# Columnas que el año base de la predicción debe tener cubiertas a la vez. No basta con
+# el último año de población: sin renta ni paro, el vector de features iría medio vacío.
+COLUMNAS_PRED = ["poblacion_total", "paro_media_anual", "renta_neta_media_persona"]
 
 # etiqueta corta de cada feature para los "drivers" del tooltip
 ETIQUETAS = {
@@ -94,15 +95,27 @@ def _drivers(xp, importancia: dict, signo: dict) -> list[str]:
 
 
 def entrenar_y_predecir(engine: Engine) -> tuple[pd.DataFrame, dict]:
-    """Backtest + entrenamiento final + predicción de futuro (2023→2028) con drivers.
+    """Backtest + entrenamiento final + predicción de futuro con drivers.
 
-    Registra métricas, importancia y el modelo (Model Registry) en MLflow.
+    Los años salen de la cobertura real de los datos (ver `calendario`), no fijados en
+    el código: el corte es temporal y la ventana se desplaza sola cuando entra un año
+    nuevo. Registra métricas, importancia y el modelo (Model Registry) en MLflow.
     Devuelve (predicciones, métricas).
     """
-    df = construir_dataset(engine, ANIOS_BASE)
+    anios_base, anios_train, anios_val = cal.anios_backtest(engine, HORIZONTE)
+    if not anios_val:
+        raise RuntimeError(
+            f"no hay años suficientes para un backtest a {HORIZONTE} años "
+            f"(base disponible: {anios_base})"
+        )
+    anio_pred = cal.ultimo_anio_comun(engine, COLUMNAS_PRED)
+    if anio_pred is None:
+        raise RuntimeError(f"ningún año cubre a la vez {COLUMNAS_PRED}")
+
+    df = construir_dataset(engine, anios_base)
     df = df[df[TARGET].notna()]
-    tr = df[df["anio_base"].isin(ANIOS_TRAIN)]
-    va = df[df["anio_base"].isin(ANIOS_VAL)]
+    tr = df[df["anio_base"].isin(anios_train)]
+    va = df[df["anio_base"].isin(anios_val)]
 
     # --- backtest temporal + baselines ---
     mb = nuevo_modelo()
@@ -134,7 +147,7 @@ def entrenar_y_predecir(engine: Engine) -> tuple[pd.DataFrame, dict]:
                 "modelo": "HistGradientBoosting",
                 "n_train": len(tr),
                 "n_val": len(va),
-                "anio_pred": ANIO_PRED,
+                "anio_pred": anio_pred,
             }
         )
         mlflow.log_metrics(metrics)
@@ -142,15 +155,15 @@ def entrenar_y_predecir(engine: Engine) -> tuple[pd.DataFrame, dict]:
         mlflow.sklearn.log_model(punto, artifact_path="model", registered_model_name="vaciamiento")
 
     # --- predicción de futuro ---
-    dp = construir_dataset(engine, [ANIO_PRED], HORIZONTE)
+    dp = construir_dataset(engine, [anio_pred], HORIZONTE)
     xp = dp[FEATURES]
     cambio = punto.predict(xp)
     inf, sup = q10.predict(xp), q90.predict(xp)
     pred = pd.DataFrame(
         {
             "cod": dp["cod"].to_numpy(),
-            "anio_base": ANIO_PRED,
-            "anio_horizonte": ANIO_PRED + HORIZONTE,
+            "anio_base": anio_pred,
+            "anio_horizonte": anio_pred + HORIZONTE,
             "pob_base": dp["pob"].to_numpy(),
             "cambio_pct": np.round(cambio, 1),
             "cambio_inf": np.round(np.minimum(inf, sup), 1),

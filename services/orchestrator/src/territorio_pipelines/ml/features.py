@@ -13,6 +13,8 @@ import numpy as np
 import pandas as pd
 from sqlalchemy.engine import Engine
 
+from .. import calendario as cal
+
 # Features que entran al modelo (el orden no importa; se referencian por nombre).
 FEATURES = [
     "log_pob",
@@ -61,10 +63,14 @@ def _leer(engine: Engine) -> dict[str, pd.DataFrame]:
     # clima y % extranjeros se tratan como atributos casi-estáticos del municipio (se toma
     # el valor más reciente disponible y se aplica a todos los años base, como ya se hacía
     # con temp/precip). Así el modelo puede usarlos también en el año de predicción.
+    # El clima se guarda como una normal climática en un único año (AEMET no publica
+    # serie anual municipal), así que hay que preguntar cuál es en vez de fijarlo.
+    anio_clima = cal.ultimo_anio(engine, "temp_media_anual")
     clima = pd.read_sql(
         "SELECT cod_municipio AS cod, temp_media_anual AS temp, precip_anual_mm AS precip, "
-        "dias_despejados, temp_min_media FROM fact_municipio_anual WHERE anio = 2022",
+        "dias_despejados, temp_min_media FROM fact_municipio_anual WHERE anio = %(anio)s",
         engine,
+        params={"anio": anio_clima},
     )
     ext = pd.read_sql(
         "SELECT DISTINCT ON (cod_municipio) cod_municipio AS cod, pct_extranjeros "

@@ -25,6 +25,13 @@ import pytest
 from territorio_pipelines.ml import modelo as m
 from territorio_pipelines.ml.features import FEATURES, TARGET
 
+# Ventana sintética, con la misma forma que la real: años base cuyo futuro ya se
+# conoce, y un año de predicción posterior sin target.
+ANIOS_BASE = [2015, 2016, 2017, 2018, 2019, 2020]
+ANIOS_TRAIN = [2015, 2016, 2017, 2018]
+ANIOS_VAL = [2019, 2020]
+ANIO_PRED = 2023
+
 
 def _dataset(anios: list[int], n: int = 120) -> pd.DataFrame:
     """Datos sintéticos con la forma que devuelve `construir_dataset`.
@@ -43,7 +50,7 @@ def _dataset(anios: list[int], n: int = 120) -> pd.DataFrame:
         d["pob"] = rng.integers(80, 50_000, size=n).astype(float)
         d["anio_base"] = t
         d[TARGET] = 2 * d["log_pob"] - 1.5 * d["paro_1000"] + rng.normal(scale=0.5, size=n)
-        if anios == [m.ANIO_PRED]:
+        if anios == [ANIO_PRED]:
             d[TARGET] = np.nan  # el año de predicción no tiene futuro conocido
         # Huecos a propósito: HistGradientBoosting los admite y la matriz real los tiene.
         d.loc[d.index[:5], "alquiler"] = np.nan
@@ -64,6 +71,11 @@ def entrenamiento(tmp_path_factory):
     mlflow.set_tracking_uri(uri)
     mlflow.set_registry_uri(uri)
     mp.setattr(m, "construir_dataset", lambda engine, anios, horizonte=m.HORIZONTE: _dataset(anios))
+    # El calendario consulta la base de datos para derivar los años; aquí se fija la
+    # ventana a mano para que el test siga siendo hermético. Que los años se deriven en
+    # producción lo cubre tests/test_calendario.py.
+    mp.setattr(m.cal, "anios_backtest", lambda e, h, **kw: (ANIOS_BASE, ANIOS_TRAIN, ANIOS_VAL))
+    mp.setattr(m.cal, "ultimo_anio_comun", lambda e, cols, **kw: ANIO_PRED)
 
     pred, metricas = m.entrenar_y_predecir(engine=None)
     yield pred, metricas, mlflow
@@ -96,7 +108,7 @@ def test_forma_de_las_predicciones(entrenamiento):
     }
     assert esperadas <= set(pred.columns)
     assert len(pred) > 0
-    assert (pred["anio_horizonte"] == m.ANIO_PRED + m.HORIZONTE).all()
+    assert (pred["anio_horizonte"] == ANIO_PRED + m.HORIZONTE).all()
     assert pred["cambio_pct"].notna().all()
 
 

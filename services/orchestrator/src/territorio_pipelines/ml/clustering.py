@@ -16,15 +16,24 @@ from sklearn.metrics import silhouette_score
 from sklearn.preprocessing import StandardScaler
 from sqlalchemy.engine import Engine
 
+from .. import calendario as cal
 from .features import FEATURES, construir_dataset
 from .modelo import ETIQUETAS, EXPERIMENTO
 
 K = 6
-ANIO = 2022
+# Año de referencia: el último con las features casi-estáticas cubiertas
+# (clima y % de extranjeros). Se deriva de los datos, no se fija a mano.
+COLUMNAS_REF = ["temp_media_anual", "pct_extranjeros"]
 
 
-def entrenar_clusters(engine: Engine, k: int = K, anio: int = ANIO) -> tuple[pd.DataFrame, dict]:
+def entrenar_clusters(
+    engine: Engine, k: int = K, anio: int | None = None
+) -> tuple[pd.DataFrame, dict]:
     """Asigna un arquetipo a cada municipio. Devuelve (df[cod,cluster,etiqueta], métricas)."""
+    if anio is None:
+        anio = cal.ultimo_anio_comun(engine, COLUMNAS_REF)
+        if anio is None:
+            raise RuntimeError(f"ningún año cubre a la vez {COLUMNAS_REF}")
     df = construir_dataset(engine, [anio])
     df = df[df["pob"].notna()].reset_index(drop=True)
 

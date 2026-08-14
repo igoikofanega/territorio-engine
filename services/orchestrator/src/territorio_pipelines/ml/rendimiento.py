@@ -12,18 +12,27 @@ from __future__ import annotations
 import numpy as np
 from sqlalchemy.engine import Engine
 
+from .. import calendario as cal
 from .features import FEATURES, TARGET, construir_dataset
-from .modelo import ANIOS_TRAIN, ANIOS_VAL, nuevo_modelo
+from .modelo import HORIZONTE, nuevo_modelo
 
 UMBRAL_Z = 1.0  # |z| a partir del cual un municipio se considera fuera de lo esperado
 
 
 def calcular_rendimiento(engine: Engine) -> list[dict]:
-    """[{cod, residuo, z, n_obs, clasificacion}] con el residuo medio out-of-sample."""
-    df = construir_dataset(engine, ANIOS_TRAIN + ANIOS_VAL)
+    """[{cod, residuo, z, n_obs, clasificacion}] con el residuo medio out-of-sample.
+
+    Usa el mismo corte temporal que el modelo: el residuo solo es honesto si se mide
+    sobre años que el modelo no vio al entrenar.
+    """
+    _, anios_train, anios_val = cal.anios_backtest(engine, HORIZONTE)
+    if not anios_val:
+        raise RuntimeError(f"no hay años suficientes para el backtest a {HORIZONTE} años")
+
+    df = construir_dataset(engine, anios_train + anios_val)
     df = df[df[TARGET].notna() & df["pob"].notna()]
-    tr = df[df["anio_base"].isin(ANIOS_TRAIN)]
-    va = df[df["anio_base"].isin(ANIOS_VAL)].copy()
+    tr = df[df["anio_base"].isin(anios_train)]
+    va = df[df["anio_base"].isin(anios_val)].copy()
 
     modelo = nuevo_modelo()
     modelo.fit(tr[FEATURES], tr[TARGET])

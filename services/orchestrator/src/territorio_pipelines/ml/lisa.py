@@ -11,11 +11,15 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from sqlalchemy import text
 from sqlalchemy.engine import Engine
+
+from .. import calendario as cal
 
 K_VECINOS = 8
 P_CORTE = 0.05
 
+# Los años van parametrizados: se resuelven contra la cobertura real en `calcular_lisa`.
 _SQL = {
     "crecimiento": """
         SELECT d.cod_municipio AS cod,
@@ -23,16 +27,16 @@ _SQL = {
                (b.pob_fin::float / NULLIF(a.pob_ini, 0) - 1) * 100 AS valor
         FROM dim_municipio d
         JOIN (SELECT cod_municipio, poblacion_total AS pob_ini FROM fact_municipio_anual
-              WHERE anio = 2015) a ON a.cod_municipio = d.cod_municipio
+              WHERE anio = :ini) a ON a.cod_municipio = d.cod_municipio
         JOIN (SELECT cod_municipio, poblacion_total AS pob_fin FROM fact_municipio_anual
-              WHERE anio = 2025) b ON b.cod_municipio = d.cod_municipio
+              WHERE anio = :fin) b ON b.cod_municipio = d.cod_municipio
     """,
     "renta": """
         SELECT d.cod_municipio AS cod,
                ST_X(ST_Centroid(d.geom_25830)) AS x, ST_Y(ST_Centroid(d.geom_25830)) AS y,
                f.renta_neta_media_persona AS valor
         FROM dim_municipio d
-        JOIN fact_municipio_anual f ON f.cod_municipio = d.cod_municipio AND f.anio = 2022
+        JOIN fact_municipio_anual f ON f.cod_municipio = d.cod_municipio AND f.anio = :anio_renta
     """,
 }
 
@@ -45,7 +49,17 @@ def calcular_lisa(engine: Engine, variable: str, k: int = K_VECINOS) -> list[dic
     from esda.moran import Moran_Local
     from libpysal.weights import KNN
 
-    df = pd.read_sql(_SQL[variable], engine).dropna(subset=["valor", "x", "y"])
+    if variable == "crecimiento":
+        params = {
+            "ini": cal.primer_anio(engine, "poblacion_total"),
+            "fin": cal.ultimo_anio(engine, "poblacion_total"),
+        }
+    else:
+        params = {"anio_renta": cal.ultimo_anio(engine, "renta_neta_media_persona")}
+    if any(v is None for v in params.values()):
+        raise RuntimeError(f"sin cobertura para calcular LISA de '{variable}': {params}")
+
+    df = pd.read_sql(text(_SQL[variable]), engine, params=params).dropna(subset=["valor", "x", "y"])
     df = df.reset_index(drop=True)
     coords = df[["x", "y"]].to_numpy()
     w = KNN.from_array(coords, k=k)
