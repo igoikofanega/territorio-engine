@@ -1,5 +1,13 @@
-# Actualizaciones agrupadas: en un monorepo con 4 ecosistemas, sin agrupar
-# esto genera una avalancha de PRs que nadie revisa.
+# Un PR por ecosistema y ventana, no uno por dependencia.
+#
+# La primera versión de este fichero agrupaba solo `minor` y `patch`, así que cada
+# actualización *major* se salía del grupo y abría su propio PR: 13 PRs de golpe en la
+# primera ejecución. Aquí cada ecosistema tiene un único grupo con `patterns: ["*"]`,
+# que cubre también los majors.
+#
+# Las reglas `ignore` no son pereza: protegen pines que existen por un motivo concreto,
+# documentado en cada caso. Sin ellas, dependabot propone deshacerlos y el CI no siempre
+# tiene un test que lo detecte.
 version: 2
 updates:
   - package-ecosystem: "uv"
@@ -7,8 +15,8 @@ updates:
     schedule:
       interval: "weekly"
     groups:
-      api-minor-patch:
-        update-types: ["minor", "patch"]
+      api:
+        patterns: ["*"]
     commit-message:
       prefix: "chore(deps)"
 
@@ -17,23 +25,28 @@ updates:
     schedule:
       interval: "weekly"
     groups:
-      orchestrator-minor-patch:
-        update-types: ["minor", "patch"]
+      orchestrator:
+        patterns: ["*"]
     commit-message:
       prefix: "chore(deps)"
     ignore:
-      # greenlet >= 3.5 no publica rueda para aarch64 y rompe el build en ARM.
-      # La restricción vive en pyproject.toml; esto evita PRs que la contradigan.
+      # greenlet >= 3.5 no publica rueda para linux/aarch64 y rompe el build en ARM.
+      # El pin vive en pyproject.toml (constraint-dependencies).
       - dependency-name: "greenlet"
         versions: [">=3.5"]
+      # mlflow está fijado a <3 a propósito: la 3.x cambia la API de logging y de Model
+      # Registry, y hoy NO hay ningún test que entrene un modelo, así que el CI pasaría
+      # en verde con `make entrenar-ml` roto. Cuando exista ese test, se sube a mano.
+      - dependency-name: "mlflow"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "npm"
     directory: "/frontend"
     schedule:
       interval: "weekly"
     groups:
-      frontend-minor-patch:
-        update-types: ["minor", "patch"]
+      frontend:
+        patterns: ["*"]
     commit-message:
       prefix: "chore(deps)"
 
@@ -55,5 +68,16 @@ updates:
       - "/frontend"
     schedule:
       interval: "monthly"
+    groups:
+      imagenes:
+        patterns: ["*"]
     commit-message:
       prefix: "chore(docker)"
+    ignore:
+      # Node 22 y Python 3.12 están fijados en el CI, en los Dockerfile y en
+      # requires-python. Subir el major de la imagen sin subir los otros tres deja el
+      # entorno de build y el de CI desalineados, que es peor que ir un poco por detrás.
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major"]
