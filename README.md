@@ -50,6 +50,12 @@ What matters here is not the algorithm — it is a `HistGradientBoostingRegresso
 the past through spatially and temporally correlated rows, and would report a much prettier
 number that means nothing.
 
+Those years are **derived from actual data coverage**, not hardcoded, so the window moves on
+its own as new data lands. That is less trivial than it sounds: `max(year)` is the wrong
+answer, because the matrix already contains half-loaded years — 2026 currently holds 7,030
+unemployment rows and zero population rows, since the year's SEPE file is published long
+before the Padrón. Taking it as "the latest year" would silently produce an empty dataset.
+
 **Two honest baselines.** A model is only worth its complexity if it beats the obvious
 alternatives, so both are computed on the same split:
 
@@ -227,8 +233,12 @@ Tests must pass **without network access and without API keys**; anything extern
 exercised through recorded fixtures. That is what keeps this reproducible for someone who
 just cloned it.
 
-CI runs lint, mypy, tests with coverage, the full frontend pipeline, a Docker build of all
-five services, and publishes multi-arch images (amd64 + arm64) to GHCR on `main`.
+CI runs lint, mypy, tests with coverage, the full frontend pipeline, a schema-drift check
+against a real PostGIS instance, a Docker build of all five services, and publishes
+multi-arch images (amd64 + arm64) to GHCR on `main`.
+
+**Current status and roadmap**: [`docs/ESTADO.md`](docs/ESTADO.md) (in Spanish) tracks what
+is done, what is next, and the known debt.
 
 ---
 

@@ -3,6 +3,10 @@
 Este fichero es la **fuente de verdad legible por máquina** del proyecto. Léelo antes
 de escribir código. Si algo no está aquí ni en `docs/`, asúmelo no decidido: pregunta.
 
+> **¿Empiezas una sesión nueva?** Lee primero
+> [`docs/ESTADO.md`](docs/ESTADO.md): estado actual, qué se hizo la última vez, por dónde
+> seguir y las trampas del entorno. Este fichero tiene las *reglas*; aquel, el *plan*.
+
 ## Qué es esto
 `territorio-engine` es un **motor de fusión de datos territoriales** de España.
 Núcleo = armonizar fuentes públicas heterogéneas a la clave **`municipio × año`** y
