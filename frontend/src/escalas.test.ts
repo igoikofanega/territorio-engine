@@ -20,6 +20,15 @@ describe("catálogo de modos", () => {
     expect(todos).toHaveLength(new Set(todos).size);
   });
 
+  it("toda capa definida es alcanzable desde el menú", () => {
+    // El sentido contrario del test anterior: una capa en ESCALAS que no está en
+    // ningún grupo existe en el código y se sirve por API, pero ningún usuario puede
+    // llegar a ella. Se queda muerta sin que nada falle.
+    const enMenu = new Set(GRUPOS_MODOS.flatMap((g) => g.modos));
+    const huerfanas = Object.keys(ESCALAS).filter((m) => !enMenu.has(m as Modo));
+    expect(huerfanas).toEqual([]);
+  });
+
   it("cada modo declara endpoint, campo y etiqueta", () => {
     for (const [modo, esc] of Object.entries(ESCALAS)) {
       expect(esc.endpoint, modo).toBeTruthy();
