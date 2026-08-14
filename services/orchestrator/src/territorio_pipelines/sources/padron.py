@@ -11,6 +11,7 @@ import os
 import re
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import httpx
 import pandas as pd
@@ -55,7 +56,8 @@ def records_from_df(df: pd.DataFrame, anio_min: int = ANIO_MIN) -> Iterator[dict
     d["valor"] = pd.to_numeric(d["DATA"], errors="coerce")
     wide = d.pivot_table(index=["cod", "anio"], columns="Sexo", values="valor", aggfunc="first")
 
-    def _int_or_none(value: object) -> int | None:
+    def _int_or_none(value: Any) -> int | None:
+        # `Any`: valor de celda de pandas; `pd.isna` es la comprobación real.
         return None if pd.isna(value) else int(value)
 
     for (cod, anio), row in wide.iterrows():

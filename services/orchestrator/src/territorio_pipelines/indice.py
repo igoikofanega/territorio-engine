@@ -29,10 +29,6 @@ MEJOR_ALTO: dict[str, bool] = {
 }
 
 
-def _vacio(valor: float | None) -> bool:
-    return valor is None or (isinstance(valor, float) and math.isnan(valor))
-
-
 def combina(componentes: dict[str, float | None], pesos: dict[str, float] = PESOS) -> float | None:
     """Media ponderada de los percentiles ya orientados. Renormaliza sobre los presentes.
 
@@ -40,7 +36,9 @@ def combina(componentes: dict[str, float | None], pesos: dict[str, float] = PESO
     """
     num = den = 0.0
     for clave, valor in componentes.items():
-        if _vacio(valor):
+        # None y NaN se saltan por igual: ambos significan "sin dato". La comprobación
+        # va en línea (y no en un helper) para que el estrechamiento de tipo sea visible.
+        if valor is None or math.isnan(valor):
             continue
         num += pesos[clave] * valor
         den += pesos[clave]

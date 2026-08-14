@@ -20,7 +20,8 @@ def upgrade() -> None:
         sa.Column("cod_municipio", sa.String(length=5), primary_key=True),
         sa.Column("variable", sa.String(length=20), primary_key=True),
         sa.Column("valor", sa.Float()),
-        sa.Column("categoria", sa.String(length=10)),  # alto-alto | bajo-bajo | alto-bajo | bajo-alto | ns
+        # alto-alto | bajo-bajo | alto-bajo | bajo-alto | ns
+        sa.Column("categoria", sa.String(length=10)),
         sa.Column("p", sa.Float()),
     )
 

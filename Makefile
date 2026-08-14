@@ -20,12 +20,12 @@ test: ## Tests de los servicios Python
 	cd services/orchestrator && uv run pytest -q
 
 lint: ## Lint del monorepo (ruff)
-	uvx ruff check .
-	uvx ruff format --check .
+	uvx ruff@0.16.3 check .
+	uvx ruff@0.16.3 format --check .
 
 fmt: ## Formatea el código
-	uvx ruff format .
-	uvx ruff check --fix .
+	uvx ruff@0.16.3 format .
+	uvx ruff@0.16.3 check --fix .
 
 hooks: ## Instala los hooks de pre-commit
 	uvx pre-commit install

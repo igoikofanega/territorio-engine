@@ -86,8 +86,14 @@ def _leer(engine: Engine) -> dict[str, pd.DataFrame]:
     except Exception:
         fib = pd.DataFrame(columns=["cod", "pct_fibra"])
     return {
-        "fma": fma, "dim": dim, "env": env, "prov": prov,
-        "clima": clima, "aisl": aisl, "ext": ext, "fib": fib,
+        "fma": fma,
+        "dim": dim,
+        "env": env,
+        "prov": prov,
+        "clima": clima,
+        "aisl": aisl,
+        "ext": ext,
+        "fib": fib,
     }
 
 
@@ -97,7 +103,14 @@ def construir_dataset(
     """DataFrame con FEATURES + TARGET por (municipio, año base)."""
     d = _leer(engine)
     fma, dim, env, prov, clima, aisl, ext, fib = (
-        d["fma"], d["dim"], d["env"], d["prov"], d["clima"], d["aisl"], d["ext"], d["fib"],
+        d["fma"],
+        d["dim"],
+        d["env"],
+        d["prov"],
+        d["clima"],
+        d["aisl"],
+        d["ext"],
+        d["fib"],
     )
     pop_wide = fma.pivot_table(index="cod", columns="anio", values="pob")
 

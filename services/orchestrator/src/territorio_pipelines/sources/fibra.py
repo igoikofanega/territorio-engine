@@ -16,6 +16,7 @@ import os
 import re
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import httpx
 import openpyxl
@@ -50,9 +51,12 @@ def _norm(cabecera: object) -> str:
     return " ".join(str(cabecera or "").split()).lower()
 
 
+_COLUMNAS = ("cod", "fibra", "c100", "c5g")
+
+
 def _localizar_columnas(header: tuple) -> dict[str, int]:
     """Índices de las columnas de interés (año más reciente) por texto de cabecera."""
-    cols = {"cod": None, "fibra": None, "c100": None, "c5g": None}
+    cols: dict[str, int] = {}
     for j, c in enumerate(header):
         h = _norm(c)
         if h == "cmun":
@@ -63,13 +67,13 @@ def _localizar_columnas(header: tuple) -> dict[str, int]:
             cols["c100"] = j
         elif h.startswith(f"5g (junio {_ANIO}"):
             cols["c5g"] = j
-    faltan = [k for k, v in cols.items() if v is None]
+    faltan = [k for k in _COLUMNAS if k not in cols]
     if faltan:
         raise RuntimeError(f"Columnas no encontradas en el XLSX de fibra: {faltan}")
     return cols
 
 
-def _pct(v: object) -> float | None:
+def _pct(v: Any) -> float | None:
     """Fracción 0-1 → porcentaje 0-100 (1 decimal)."""
     if v is None:
         return None

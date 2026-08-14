@@ -55,7 +55,9 @@ def calcular_demografia(engine: Engine, ini: int = ANIO_INI, fin: int = ANIO_FIN
         veg = 0.0
         ok = True
         for t in range(ini, fin):
-            if t not in fila or pd.isna(fila[t]) or t not in rate.columns or pd.isna(rate.loc[prov, t]):
+            sin_pob = t not in fila or pd.isna(fila[t])
+            sin_tasa = t not in rate.columns or pd.isna(rate.loc[prov, t])
+            if sin_pob or sin_tasa:
                 ok = False
                 break
             veg += float(fila[t]) * float(rate.loc[prov, t])

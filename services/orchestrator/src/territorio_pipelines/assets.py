@@ -230,7 +230,9 @@ def clima(context: AssetExecutionContext) -> int:
 
 @asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, piramide, servicios])
 def indice(context: AssetExecutionContext) -> int:
-    """Índice compuesto "¿dónde vivir?" (renta+paro+alquiler+envejecimiento+servicios) → indice_municipio.
+    """Índice compuesto "¿dónde vivir?" → indice_municipio.
+
+    Combina renta, paro, alquiler, envejecimiento y servicios.
 
     Requiere las migraciones 0010 y 0017 y las capas cargadas (incluidos servicios OSM).
     """

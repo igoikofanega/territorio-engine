@@ -6,6 +6,7 @@ import json
 import time
 from collections import defaultdict
 from pathlib import Path
+from typing import Any
 
 import httpx
 import numpy as np
@@ -163,7 +164,9 @@ ON CONFLICT (cod_municipio, anio) DO UPDATE SET
 _ANIO_INDICE = 2022  # año con cobertura de las 4 capas
 
 
-def _na(v: object) -> float | None:
+def _na(v: Any) -> float | None:
+    # `Any` y no `object`: v es un valor de celda de pandas, dinámico por naturaleza,
+    # y `pd.isna` es la comprobación de tipo real en tiempo de ejecución.
     return None if pd.isna(v) else round(float(v), 1)
 
 
@@ -649,16 +652,19 @@ def load_aislamiento() -> dict[str, int]:
     y búsqueda KNN (<->). 'Capital' = municipio más poblado de la provincia (proxy).
     """
     with engine.begin() as conn:
-        conn.execute(text("""
+        conn.execute(
+            text("""
             CREATE TEMP TABLE _cent ON COMMIT DROP AS
             SELECT d.cod_municipio, d.cod_provincia, ST_Centroid(d.geom_25830) AS pt,
                    COALESCE(s.n_salud, 0) AS n_salud,
                    COALESCE(s.n_educacion, 0) AS n_educacion
             FROM dim_municipio d
             LEFT JOIN municipio_servicios s USING (cod_municipio)
-        """))
+        """)
+        )
         conn.execute(text("CREATE INDEX ON _cent USING gist (pt)"))
-        conn.execute(text("""
+        conn.execute(
+            text("""
             CREATE TEMP TABLE _cap ON COMMIT DROP AS
             SELECT DISTINCT ON (d.cod_provincia) d.cod_provincia,
                    ST_Centroid(d.geom_25830) AS pt
@@ -667,8 +673,10 @@ def load_aislamiento() -> dict[str, int]:
             WHERE f.anio = (SELECT max(anio) FROM fact_municipio_anual
                             WHERE poblacion_total IS NOT NULL)
             ORDER BY d.cod_provincia, f.poblacion_total DESC
-        """))
-        conn.execute(text("""
+        """)
+        )
+        conn.execute(
+            text("""
             INSERT INTO municipio_aislamiento (cod_municipio, km_salud, km_educacion, km_capital)
             SELECT c.cod_municipio,
                    round((SELECT ST_Distance(c.pt, o.pt) FROM _cent o WHERE o.n_salud > 0
@@ -681,7 +689,8 @@ def load_aislamiento() -> dict[str, int]:
             ON CONFLICT (cod_municipio) DO UPDATE SET
                 km_salud = EXCLUDED.km_salud, km_educacion = EXCLUDED.km_educacion,
                 km_capital = EXCLUDED.km_capital
-        """))
+        """)
+        )
         n = conn.execute(text("SELECT count(*) FROM municipio_aislamiento")).scalar_one()
     return {"municipios": n}
 

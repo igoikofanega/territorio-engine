@@ -1,6 +1,8 @@
+from collections.abc import Sequence
+
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import text
+from sqlalchemy import Row, text
 
 from .constants import PROVINCIAS
 from .db import engine
@@ -61,12 +63,17 @@ async def resumen(prov: str | None = None) -> dict:
     filtro = "WHERE d.cod_provincia = :prov" if prov else ""
     p = {"prov": prov} if prov else {}
 
-    async def top(orden: str, extra_join: str = "", extra_where: str = "", campo: str = "") -> list:
+    async def top(
+        orden: str, extra_join: str = "", extra_where: str = "", campo: str = ""
+    ) -> Sequence[Row]:
         sel = f", {campo}" if campo else ""
+        # si ya hay un WHERE por provincia, la condición extra se encadena con AND
+        prefijo = "AND" if filtro else "WHERE"
+        cond = f"{prefijo} {extra_where}" if extra_where else ""
         sql = text(f"""
             SELECT d.cod_municipio AS cod, d.nombre {sel}
             FROM dim_municipio d {extra_join}
-            {filtro} {("AND " + extra_where) if (filtro and extra_where) else (("WHERE " + extra_where) if extra_where else "")}
+            {filtro} {cond}
             ORDER BY {orden} LIMIT 6
         """)  # noqa: S608 — fragmentos literales fijos, `prov` va parametrizado
         async with engine.connect() as conn:
@@ -104,8 +111,8 @@ async def resumen(prov: str | None = None) -> dict:
                 p,
             )
         ).scalar_one_or_none()
-        riesgo = dict(
-            (r.nivel, r.n)
+        riesgo = {
+            r.nivel: r.n
             for r in (
                 await conn.execute(
                     text(f"""
@@ -116,9 +123,9 @@ async def resumen(prov: str | None = None) -> dict:
                     p,
                 )
             ).all()
-        )
-        giros = dict(
-            (r.tipo, r.n)
+        }
+        giros = {
+            r.tipo: r.n
             for r in (
                 await conn.execute(
                     text(f"""
@@ -129,7 +136,7 @@ async def resumen(prov: str | None = None) -> dict:
                     p,
                 )
             ).all()
-        )
+        }
         # distribución del índice en tramos de 20
         dist = (
             await conn.execute(
@@ -312,7 +319,7 @@ async def envejecimiento(prov: str | None = None, anio: int | None = None) -> di
             {where}
             ORDER BY d.cod_municipio
         """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
-        params = {"anio": anio}
+        params: dict[str, object] = {"anio": anio}
         if prov:
             params["prov"] = prov
         rows = (await conn.execute(sql, params)).all()
@@ -374,7 +381,7 @@ async def paro(prov: str | None = None, anio: int | None = None) -> dict:
             {where}
             ORDER BY d.cod_municipio
         """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
-        params = {"anio": anio}
+        params: dict[str, object] = {"anio": anio}
         if prov:
             params["prov"] = prov
         rows = (await conn.execute(sql, params)).all()
@@ -448,7 +455,7 @@ async def extranjeros(prov: str | None = None, anio: int | None = None) -> dict:
             {where}
             ORDER BY d.cod_municipio
         """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
-        params = {"anio": anio}
+        params: dict[str, object] = {"anio": anio}
         if prov:
             params["prov"] = prov
         rows = (await conn.execute(sql, params)).all()
@@ -495,7 +502,7 @@ async def renta(prov: str | None = None, anio: int | None = None) -> dict:
             {where}
             ORDER BY d.cod_municipio
         """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
-        params = {"anio": anio}
+        params: dict[str, object] = {"anio": anio}
         if prov:
             params["prov"] = prov
         rows = (await conn.execute(sql, params)).all()
@@ -554,7 +561,7 @@ async def alquiler(prov: str | None = None, anio: int | None = None) -> dict:
             {where}
             ORDER BY d.cod_municipio
         """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
-        params = {"anio": anio}
+        params: dict[str, object] = {"anio": anio}
         if prov:
             params["prov"] = prov
         rows = (await conn.execute(sql, params)).all()
@@ -594,7 +601,7 @@ async def indice(prov: str | None = None) -> dict:
             {where}
             ORDER BY d.cod_municipio
         """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
-        params = {"anio": anio}
+        params: dict[str, object] = {"anio": anio}
         if prov:
             params["prov"] = prov
         rows = (await conn.execute(sql, params)).all()
@@ -904,10 +911,7 @@ async def servicios(prov: str | None = None) -> dict:
     async with engine.connect() as conn:
         anio = (
             await conn.execute(
-                text(
-                    "SELECT max(anio) FROM fact_municipio_anual "
-                    "WHERE poblacion_total IS NOT NULL"
-                )
+                text("SELECT max(anio) FROM fact_municipio_anual WHERE poblacion_total IS NOT NULL")
             )
         ).scalar_one_or_none()
         where = "WHERE d.cod_provincia = :prov" if prov else ""
@@ -925,7 +929,7 @@ async def servicios(prov: str | None = None) -> dict:
             {where}
             ORDER BY d.cod_municipio
         """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
-        params = {"anio": anio}
+        params: dict[str, object] = {"anio": anio}
         if prov:
             params["prov"] = prov
         rows = (await conn.execute(sql, params)).all()
@@ -975,7 +979,7 @@ async def clima(prov: str | None = None) -> dict:
             {where}
             ORDER BY d.cod_municipio
         """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
-        params = {"anio": anio}
+        params: dict[str, object] = {"anio": anio}
         if prov:
             params["prov"] = prov
         rows = (await conn.execute(sql, params)).all()
@@ -1169,7 +1173,7 @@ async def coropleta(prov: str | None = None, anio: int | None = None) -> dict:
             {where}
             ORDER BY d.cod_municipio
         """)  # noqa: S608 — `where` es literal fijo, no entrada de usuario
-        params = {"anio": anio}
+        params: dict[str, object] = {"anio": anio}
         if prov:
             params["prov"] = prov
         rows = (await conn.execute(sql, params)).all()
@@ -1498,7 +1502,9 @@ async def municipio_ficha(cod: str) -> dict:
                     {
                         "cod": c,
                         "nombre": by_cod[c].nombre,
-                        "provincia": PROVINCIAS.get(by_cod[c].cod_provincia, by_cod[c].cod_provincia),
+                        "provincia": PROVINCIAS.get(
+                            by_cod[c].cod_provincia, by_cod[c].cod_provincia
+                        ),
                     }
                     for c in cods
                     if c in by_cod
@@ -1626,12 +1632,20 @@ async def municipio_ficha(cod: str) -> dict:
             else None
         ),
         "aislamiento": (
-            {"km_salud": aisl.km_salud, "km_educacion": aisl.km_educacion, "km_capital": aisl.km_capital}
+            {
+                "km_salud": aisl.km_salud,
+                "km_educacion": aisl.km_educacion,
+                "km_capital": aisl.km_capital,
+            }
             if aisl
             else None
         ),
         "conectividad": (
-            {"pct_fibra": conect.pct_fibra, "pct_100mbps": conect.pct_100mbps, "pct_5g": conect.pct_5g}
+            {
+                "pct_fibra": conect.pct_fibra,
+                "pct_100mbps": conect.pct_100mbps,
+                "pct_5g": conect.pct_5g,
+            }
             if conect
             else None
         ),
