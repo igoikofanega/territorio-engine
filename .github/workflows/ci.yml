@@ -78,6 +78,44 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
         continue-on-error: true
 
+  integracion:
+    name: Integración (PostGIS real)
+    runs-on: ubuntu-latest
+    services:
+      db:
+        image: imresamu/postgis:16-3.4
+        env:
+          POSTGRES_USER: territorio
+          POSTGRES_PASSWORD: territorio
+          POSTGRES_DB: territorio
+        ports: ["5544:5432"]
+        options: >-
+          --health-cmd "pg_isready -U territorio"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg2://territorio:territorio@localhost:5544/territorio
+      DATABASE_URL: postgresql+asyncpg://territorio:territorio@localhost:5544/territorio
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: services/orchestrator/uv.lock
+      - name: Sync
+        working-directory: services/orchestrator
+        run: uv sync --frozen
+      - name: Extensiones de PostGIS
+        run: |
+          PGPASSWORD=territorio psql -h localhost -p 5544 -U territorio -d territorio \
+            -f db/init/01_extensions.sql
+      - name: Migraciones sobre base de datos limpia
+        working-directory: services/orchestrator
+        run: uv run alembic upgrade head
+      - name: Tests de esquema (deriva ORM ↔ Alembic)
+        working-directory: services/orchestrator
+        # Sin base de datos estos tests se saltan solos; aquí es donde de verdad corren.
+        run: uv run pytest tests/test_esquema.py -q
+
   frontend:
     name: Frontend
     runs-on: ubuntu-latest
@@ -117,7 +155,7 @@ jobs:
   publish:
     name: Publicar en GHCR
     runs-on: ubuntu-latest
-    needs: [lint, typecheck, test, frontend, docker]
+    needs: [lint, typecheck, test, integracion, frontend, docker]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     permissions:
       contents: read

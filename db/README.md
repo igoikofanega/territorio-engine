@@ -45,7 +45,13 @@ Especificación completa del modelo de datos: [`../docs/matrix-spec.md`](../docs
 
 ## Extensiones
 
-`init/01_extensions.sql` habilita `postgis`, `pg_trgm` y `unaccent`. La migración
-`0018_unaccent` añade además un envoltorio inmutable `f_unaccent` y un índice funcional
-sobre `dim_municipio.nombre`, necesario para que el buscador ignore acentos usando
-índice en lugar de recorrer la tabla.
+`init/01_extensions.sql` habilita `postgis` y `pg_trgm`. La migración `0018_unaccent`
+añade `unaccent`, más un envoltorio inmutable `f_unaccent` y un índice funcional sobre
+`dim_municipio.nombre`, necesario para que el buscador ignore acentos usando índice en
+lugar de recorrer la tabla.
+
+La imagen `imresamu/postgis` trae además `postgis_topology`, `postgis_tiger_geocoder` y
+`fuzzystrmatch`, y añade `topology` y `tiger` al `search_path`. Eso significa que listar
+las tablas de la base de datos devuelve ~36 tablas del geocodificador de EE. UU. que no
+tienen nada que ver con este proyecto. `tests/test_esquema.py` las descarta consultando
+`pg_depend` (qué tabla pertenece a qué extensión) en lugar de con una lista fija.

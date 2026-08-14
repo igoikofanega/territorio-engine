@@ -25,21 +25,39 @@ class DimMunicipio(Base):
 class FactMunicipioAnual(Base):
     """Matriz de hechos `(cod_municipio, anio)`. Spec: docs/matrix-spec.md.
 
-    Por ahora solo demografía (Padrón). Se ampliará con MNP, renta, paro y clima.
+    Crece por columnas a medida que entran fuentes nuevas; el orden de abajo sigue el
+    de las migraciones que las añadieron. Mantener esto sincronizado con Alembic no es
+    cosmético: `migrations/env.py` usa `Base.metadata` como `target_metadata`, así que
+    una columna que exista en la BD pero no aquí sería propuesta para BORRARSE en el
+    siguiente `alembic revision --autogenerate`. Lo verifica `test_modelos.py`.
     """
 
     __tablename__ = "fact_municipio_anual"
 
     cod_municipio = Column(String(5), primary_key=True)
     anio = Column(Integer, primary_key=True)
+    # 0002 — Padrón (INE 29005)
     poblacion_total = Column(Integer)
     poblacion_hombres = Column(Integer)
     poblacion_mujeres = Column(Integer)
+    # 0007 — paro registrado (SEPE)
     paro_media_anual = Column(Integer)
+    # 0008 — renta (INE/AEAT ADRH)
     renta_neta_media_persona = Column(Float)
+    # 0009 — alquiler de referencia (SERPAVI/MIVAU)
     alquiler_eur_m2 = Column(Float)
+    # 0011 — clima (AEMET)
     temp_media_anual = Column(Float)
     precip_anual_mm = Column(Float)
+    # 0023 — más variables meteorológicas (AEMET)
+    temp_max_media = Column(Float)
+    temp_min_media = Column(Float)
+    temp_min_abs = Column(Float)
+    dias_despejados = Column(Float)
+    humedad_media = Column(Float)
+    # 0025 — población extranjera (INE 33571)
+    poblacion_extranjera = Column(Integer)
+    pct_extranjeros = Column(Float)
 
 
 class FactPiramide(Base):
