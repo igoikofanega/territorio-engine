@@ -1,3 +1,4 @@
+/// <reference types="vitest/config" />
 import react from "@vitejs/plugin-react";
 import { defineConfig } from "vite";
 
@@ -14,5 +15,9 @@ export default defineConfig({
     proxy: {
       "/api": { target, changeOrigin: true, rewrite: (p) => p.replace(/^\/api/, "") },
     },
+  },
+  test: {
+    environment: "jsdom",
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 });

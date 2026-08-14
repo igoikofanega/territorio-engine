@@ -49,8 +49,14 @@ export default function App() {
     if (!codSel) { setFicha(null); return; }
     fetch(`${API}/municipio/${codSel}`).then((r) => r.json()).then((d: FichaData) => {
       setFicha(d);
-      // si el municipio está en otra provincia, cambiamos el mapa para que se vea
-      if (d?.provincia?.cod && d.provincia.cod !== prov) setProv(d.provincia.cod);
+      // Si el municipio está en otra provincia, cambiamos el mapa para que se vea.
+      // Forma funcional a propósito: así el efecto no depende de `prov` (solo debe
+      // dispararse al cambiar de municipio) y siempre compara contra el valor actual,
+      // no contra el que capturó el closure.
+      setProv((actual) => {
+        const destino = d?.provincia?.cod;
+        return destino && destino !== actual ? destino : actual;
+      });
     }).catch(() => setFicha(null));
   }, [codSel]);
 

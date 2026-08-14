@@ -1,4 +1,9 @@
-.PHONY: help up down logs build test lint fmt hooks
+.PHONY: help up down logs build test lint fmt hooks typecheck front-lint front-test front-check check
+
+# Node no hace falta en el host: el tooling de frontend corre en un contenedor
+# efímero con el UID del usuario, para no dejar ficheros de root en el repo.
+NODE_RUN = docker run --rm --user "$$(id -u):$$(id -g)" -e HOME=/tmp \
+	-v "$$PWD/frontend":/app -w /app node:22-alpine
 
 help: ## Muestra esta ayuda
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN{FS=":.*?## "}{printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2}'
@@ -26,6 +31,20 @@ lint: ## Lint del monorepo (ruff)
 fmt: ## Formatea el código
 	uvx ruff@0.16.3 format .
 	uvx ruff@0.16.3 check --fix .
+
+typecheck: ## Comprobación de tipos (mypy) de los servicios Python
+	cd services/api && uv run mypy
+	cd services/orchestrator && uv run mypy
+
+front-lint: ## Lint + tipos del frontend (en contenedor)
+	$(NODE_RUN) sh -c "npm ci --silent && npx tsc --noEmit && npx eslint ."
+
+front-test: ## Tests del frontend (vitest, en contenedor)
+	$(NODE_RUN) sh -c "npm ci --silent && npx vitest run"
+
+front-check: front-lint front-test ## Todas las comprobaciones del frontend
+
+check: lint typecheck test front-check ## Todo lo que valida el CI, en local
 
 hooks: ## Instala los hooks de pre-commit
 	uvx pre-commit install
