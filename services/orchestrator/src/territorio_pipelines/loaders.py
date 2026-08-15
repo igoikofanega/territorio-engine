@@ -973,10 +973,21 @@ def load_noticias(
     crudo solo se escribe cuando la respuesta es buena, relanzar reintenta justo los
     huecos. `consultas_fallidas` sale en los metadatos para que el hueco se vea: una
     cobertura medida sobre una ingesta incompleta no significa lo mismo.
+
+    Se recorre **por población descendente**, no por código. Medido contra la API, cada
+    consulta con éxito cuesta cerca de un minuto, así que una ingesta completa dura horas
+    y es probable que se corte por medio. Con este orden, lo que haya descargado cuando se
+    corte es lo que tiene noticias; por código INE se habrían gastado las primeras horas
+    en pueblos de ochenta habitantes que devuelven cero artículos.
     """
     municipios = pd.read_sql(
-        "SELECT cod_municipio AS cod, nombre FROM dim_municipio "
-        "WHERE cod_provincia = %(prov)s ORDER BY cod_municipio",
+        "SELECT d.cod_municipio AS cod, d.nombre "
+        "FROM dim_municipio d "
+        "LEFT JOIN (SELECT cod_municipio, max(poblacion_total) AS pob "
+        "           FROM fact_municipio_anual GROUP BY cod_municipio) p "
+        "  ON p.cod_municipio = d.cod_municipio "
+        "WHERE d.cod_provincia = %(prov)s "
+        "ORDER BY p.pob DESC NULLS LAST, d.cod_municipio",
         engine,
         params={"prov": cod_provincia},
     )
