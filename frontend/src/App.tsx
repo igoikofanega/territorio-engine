@@ -13,7 +13,7 @@ import Recomendador from "./components/Recomendador";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
 import { color, combinaCustom, DEMOGRAFIA_COLORES, DEMOGRAFIA_LEYENDA, ESCALAS, INFLEXION_COLORES, INFLEXION_LEYENDA, LISA_COLORES, LISA_LEYENDA, PALETA_CAT, PESOS_DEFECTO, tooltip } from "./escalas";
-import { CLAVES_INDICE, type FichaData, type Modo, type Pesos, type Prov } from "./types";
+import { CLAVES_INDICE, type FichaData, type Modo, type NoticiasData, type Pesos, type Prov } from "./types";
 
 const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
 
@@ -38,6 +38,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [codSel, setCodSel] = useState<string | null>(null);
   const [ficha, setFicha] = useState<FichaData | null>(null);
+  const [noticias, setNoticias] = useState<NoticiasData | null>(null);
   const [pesos, setPesos] = useState<Pesos>(PESOS_DEFECTO);
   const [sidebarAbierta, setSidebarAbierta] = useState(true);
   const [recomendadorAbierto, setRecomendadorAbierto] = useState(false);
@@ -58,6 +59,17 @@ export default function App() {
         return destino && destino !== actual ? destino : actual;
       });
     }).catch(() => setFicha(null));
+  }, [codSel]);
+
+  // Las noticias van en su propia petición: es una capa regional y puede no existir,
+  // así que un fallo suyo no debe dejar la ficha entera sin datos.
+  useEffect(() => {
+    if (!codSel) { setNoticias(null); return; }
+    setNoticias(null);
+    fetch(`${API}/municipio/${codSel}/noticias`)
+      .then((r) => r.json())
+      .then(setNoticias)
+      .catch(() => setNoticias(null));
   }, [codSel]);
 
   useEffect(() => {
@@ -231,6 +243,7 @@ export default function App() {
         {codSel && (
           <Ficha
             ficha={ficha}
+            noticias={noticias}
             onClose={() => setCodSel(null)}
             onSelect={(c) => setCodSel(c)}
           />

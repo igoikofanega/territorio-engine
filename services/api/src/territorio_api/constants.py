@@ -55,3 +55,8 @@ PROVINCIAS: dict[str, str] = {
     "51": "Ceuta",
     "52": "Melilla",
 }
+
+# Provincias donde la capa de noticias tiene datos. Es una capa **regional**: fuera de
+# aquí no hay "cero noticias", hay "no consultado", y la diferencia se sirve al cliente
+# en vez de dejar que la interfaz la adivine. Ver docs/adr/0005-capa-de-noticias-y-llm.md.
+PROVINCIAS_NOTICIAS: frozenset[str] = frozenset({"31"})

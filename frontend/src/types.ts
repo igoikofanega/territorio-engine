@@ -122,6 +122,22 @@ export type FichaData = {
   similares: { cod: string; nombre: string; provincia: string }[];
 };
 
+export type Noticia = {
+  titular: string;
+  medio: string | null;
+  url: string;
+  fecha: string | null;
+  tema: string | null;
+  signo: number | null;
+};
+
+/** `consultado: false` = municipio fuera del ámbito de la capa, NO "sin noticias". */
+export type NoticiasData = {
+  consultado: boolean;
+  ambito: string;
+  noticias: Noticia[];
+};
+
 export const CLAVES_INDICE = ["renta", "paro", "alquiler", "envejecimiento", "servicios"] as const;
 export type ClaveIndice = (typeof CLAVES_INDICE)[number];
 export type Pesos = Record<ClaveIndice, number>;

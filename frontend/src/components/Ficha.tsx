@@ -4,6 +4,7 @@ import {
   Briefcase,
   GraduationCap,
   Home,
+  Newspaper,
   ShoppingCart,
   Stethoscope,
   Users,
@@ -13,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 
-import type { FichaData, SerieRow } from "../types";
+import type { FichaData, NoticiasData, SerieRow } from "../types";
 import Sparkline from "./Sparkline";
 
 /** Último valor no nulo de un campo de la serie + el anterior (para el delta). */
@@ -100,7 +101,82 @@ function Componente({ nombre, valor }: { nombre: string; valor: number | null })
   );
 }
 
-export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData | null; onClose: () => void; onSelect: (cod: string) => void }) {
+/** Panel de prensa local.
+ *
+ * Distingue tres estados que la interfaz NO debe confundir: fuera del ámbito de la capa
+ * (no se ha preguntado), dentro pero sin titulares (se preguntó y no hay), y con
+ * titulares. Un municipio de Cuenca no es un municipio del que no se habla: es uno que
+ * esta capa no cubre. Ver docs/adr/0005-capa-de-noticias-y-llm.md.
+ */
+function Noticias({ noticias, nombre }: { noticias: NoticiasData | null; nombre: string }) {
+  if (!noticias) return null;
+
+  if (!noticias.consultado) {
+    return (
+      <>
+        <h3>Prensa local</h3>
+        <div style={{ fontSize: 11, color: "var(--text-2)", lineHeight: 1.45 }}>
+          Capa regional: la prensa solo está indexada en {noticias.ambito}. No hay dato para{" "}
+          {nombre}, que no es lo mismo que no salir en la prensa.
+        </div>
+      </>
+    );
+  }
+
+  if (!noticias.noticias.length) {
+    return (
+      <>
+        <h3>Prensa local</h3>
+        <div style={{ fontSize: 11, color: "var(--text-2)" }}>
+          Sin titulares indexados en GDELT (2017→).
+        </div>
+      </>
+    );
+  }
+
+  // El color solo marca el signo cuando lo hay; el gris es "neutro o sin clasificar",
+  // no un tercer juicio.
+  const color = (signo: number | null) =>
+    signo == null || signo === 0 ? "var(--border)" : signo > 0 ? "#15803d" : "#b91c1c";
+
+  return (
+    <>
+      <h3>
+        <Newspaper size={12} strokeWidth={1.75} style={{ verticalAlign: "-1px", marginRight: 4 }} />
+        Prensa local
+      </h3>
+      <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
+        {noticias.noticias.map((n) => (
+          <li key={n.url} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+            <span
+              style={{ width: 5, height: 5, borderRadius: 999, background: color(n.signo), marginTop: 6, flexShrink: 0 }}
+            />
+            <div style={{ minWidth: 0 }}>
+              <a
+                href={n.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                style={{ fontSize: 12, lineHeight: 1.35, color: "var(--text)", textDecoration: "none" }}
+              >
+                {n.titular}
+              </a>
+              <div style={{ fontSize: 10, color: "var(--text-2)", marginTop: 1 }}>
+                {n.medio}
+                {n.fecha && <> · {n.fecha}</>}
+                {n.tema && <> · {n.tema}</>}
+              </div>
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div style={{ fontSize: 10, color: "var(--text-2)", marginTop: 6 }}>
+        Titulares y enlaces de GDELT. El texto completo es de cada medio.
+      </div>
+    </>
+  );
+}
+
+export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: FichaData | null; noticias: NoticiasData | null; onClose: () => void; onSelect: (cod: string) => void }) {
   if (!ficha) {
     return (
       <div className="ficha" style={{ padding: 16 }}>
@@ -397,6 +473,8 @@ export default function Ficha({ ficha, onClose, onSelect }: { ficha: FichaData |
             </span>
           </div>
         )}
+
+        <Noticias noticias={noticias} nombre={ficha.nombre} />
 
         {ficha.similares.length > 0 && (
           <>

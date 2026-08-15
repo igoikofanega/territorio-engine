@@ -4,7 +4,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import Row, text
 
-from .constants import PROVINCIAS
+from .constants import PROVINCIAS, PROVINCIAS_NOTICIAS
 from .db import engine
 from .routers import capas
 
@@ -794,4 +794,65 @@ async def municipio_ficha(cod: str) -> dict:
             else None
         ),
         "similares": similares,
+    }
+
+
+#: Tope de titulares por ficha. Es un panel, no un archivo de prensa.
+NOTICIAS_LIMITE = 20
+
+
+@app.get("/municipio/{cod}/noticias")
+async def municipio_noticias(cod: str, limit: int = NOTICIAS_LIMITE) -> dict:
+    """Titulares atribuidos a un municipio, con enlace al medio original.
+
+    Solo metadatos: titular, fecha, medio y enlace. Nunca el cuerpo del artículo
+    (ver ADR 0005). El enlace lleva tráfico al medio, no lo sustituye.
+
+    **`consultado` es la parte importante de esta respuesta.** La capa cubre solo
+    Navarra, así que fuera de ahí una lista vacía significa "no se ha preguntado", no
+    "no hay noticias". Servir esa diferencia es lo que impide que la interfaz enseñe un
+    municipio de Cuenca como si no saliera nunca en la prensa.
+
+    Se sirven únicamente los titulares que el clasificador dio por pertenecientes a este
+    municipio: sin ese filtro, la ficha de Tudela (Navarra) mostraría noticias de Tudela
+    de Duero (Valladolid).
+    """
+    async with engine.connect() as conn:
+        prov = (
+            await conn.execute(
+                text("SELECT cod_provincia FROM dim_municipio WHERE cod_municipio = :cod"),
+                {"cod": cod},
+            )
+        ).scalar_one_or_none()
+        if prov is None:
+            raise HTTPException(status_code=404, detail="municipio no encontrado")
+        if prov not in PROVINCIAS_NOTICIAS:
+            return {"consultado": False, "ambito": "Navarra", "noticias": []}
+
+        filas = (
+            await conn.execute(
+                text("""
+                    SELECT titular, medio, url, fecha, tema, signo
+                    FROM noticia_municipio
+                    WHERE cod_municipio = :cod AND pertenece
+                    ORDER BY fecha DESC NULLS LAST
+                    LIMIT :limit
+                """),
+                {"cod": cod, "limit": max(1, min(limit, 100))},
+            )
+        ).all()
+    return {
+        "consultado": True,
+        "ambito": "Navarra",
+        "noticias": [
+            {
+                "titular": f.titular,
+                "medio": f.medio,
+                "url": f.url,
+                "fecha": f.fecha.isoformat() if f.fecha else None,
+                "tema": f.tema,
+                "signo": f.signo,
+            }
+            for f in filas
+        ],
     }
