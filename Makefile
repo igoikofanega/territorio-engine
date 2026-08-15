@@ -106,6 +106,16 @@ ingest-noticias-serie: ## Serie completa de noticias GDELT (Navarra, 2017-2025, 
 etiquetar-noticias: ## Etiqueta titulares con el LLM (pertenencia, tema, signo) → noticia_municipio
 	docker compose run --rm orchestrator uv run dagster asset materialize --select noticias_etiquetadas -m territorio_pipelines.definitions
 
+noticias-progreso: ## Estado de la ingesta de noticias (municipios cubiertos, artículos, huecos)
+	@docker compose exec -T db psql -U $${POSTGRES_USER:-territorio} -d $${POSTGRES_DB:-territorio} -c "SELECT count(*) AS articulos, count(DISTINCT cod_municipio) AS con_noticias, (SELECT count(*) FROM dim_municipio WHERE cod_provincia = '31') AS ambito, count(*) FILTER (WHERE modelo IS NOT NULL) AS etiquetados, min(fecha) AS desde, max(fecha) AS hasta FROM noticia_municipio;"
+	@echo "consultas resueltas (crudos): $$(find raw/gdelt -name '*.json' 2>/dev/null | wc -l) de $$(( $$(docker compose exec -T db psql -U $${POSTGRES_USER:-territorio} -d $${POSTGRES_DB:-territorio} -tAc "SELECT count(*) FROM dim_municipio WHERE cod_provincia = '31'") * 2 ))"
+
+golden-export: ## Exporta la muestra de titulares para etiquetar a mano → raw/golden/
+	docker compose run --rm orchestrator uv run python -c "from territorio_pipelines.db import engine; from territorio_pipelines import golden; print(golden.exportar(engine), 'filas en', golden.PARA_ETIQUETAR)"
+
+golden-metricas: ## Mide la extracción del LLM contra el golden set etiquetado
+	docker compose run --rm orchestrator uv run python -c "from territorio_pipelines.db import engine; from territorio_pipelines import golden; import json; print(json.dumps(golden.metricas(engine), indent=2, ensure_ascii=False))"
+
 ingest-wikidata: ## Hechos Wikidata por municipio → municipio_wiki
 	docker compose run --rm orchestrator uv run dagster asset materialize --select wikidata -m territorio_pipelines.definitions
 

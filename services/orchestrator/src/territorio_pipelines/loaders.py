@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
@@ -956,12 +956,16 @@ PROVINCIA_NOTICIAS = "31"
 #: daría una cifra optimista —la prensa local digitalizada crece con el tiempo— y la
 #: pregunta que decide si hay ML es justamente si 2018 tiene datos.
 ANIOS_PILOTO = (2018, 2024)
+#: Cada cuántos municipios se informa del avance. 10 municipios son ~20 consultas,
+#: unos 20 minutos: frecuente para saber que sigue viva, no tanto como para ser ruido.
+_CADA_N = 10
 
 
 def load_noticias(
     cod_provincia: str = PROVINCIA_NOTICIAS,
     anios: Sequence[int] = ANIOS_PILOTO,
     raw_dir: Path = gdelt.RAW_DIR,
+    progreso: Callable[[dict], None] | None = None,
 ) -> dict:
     """Metadatos de prensa por municipio (GDELT) → noticia_municipio.
 
@@ -979,6 +983,11 @@ def load_noticias(
     y es probable que se corte por medio. Con este orden, lo que haya descargado cuando se
     corte es lo que tiene noticias; por código INE se habrían gastado las primeras horas
     en pueblos de ochenta habitantes que devuelven cero artículos.
+
+    `progreso` recibe el estado cada `_CADA_N` municipios. Una ingesta de nueve horas que
+    solo informa al terminar es una ingesta que corre a ciegas: si muere a la octava hora
+    no se sabe ni cuánto llevaba ni si estaba trayendo algo. El asset lo engancha al log
+    de Dagster, así que el avance se ve en la UI mientras ocurre.
     """
     municipios = pd.read_sql(
         "SELECT d.cod_municipio AS cod, d.nombre "
@@ -991,11 +1000,26 @@ def load_noticias(
         engine,
         params={"prov": cod_provincia},
     )
-    filas = saturadas = fallidas = 0
+    filas = saturadas = fallidas = hechos = 0
     con_articulos: set[str] = set()
+    t0 = time.monotonic()
+
+    def _estado(i: int) -> dict:
+        return {
+            "municipios_recorridos": i,
+            "municipios_totales": len(municipios),
+            "municipios_con_articulos": len(con_articulos),
+            "articulos": filas,
+            "consultas_hechas": hechos,
+            "consultas_saturadas": saturadas,
+            "consultas_fallidas": fallidas,
+            "minutos": round((time.monotonic() - t0) / 60, 1),
+        }
+
     with gdelt.cliente() as client:
-        for m in municipios.itertuples(index=False):
+        for i, m in enumerate(municipios.itertuples(index=False), start=1):
             for anio in anios:
+                hechos += 1
                 try:
                     path = gdelt.descargar(client, m.cod, m.nombre, anio, raw_dir)
                 except RuntimeError:
@@ -1012,14 +1036,9 @@ def load_noticias(
                     conn.execute(_INSERT_NOTICIA, lote)
                 filas += len(lote)
                 con_articulos.add(m.cod)
-    return {
-        "municipios_consultados": len(municipios),
-        "municipios_con_articulos": len(con_articulos),
-        "articulos": filas,
-        "consultas_saturadas": saturadas,
-        "consultas_fallidas": fallidas,
-        "anios": list(anios),
-    }
+            if progreso and (i % _CADA_N == 0 or i == len(municipios)):
+                progreso(_estado(i))
+    return {**_estado(len(municipios)), "anios": list(anios)}
 
 
 _UPDATE_ETIQUETAS = text("""

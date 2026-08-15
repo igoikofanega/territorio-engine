@@ -40,10 +40,20 @@ services:
       LLM_API_KEY: ${LLM_API_KEY:-}
       LLM_MODELO: ${LLM_MODELO:-}
       MLFLOW_TRACKING_URI: http://mlflow:5000
+      # Instancia de Dagster en un volumen compartido, no en /tmp del contenedor. Sin
+      # esto, un `docker compose run` arranca un contenedor nuevo con su propia
+      # instancia vacía: la materialización corre a ciegas, no sale en la UI de :3010 y
+      # su historial se pierde al terminar. Con el volumen, cualquier ejecución —desde
+      # la UI o desde un one-off— es la misma instancia y se ve en el mismo sitio.
+      DAGSTER_HOME: /dagster_home
     ports:
       - "${DAGSTER_PORT:-3010}:3000"
     volumes:
       - ./raw:/data/raw  # landing zone inmutable de datos crudos
+      # El golden set de noticias tiene que acabar en el repositorio (se versiona), no
+      # en un volumen: es lo que hace reproducible la medición de la extracción.
+      - ./docs/golden:/app/docs/golden
+      - dagster_home:/dagster_home
     depends_on:
       db:
         condition: service_healthy
@@ -65,3 +75,4 @@ services:
 volumes:
   db_data:
   mlflow_data:
+  dagster_home:

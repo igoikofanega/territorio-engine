@@ -239,7 +239,9 @@ def noticias(context: AssetExecutionContext) -> int:
 
     ventana = parsea_anios(os.environ.get("GDELT_ANIOS", "")) or ANIOS_PILOTO
     context.log.info(f"noticias: ventana {ventana}")
-    result = load_noticias(anios=ventana)
+    # El avance va al log de Dagster mientras ocurre: una ingesta de horas que solo
+    # informa al terminar no se puede vigilar, y si muere no deja ni rastro de por dónde iba.
+    result = load_noticias(anios=ventana, progreso=lambda e: context.log.info(f"noticias: {e}"))
     context.add_output_metadata(result)
     context.log.info(f"noticias: {result}")
     return result["articulos"]
