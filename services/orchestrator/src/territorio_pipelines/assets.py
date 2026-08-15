@@ -245,6 +245,27 @@ def noticias(context: AssetExecutionContext) -> int:
     return result["articulos"]
 
 
+@asset(group_name="fuentes", deps=[noticias])
+def noticias_etiquetadas(context: AssetExecutionContext) -> int:
+    """Etiqueta los titulares con el LLM (pertenencia, tema, signo). Requiere 0029.
+
+    Lo que decide es sobre todo la **pertenencia**: la consulta a GDELT es por nombre, y
+    "Tudela" trae noticias de Tudela de Duero. Ver ADR 0005.
+
+    Incremental: solo toca lo que aún no tiene modelo, así que se puede ir por tandas.
+    `LLM_LIMITE` acota cuántos titulares se etiquetan en una ejecución.
+    """
+    import os
+
+    from .loaders import load_extraccion_noticias
+
+    limite = int(os.environ.get("LLM_LIMITE", "0")) or None
+    result = load_extraccion_noticias(limite=limite)
+    context.add_output_metadata(result)
+    context.log.info(f"noticias_etiquetadas: {result}")
+    return result["titulares_etiquetados"]
+
+
 @asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, piramide, servicios])
 def indice(context: AssetExecutionContext) -> int:
     """Índice compuesto "¿dónde vivir?" → indice_municipio.

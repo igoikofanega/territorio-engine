@@ -39,21 +39,30 @@ RESPUESTA = json.dumps(
 )
 
 
+#: Lo que devuelve GDELT cuando rechaza: 429 y texto plano, no un JSON de error.
+LIMITE = "Please limit requests to one every 5 seconds or contact kalev.leetaru5@gmail.com"
+
+
 class _Resp:
-    def __init__(self, text: str) -> None:
+    def __init__(self, text: str, status_code: int = 200) -> None:
         self.text = text
+        self.status_code = status_code
 
 
 class _ClienteFalso:
-    """Cliente que devuelve respuestas guionizadas y cuenta las llamadas."""
+    """Cliente que devuelve respuestas guionizadas y cuenta las llamadas.
 
-    def __init__(self, *cuerpos: str) -> None:
-        self.cuerpos = list(cuerpos)
+    Cada elemento es un cuerpo, o una tupla `(cuerpo, código)`.
+    """
+
+    def __init__(self, *respuestas) -> None:
+        self.respuestas = list(respuestas)
         self.llamadas = 0
 
     def get(self, url, params=None):
         self.llamadas += 1
-        return _Resp(self.cuerpos.pop(0))
+        r = self.respuestas.pop(0)
+        return _Resp(*r) if isinstance(r, tuple) else _Resp(r)
 
 
 @pytest.fixture(autouse=True)
@@ -112,19 +121,29 @@ def test_cuerpo_vacio_es_cero_resultados_no_un_error():
     assert json.loads(gdelt._pedir(cliente, {"query": "x"}))["articles"] == []
 
 
-def test_el_aviso_de_limite_se_reintenta_y_no_se_confunde_con_datos():
-    """El aviso llega con estado 200 y en texto plano: `resp.json()` lo daría por roto."""
-    aviso = "Please limit requests to one every 5 seconds or contact kalev.leetaru5@gmail.com"
-    cliente = _ClienteFalso(aviso, RESPUESTA)
+def test_el_rechazo_por_limite_se_reintenta_hasta_que_entra():
+    """GDELT rechaza con 429 y texto plano. Medido: acierta ~1 de cada 3 intentos, y
+    espaciar más no mejora la tasa — por eso se insiste en vez de esperar."""
+    cliente = _ClienteFalso((LIMITE, 429), (LIMITE, 429), RESPUESTA)
     cuerpo = gdelt._pedir(cliente, {"query": "x"})
-    assert cliente.llamadas == 2
+    assert cliente.llamadas == 3
     assert json.loads(cuerpo)["articles"]
 
 
-def test_una_consulta_rechazada_falla_alto_y_claro():
-    cliente = _ClienteFalso("Your query was malformed")
-    with pytest.raises(RuntimeError, match="rechazó la consulta"):
+def test_agotar_los_intentos_dice_la_causa():
+    """Un "no respondió" a secas es justo lo que no sirve para arreglar nada."""
+    cliente = _ClienteFalso(*[(LIMITE, 429)] * gdelt.REINTENTOS)
+    with pytest.raises(RuntimeError, match="Última causa: HTTP 429"):
         gdelt._pedir(cliente, {"query": "x"})
+
+
+def test_un_rechazo_nunca_se_guarda_como_crudo(tmp_path):
+    """Lo peor sería dejar el aviso de error dentro del fichero: la ingesta lo daría por
+    bueno para siempre, porque el crudo existente no se vuelve a pedir."""
+    cliente = _ClienteFalso(*[(LIMITE, 429)] * gdelt.REINTENTOS)
+    with pytest.raises(RuntimeError):
+        gdelt.descargar(cliente, "31001", "Abáigar", 2018, tmp_path)
+    assert list(tmp_path.rglob("*.json")) == []
 
 
 def test_descargar_es_reanudable(tmp_path):

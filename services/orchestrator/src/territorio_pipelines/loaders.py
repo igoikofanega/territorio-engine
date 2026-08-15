@@ -15,6 +15,7 @@ import pandas as pd
 from pydantic import ValidationError
 from sqlalchemy import text
 
+from . import extraccion, llm
 from . import indice as idx
 from . import proyeccion as proy
 from . import proyeccion_cohorte as hp
@@ -964,9 +965,14 @@ def load_noticias(
 ) -> dict:
     """Metadatos de prensa por municipio (GDELT) → noticia_municipio.
 
-    Una consulta por `(municipio, año)`, a 5,5 s cada una. Reanudable: los ficheros
-    crudos ya descargados no se vuelven a pedir, así que relanzar tras un corte continúa
-    donde se quedó.
+    Una consulta por `(municipio, año)`. Reanudable: los ficheros crudos ya descargados
+    no se vuelven a pedir, así que relanzar tras un corte continúa donde se quedó.
+
+    Una consulta que agota los reintentos **no aborta la ingesta**: se cuenta y se sigue.
+    Tumbar horas de trabajo porque GDELT rechazó un municipio sería absurdo, y como el
+    crudo solo se escribe cuando la respuesta es buena, relanzar reintenta justo los
+    huecos. `consultas_fallidas` sale en los metadatos para que el hueco se vea: una
+    cobertura medida sobre una ingesta incompleta no significa lo mismo.
     """
     municipios = pd.read_sql(
         "SELECT cod_municipio AS cod, nombre FROM dim_municipio "
@@ -974,19 +980,23 @@ def load_noticias(
         engine,
         params={"prov": cod_provincia},
     )
-    filas = saturadas = 0
+    filas = saturadas = fallidas = 0
     con_articulos: set[str] = set()
     with gdelt.cliente() as client:
         for m in municipios.itertuples(index=False):
-            # Una transacción por municipio, no una para toda la ingesta: son horas de
-            # trabajo y dejar una transacción abierta todo ese rato es pedir problemas.
             for anio in anios:
-                path = gdelt.descargar(client, m.cod, m.nombre, anio, raw_dir)
+                try:
+                    path = gdelt.descargar(client, m.cod, m.nombre, anio, raw_dir)
+                except RuntimeError:
+                    fallidas += 1
+                    continue
                 lote = list(gdelt.articulos(path, m.cod))
                 if gdelt.saturado(path):
                     saturadas += 1
                 if not lote:
                     continue
+                # Una transacción por lote, no una para toda la ingesta: son horas de
+                # trabajo y dejar una transacción abierta todo ese rato es pedir problemas.
                 with engine.begin() as conn:
                     conn.execute(_INSERT_NOTICIA, lote)
                 filas += len(lote)
@@ -996,5 +1006,67 @@ def load_noticias(
         "municipios_con_articulos": len(con_articulos),
         "articulos": filas,
         "consultas_saturadas": saturadas,
+        "consultas_fallidas": fallidas,
         "anios": list(anios),
+    }
+
+
+_UPDATE_ETIQUETAS = text("""
+UPDATE noticia_municipio SET
+    pertenece = :pertenece, confianza = :confianza,
+    tema = :tema, signo = :signo, modelo = :modelo
+WHERE cod_municipio = :cod AND url_sha1 = :url_sha1
+""")
+
+#: Nombre de la provincia del ámbito, para el prompt. No se importa el mapa completo de
+#: 52 provincias porque vive en el servicio de API, que es un proyecto uv aparte; cuando
+#: esta capa deje de ser regional habrá que compartirlo.
+PROVINCIA_NOTICIAS_NOMBRE = "Navarra"
+
+
+def load_extraccion_noticias(limite: int | None = None, lote: int = extraccion.LOTE) -> dict:
+    """Etiqueta titulares sin etiquetar con el LLM → noticia_municipio.
+
+    **Reanudable e incremental**: solo toca las filas con `modelo IS NULL`, así que
+    relanzarlo continúa donde se quedó y `limite` permite probar con poco gasto antes de
+    soltar el lote entero.
+    """
+    cfg = llm.config()
+    sql = (
+        "SELECT n.cod_municipio AS cod, n.url_sha1, n.titular, n.medio, d.nombre "
+        "FROM noticia_municipio n JOIN dim_municipio d USING (cod_municipio) "
+        "WHERE n.modelo IS NULL ORDER BY n.cod_municipio, n.fecha"
+    )
+    if limite:
+        sql += f" LIMIT {int(limite)}"
+    pendientes = pd.read_sql(sql, engine)
+
+    client = llm.cliente(cfg)
+    etiquetadas = sin_etiqueta = 0
+    for (cod, nombre), grupo in pendientes.groupby(["cod", "nombre"], sort=False):
+        filas = grupo.to_dict("records")
+        for i in range(0, len(filas), lote):
+            trozo = filas[i : i + lote]
+            marcas = extraccion.etiquetar(
+                client, cfg["modelo"], nombre, PROVINCIA_NOTICIAS_NOMBRE, trozo
+            )
+            updates = [
+                {
+                    "cod": cod,
+                    "url_sha1": trozo[j]["url_sha1"],
+                    "modelo": cfg["modelo"][:80],
+                    **marcas[j],
+                }
+                for j in range(len(trozo))
+                if j in marcas
+            ]
+            sin_etiqueta += len(trozo) - len(updates)
+            if updates:
+                with engine.begin() as conn:
+                    conn.execute(_UPDATE_ETIQUETAS, updates)
+                etiquetadas += len(updates)
+    return {
+        "titulares_etiquetados": etiquetadas,
+        "titulares_sin_etiqueta": sin_etiqueta,
+        "modelo": cfg["modelo"],
     }

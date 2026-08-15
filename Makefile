@@ -103,6 +103,9 @@ ingest-noticias: ## Piloto de noticias GDELT (Navarra, 2018 y 2024, ~50 min) →
 ingest-noticias-serie: ## Serie completa de noticias GDELT (Navarra, 2017-2025, ~4 h) → noticia_municipio
 	docker compose run --rm -e GDELT_ANIOS=2017-2025 orchestrator uv run dagster asset materialize --select noticias -m territorio_pipelines.definitions
 
+etiquetar-noticias: ## Etiqueta titulares con el LLM (pertenencia, tema, signo) → noticia_municipio
+	docker compose run --rm orchestrator uv run dagster asset materialize --select noticias_etiquetadas -m territorio_pipelines.definitions
+
 ingest-wikidata: ## Hechos Wikidata por municipio → municipio_wiki
 	docker compose run --rm orchestrator uv run dagster asset materialize --select wikidata -m territorio_pipelines.definitions
 

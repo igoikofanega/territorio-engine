@@ -6,10 +6,12 @@ medio y URL. Nunca el cuerpo: ver `docs/adr/0005-capa-de-noticias-y-llm.md`.
 Tres peculiaridades de esta API que explican el código:
 
 1. **El histórico arranca en 2017.** No hay nada antes, por mucho que se pida.
-2. **Un límite de 1 petición cada 5 segundos**, y cuando se supera no devuelve un 429:
-   devuelve **200 con un aviso en texto plano**. Un `resp.json()` ingenuo revienta con un
-   error de parseo que no dice nada de lo que ha pasado realmente.
-3. **Sin resultados = cuerpo vacío**, no un JSON con lista vacía.
+2. **El límite de peticiones no es de cadencia, es de carga.** La documentación dice "una
+   petición cada 5 segundos", pero medido contra la API real: con 10 s de separación
+   responde 2 de cada 5 veces, y con 40 s, 1 de cada 4. Rechaza con **429 y un aviso en
+   texto plano**. Esperar más no lo arregla —no es nuestra cadencia lo que molesta, es la
+   suya—, así que la estrategia es **reintentar**, no espaciar.
+3. **Sin resultados = cuerpo vacío o `{}`**, no un JSON con lista vacía.
 
 La consulta es deliberadamente **amplia**: el nombre del municipio en medios españoles, sin
 intentar desambiguar aquí. "Tudela" trae también noticias de Tudela de Duero (Valladolid),
@@ -32,10 +34,14 @@ from pathlib import Path
 import httpx
 
 API = "https://api.gdeltproject.org/api/v2/doc/doc"
-#: 5,0 s es el límite anunciado; 5,5 deja margen para no jugársela en cada petición.
-THROTTLE_S = 5.5
-#: Espera adicional cuando GDELT contesta con el aviso de exceso de peticiones.
-ESPERA_LIMITE_S = 30.0
+#: 5,0 s es el límite anunciado; 6 deja margen sin regalar tiempo. Espaciar más no sube
+#: la tasa de acierto (medido), así que no compensa.
+THROTTLE_S = 6.0
+#: Espera tras un rechazo. Corta a propósito: como el rechazo no depende de nuestra
+#: cadencia, un reintento pronto tiene tantas probabilidades como uno tardío.
+ESPERA_LIMITE_S = 8.0
+#: Con ~1 acierto de cada 3, ocho intentos dejan la probabilidad de fallo por debajo del 4 %.
+REINTENTOS = 8
 #: Primer año con datos en GDELT.
 ANIO_INI = 2017
 #: Tope duro de la API. Un municipio que lo alcance está saturando la consulta.
@@ -71,30 +77,38 @@ def cliente() -> httpx.Client:
     return httpx.Client(timeout=60, follow_redirects=True)
 
 
-def _pedir(client: httpx.Client, params: dict[str, str], reintentos: int = 4) -> str:
-    """Cuerpo JSON de una consulta, respetando el límite de peticiones.
+def _pedir(client: httpx.Client, params: dict[str, str], reintentos: int = REINTENTOS) -> str:
+    """Cuerpo JSON de una consulta, insistiendo ante los rechazos por límite.
 
     Espera **antes** de pedir, no después: así la pausa se respeta también cuando la
-    llamada anterior falló, que es justo cuando más fácil es saltarse el límite.
+    llamada anterior falló.
+
+    Si se agotan los intentos, el error dice **por qué** falló la última vez. La versión
+    anterior se tragaba la causa y decía solo "no respondió", que es justo lo que no hay
+    que saber para arreglarlo.
     """
-    for intento in range(reintentos):
+    causa = "sin intentos"
+    for _ in range(reintentos):
         time.sleep(THROTTLE_S)
         try:
             resp = client.get(API, params=params)
-        except httpx.HTTPError:
+        except httpx.HTTPError as exc:
+            causa = f"{type(exc).__name__}: {exc}"
             continue
         cuerpo = resp.text.strip()
+        if resp.status_code == 429 or (cuerpo and not cuerpo.startswith("{")):
+            # Rechazo por límite: 429 con un aviso en texto plano. No es un error de la
+            # consulta ni algo que arregle esperar más; simplemente se vuelve a pedir.
+            causa = f"HTTP {resp.status_code}: {cuerpo[:120]}"
+            time.sleep(ESPERA_LIMITE_S)
+            continue
         if not cuerpo:
             return '{"articles": []}'  # sin resultados: GDELT devuelve el cuerpo vacío
-        if cuerpo.startswith("{"):
-            return cuerpo
-        if "limit" in cuerpo.lower():  # aviso de exceso de peticiones, con estado 200
-            time.sleep(ESPERA_LIMITE_S * (intento + 1))
-            continue
-        # Cualquier otro texto plano es un rechazo de la consulta: fallar alto y claro,
-        # no dejar un fichero crudo con un mensaje de error dentro.
-        raise RuntimeError(f"GDELT rechazó la consulta {params['query']!r}: {cuerpo[:200]}")
-    raise RuntimeError(f"GDELT no respondió tras {reintentos} intentos: {params['query']!r}")
+        return cuerpo
+    raise RuntimeError(
+        f"GDELT no respondió tras {reintentos} intentos a {params['query']!r}. "
+        f"Última causa: {causa}"
+    )
 
 
 def descargar(
