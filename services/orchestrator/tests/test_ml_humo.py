@@ -70,6 +70,13 @@ def entrenamiento(tmp_path_factory):
     mp.delenv("MLFLOW_TRACKING_URI", raising=False)
     mlflow.set_tracking_uri(uri)
     mlflow.set_registry_uri(uri)
+    # El experimento se crea aquí, con su almacén de artefactos en el temporal. Si se
+    # deja que lo cree `set_experiment`, MLflow usa `./mlruns` relativo al directorio de
+    # trabajo: cada ejecución de los tests dejaba cinco ficheros (uno de 1,3 MB) dentro
+    # del repositorio, huérfanos además, porque el índice de runs vive en este SQLite
+    # temporal que se borra al terminar.
+    if mlflow.get_experiment_by_name(m.EXPERIMENTO) is None:
+        mlflow.create_experiment(m.EXPERIMENTO, artifact_location=(tmp / "artefactos").as_uri())
     mp.setattr(m, "construir_dataset", lambda engine, anios, horizonte=m.HORIZONTE: _dataset(anios))
     # El calendario consulta la base de datos para derivar los años; aquí se fija la
     # ventana a mano para que el test siga siendo hermético. Que los años se deriven en

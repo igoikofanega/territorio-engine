@@ -27,6 +27,10 @@ dist/
 raw/*
 !raw/.gitkeep
 
+# Artefactos locales de MLflow. La fuente de verdad es el servicio `mlflow` con su
+# volumen; esto es residuo de ejecutar los tests fuera del contenedor.
+services/orchestrator/mlruns/
+
 # Mockups de diseño generados (el sistema de diseño vive en docs/design-system.md)
 diseño_ideas/
 
