@@ -16,7 +16,7 @@ Spain's rural depopulation ("la España vaciada") is measured by a dozen agencie
 publish in a dozen incompatible formats. This project does the unglamorous work of making
 those sources agree with each other, and then builds honest models on top.
 
-**8,217 municipalities · 96,585 fact rows · 14 public sources · 2015→**
+**8,217 municipalities · 96,585 fact rows · 15 public sources · 2015→**
 
 > **A note on language.** This README is in English; the code, column names, docs and
 > commit messages are in Spanish. That is deliberate, not an accident — see
@@ -94,10 +94,11 @@ of population change.
 
 ```mermaid
 flowchart LR
-    subgraph fuentes["14 public sources"]
+    subgraph fuentes["15 public sources"]
         INE["INE · SEPE · AEAT"]
         GEO["IGN · OSM · Wikidata"]
         AMB["AEMET · EEA · SETELECO"]
+        NEW["GDELT <i>(Navarra only)</i>"]
     end
 
     ORQ["<b>orchestrator</b><br/>Dagster assets<br/>ingest → validate → load"]
@@ -151,6 +152,7 @@ The part nobody sees in a screenshot, and the reason the rest is possible.
 | Points of interest | OpenStreetMap | Health, education, retail | **ODbL (share-alike)** |
 | Municipal facts | Wikidata | Altitude, coat of arms, website | CC0 |
 | Descriptions | Wikipedia (ES) | Text and images | **CC BY-SA (share-alike)** |
+| News metadata | GDELT DOC 2.0 | Headline, date, outlet, URL — **Navarra only**, 2017→ | GDELT terms |
 
 Apache-2.0 covers **the code**. The datasets keep their own licences — see [`NOTICE`](NOTICE),
 which flags the two share-alike ones explicitly. No data is redistributed in this repository;
@@ -193,7 +195,7 @@ make ingest-renta         # INE/AEAT      → income
 
 Then the optional sources (`ingest-alquiler`, `ingest-clima`, `ingest-nacionalidad`,
 `ingest-fibra`, `ingest-aire`, `ingest-servicios`, `ingest-wikidata`, `ingest-wikipedia`,
-`ingest-aislamiento`), and finally the models:
+`ingest-aislamiento`, `ingest-noticias`), and finally the models:
 
 ```bash
 make indice          # composite "where to live" index
@@ -254,9 +256,9 @@ is done, what is next, and the known debt.
 │   │       ├── capas.py        # declarative layer registry + endpoint factory
 │   │       └── routers/        # endpoints grouped by domain
 │   ├── orchestrator/   # Dagster + Alembic + ML — the only writer
-│   │   ├── migrations/         # 28 revisions
+│   │   ├── migrations/         # 29 revisions
 │   │   └── src/territorio_pipelines/
-│   │       ├── sources/        # 14 source adapters
+│   │       ├── sources/        # 15 source adapters
 │   │       └── ml/             # models, features, spatial statistics
 │   └── mlflow/         # tracking server
 └── frontend/           # React + TypeScript + Vite + Leaflet

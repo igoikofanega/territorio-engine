@@ -222,6 +222,29 @@ def clima(context: AssetExecutionContext) -> int:
     return result["municipios"]
 
 
+@asset(group_name="fuentes")
+def noticias(context: AssetExecutionContext) -> int:
+    """Metadatos de prensa por municipio (GDELT DOC 2.0) → noticia_municipio. Requiere 0029.
+
+    Capa **regional**: solo Navarra (ver ADR 0005). Ingesta lenta —GDELT limita a una
+    petición cada 5 segundos— pero reanudable: los crudos ya descargados no se repiten.
+
+    La ventana de años sale de `GDELT_ANIOS` (`'2018,2024'` o `'2017-2025'`). Sin ella se
+    hace el piloto, que es lo que decide si esta capa llega a ML o se queda en producto.
+    """
+    import os
+
+    from .loaders import ANIOS_PILOTO, load_noticias
+    from .sources.gdelt import anios as parsea_anios
+
+    ventana = parsea_anios(os.environ.get("GDELT_ANIOS", "")) or ANIOS_PILOTO
+    context.log.info(f"noticias: ventana {ventana}")
+    result = load_noticias(anios=ventana)
+    context.add_output_metadata(result)
+    context.log.info(f"noticias: {result}")
+    return result["articulos"]
+
+
 @asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, piramide, servicios])
 def indice(context: AssetExecutionContext) -> int:
     """Índice compuesto "¿dónde vivir?" → indice_municipio.

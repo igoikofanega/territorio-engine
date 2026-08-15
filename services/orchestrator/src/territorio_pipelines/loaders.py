@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import time
 from collections import defaultdict
+from collections.abc import Sequence
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,7 @@ from .sources import (
     aemet,
     alquiler,
     fibra,
+    gdelt,
     mnp,
     nacionalidad,
     osm,
@@ -935,3 +937,64 @@ def load_proyeccion_cohorte() -> dict[str, int]:
         if rows:
             conn.execute(_INSERT_PROY_COHORTE, rows)
     return {"municipios": len(rows)}
+
+
+_INSERT_NOTICIA = text("""
+INSERT INTO noticia_municipio
+    (cod_municipio, url_sha1, url, titular, medio, fecha, idioma)
+VALUES (:cod, :url_sha1, :url, :titular, :medio, :fecha, :idioma)
+ON CONFLICT (cod_municipio, url_sha1) DO UPDATE SET
+    titular = EXCLUDED.titular, medio = EXCLUDED.medio,
+    fecha = EXCLUDED.fecha, idioma = EXCLUDED.idioma
+""")
+
+#: Ámbito de la capa de noticias: Navarra. Ver ADR 0005 — es una capa regional en un
+#: proyecto nacional, y eso se marca en la interfaz en vez de disimularse.
+PROVINCIA_NOTICIAS = "31"
+#: Piloto: un año antiguo y uno reciente. Medir la cobertura solo con años recientes
+#: daría una cifra optimista —la prensa local digitalizada crece con el tiempo— y la
+#: pregunta que decide si hay ML es justamente si 2018 tiene datos.
+ANIOS_PILOTO = (2018, 2024)
+
+
+def load_noticias(
+    cod_provincia: str = PROVINCIA_NOTICIAS,
+    anios: Sequence[int] = ANIOS_PILOTO,
+    raw_dir: Path = gdelt.RAW_DIR,
+) -> dict:
+    """Metadatos de prensa por municipio (GDELT) → noticia_municipio.
+
+    Una consulta por `(municipio, año)`, a 5,5 s cada una. Reanudable: los ficheros
+    crudos ya descargados no se vuelven a pedir, así que relanzar tras un corte continúa
+    donde se quedó.
+    """
+    municipios = pd.read_sql(
+        "SELECT cod_municipio AS cod, nombre FROM dim_municipio "
+        "WHERE cod_provincia = %(prov)s ORDER BY cod_municipio",
+        engine,
+        params={"prov": cod_provincia},
+    )
+    filas = saturadas = 0
+    con_articulos: set[str] = set()
+    with gdelt.cliente() as client:
+        for m in municipios.itertuples(index=False):
+            # Una transacción por municipio, no una para toda la ingesta: son horas de
+            # trabajo y dejar una transacción abierta todo ese rato es pedir problemas.
+            for anio in anios:
+                path = gdelt.descargar(client, m.cod, m.nombre, anio, raw_dir)
+                lote = list(gdelt.articulos(path, m.cod))
+                if gdelt.saturado(path):
+                    saturadas += 1
+                if not lote:
+                    continue
+                with engine.begin() as conn:
+                    conn.execute(_INSERT_NOTICIA, lote)
+                filas += len(lote)
+                con_articulos.add(m.cod)
+    return {
+        "municipios_consultados": len(municipios),
+        "municipios_con_articulos": len(con_articulos),
+        "articulos": filas,
+        "consultas_saturadas": saturadas,
+        "anios": list(anios),
+    }

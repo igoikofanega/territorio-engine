@@ -97,6 +97,12 @@ ingest-fibra: ## Cobertura de banda ancha (SETELECO) → municipio_conectividad
 ingest-aire: ## Calidad del aire (rasters EEA: PM2.5, NO2, PM10, O3) → municipio_aire
 	docker compose run --rm orchestrator uv run dagster asset materialize --select aire -m territorio_pipelines.definitions
 
+ingest-noticias: ## Piloto de noticias GDELT (Navarra, 2018 y 2024, ~50 min) → noticia_municipio
+	docker compose run --rm orchestrator uv run dagster asset materialize --select noticias -m territorio_pipelines.definitions
+
+ingest-noticias-serie: ## Serie completa de noticias GDELT (Navarra, 2017-2025, ~4 h) → noticia_municipio
+	docker compose run --rm -e GDELT_ANIOS=2017-2025 orchestrator uv run dagster asset materialize --select noticias -m territorio_pipelines.definitions
+
 ingest-wikidata: ## Hechos Wikidata por municipio → municipio_wiki
 	docker compose run --rm orchestrator uv run dagster asset materialize --select wikidata -m territorio_pipelines.definitions
 

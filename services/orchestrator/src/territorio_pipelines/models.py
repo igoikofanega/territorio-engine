@@ -1,5 +1,5 @@
 from geoalchemy2 import Geometry
-from sqlalchemy import Column, Float, Integer, String
+from sqlalchemy import Boolean, Column, Date, Float, Integer, String
 
 from .db import Base
 
@@ -284,6 +284,37 @@ class ArquetipoMunicipio(Base):
     cod_municipio = Column(String(5), primary_key=True)
     cluster = Column(Integer)
     etiqueta = Column(String)
+
+
+class NoticiaMunicipio(Base):
+    """Artículos de prensa atribuidos a un municipio (GDELT DOC 2.0). Ver ADR 0005.
+
+    Único grano no anual del repositorio: la fila es `(municipio, artículo)`, y la
+    agregación a `municipio × año` se hace en la capa de features, no aquí.
+
+    **Solo metadatos.** Titular, fecha, medio y URL; nunca el cuerpo del artículo.
+
+    Las cuatro últimas columnas las rellena la extracción con LLM y son nulas hasta
+    entonces. `pertenece` es la importante: la consulta a GDELT es por nombre, así que
+    "Tudela" trae también noticias de Tudela de Duero. `modelo` guarda con qué se
+    etiquetó, porque una etiqueta sin saber quién la puso no es reproducible.
+    """
+
+    __tablename__ = "noticia_municipio"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    #: La URL no vale como clave: las hay de más de 2.700 bytes y no caben en un B-tree.
+    url_sha1 = Column(String(40), primary_key=True)
+    url = Column(String, nullable=False)
+    titular = Column(String, nullable=False)
+    medio = Column(String(160))
+    fecha = Column(Date, index=True)
+    idioma = Column(String(20))
+    pertenece = Column(Boolean)
+    confianza = Column(Float)
+    tema = Column(String(40))
+    signo = Column(Float)
+    modelo = Column(String(80))
 
 
 class ProyeccionCohorte(Base):
