@@ -1,6 +1,6 @@
 # Estado del proyecto y por dónde seguir
 
-> **Documento de traspaso.** Última actualización: **2026-08-14**.
+> **Documento de traspaso.** Última actualización: **2026-08-15**.
 > Si eres un agente empezando una conversación nueva: lee esto y
 > [`AGENTS.md`](../AGENTS.md) antes de tocar nada. Aquí está el *estado* y el *plan*;
 > en `AGENTS.md`, las reglas.
@@ -68,50 +68,74 @@ Vale la pena conocerlos porque explican decisiones del código:
 
 ## Por dónde seguir
 
-### Fase 3 — Capa de LLM y noticias (siguiente, sin empezar)
+### Fase 3 — Capa de LLM y noticias (en curso, 2026-08-15)
 
-El plan detallado está en la conversación previa; esto es el resumen operativo.
+Todas las decisiones están en el [ADR 0005](adr/0005-capa-de-noticias-y-llm.md), incluido
+el **criterio de aceptación de la ablación**, escrito antes de ver ningún resultado.
 
-**Decisiones ya tomadas por el usuario, no re-preguntar:**
+**Hecho:**
 
-- **Proveedor**: SDK `openai` de Python contra un `base_url` configurable, para que sirva
-  cualquier proveedor compatible **y Ollama**. NO el SDK de Anthropic.
-- **Alcance**: Navarra (272 municipios) primero, diseño escalable a España.
-- **Sin despliegue cloud.**
-
-**Dos restricciones verificadas empíricamente que condicionan el diseño:**
-
-| Fuente | Hallazgo |
+| Bloque | Estado |
 |---|---|
-| Google News RSS | Funciona (100 artículos, 30 medios), pero **solo ~4 meses de histórico**. Inútil para features de ML. |
-| GDELT DOC 2.0 | Tiene histórico, pero **arranca en 2017** y limita a **1 petición cada 5 segundos** (devuelve 429). |
+| ADR 0005 | ✅ |
+| Ingesta GDELT (migración 0029, adaptador, loader, asset, targets) | ✅ |
+| Cliente LLM + extracción de etiquetas | ✅ código; **sin ejecutar, faltan credenciales** |
+| Panel de noticias en la ficha + endpoint | ✅ |
+| Golden set (exportación + métricas) | ✅ herramientas; sin etiquetar |
+| Observabilidad de la ingesta | ✅ |
+| Piloto + puerta de decisión | ⏳ corriendo |
+| Features + ablación | ❌ |
+| Informe narrativo | ❌ |
 
-**Consecuencia crítica:** los años base del modelo son 2015-2020. Con GDELT desde 2017 y
-ventana `[T-2, T]`, solo 2019 y 2020 tendrían cobertura completa — **y son justo los años
-de validación**. Por eso la ablación necesita su propia configuración (años base
-2018-2021, horizonte 3), cuyo MAE **no es comparable** con el titular del modelo.
+**Lo que hace falta para seguir:** `LLM_BASE_URL`, `LLM_API_KEY` y `LLM_MODELO` en el
+`.env`. Sin eso no se puede etiquetar, y sin etiquetar no hay ni golden set ni features.
 
-**Predicción honesta: es probable que las features de noticias NO mejoren el MAE.** Tres
-razones estructurales: >70 % de los municipios navarros probablemente no aparecen en GDELT
-ni una vez; la desalineación temporal de arriba; y la redundancia —"cierra la fábrica"
-llega el mismo año que sube el paro, y `paro_1000` ya lo captura antes y para los 8.131
-municipios—.
+#### Lo que se aprendió midiendo, y que cambia el plan
 
-**El valor no está en que funcione, sino en medirlo bien.** Ablación de tres brazos
-(sin / con / **permutadas**), 5 semillas, criterio de aceptación fijado **antes** de ver
-el resultado, y publicar el negativo si sale negativo. El brazo de permutación es lo que
-hace creíble el resultado: sin él, un delta pequeño es indistinguible del azar.
+**1. El límite de GDELT no es de cadencia, es de carga.** La documentación dice "1
+petición cada 5 segundos"; medido contra la API real, con 10 s de separación responde 2 de
+cada 5 veces y con 40 s, 1 de cada 4. Tras 5 minutos sin pedir nada, la primera petición
+también puede fallar. **Esperar más no mejora nada**: hay que insistir.
 
-**Puerta de decisión:** medir `n_municipios_con_cobertura` tras la ingesta. **Si salen
-menos de 60, cancelar la parte de ML** y dejarlo como capa de producto.
+Consecuencia práctica: **~1 consulta con éxito por minuto**. El piloto (272 municipios × 2
+años = 544 consultas) son unas 9 h, no los 50 min estimados; la serie completa (2017-2025)
+serían ~40 h. La ingesta es reanudable y no aborta ante un fallo, así que relanzarla
+continúa donde iba y reintenta solo los huecos.
 
-**Orden sugerido:** ADR → ingesta GDELT → cliente LLM + extracción → **golden set y
-métricas** → features + ablación → panel de noticias en la ficha → informe narrativo.
-El golden set va antes que las features a propósito: no se construyen features sobre una
-extracción cuya calidad no está medida.
+**2. Rechaza con 429, no con 200.** El primer intento de ingesta murió entero en el primer
+municipio por dar por hecho lo contrario. Si vuelves a tocar esto: el aviso llega con
+estado 429 y cuerpo en texto plano, y `httpx` no lanza ante un 4xx.
 
-**Legal:** almacenar y servir solo **titular, fecha, medio, URL y etiquetas derivadas**.
-Nunca el cuerpo del artículo. Esto debe quedar en un ADR.
+**3. La homonimia es la tarea, no un preproceso.** La consulta de "Tudela" devuelve
+noticias de Tudela de Duero (Valladolid) desde `elnortedecastilla.es`. Por eso el prompt
+lleva el dominio del medio, que desambigua mejor que el propio titular.
+
+**4. Se recorre por población descendente**, no por código INE. Con nueve horas por
+delante y cortes probables, lo descargado cuando se corte debe ser lo que tiene noticias:
+por código, las primeras horas se iban en Abáigar, Abárzuza y Abaurregaina, que devuelven
+cero artículos.
+
+#### Cómo vigilar la ingesta
+
+```bash
+make noticias-progreso   # artículos, municipios cubiertos, consultas resueltas
+```
+
+La UI de Dagster (<http://localhost:3010>) muestra el run y su log de progreso, que se
+publica cada 10 municipios. **Esto no funcionaba hasta esta sesión**: `DAGSTER_HOME`
+apuntaba a `/tmp` dentro del contenedor, así que cada `docker compose run` creaba su
+propia instancia vacía y la ejecución no salía en ninguna parte. Ahora es un volumen
+compartido. Si añades otro asset lento, no lo lances sin pasar por ahí.
+
+#### Deuda que deja esta fase
+
+- **Dagster guarda su historial en SQLite sobre un volumen.** Lo correcto sería Postgres,
+  que ya está levantado, pero `dagster-postgres` crearía sus tablas en la base
+  `territorio` y eso **rompería `test_esquema.py`** (toda tabla de la BD debe estar en
+  `models.py`). Requiere una base de datos aparte para Dagster.
+- **El golden set lo etiquetará un modelo, no una persona.** Si se hace así, hay que
+  decirlo en el informe: es una referencia cuidadosa frente a un clasificador barato, no
+  una verdad humana.
 
 ### Datos abiertos de Navarra (oportunidad nueva, sin evaluar a fondo)
 
