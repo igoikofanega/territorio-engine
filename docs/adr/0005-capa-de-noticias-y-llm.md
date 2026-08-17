@@ -150,6 +150,32 @@ no información.
 Si no se cumplen las tres, las features **no entran en el modelo de producción** y el
 resultado se publica igualmente como negativo, con sus números.
 
+## Nota de ejecución (2026-08-17): qué se etiqueta y qué no
+
+Añadida al ejecutar, sin tocar nada de lo anterior. **Los umbrales de aceptación de la
+ablación siguen siendo exactamente los del punto 8**: esto acota el corpus de entrada, no
+el criterio de decisión.
+
+No se etiqueta el corpus entero, por dos motivos distintos que conviene no confundir:
+
+- **Umbral de 10 titulares por municipio.** Es una cuestión de **validez**, no de coste:
+  medido, los municipios por debajo de diez suman el 1,7 % del corpus. Un
+  `pct_negativas` calculado sobre tres titulares no significa nada, y meterlo en la
+  ablación es meter ruido con formato de dato.
+- **Tope de 40 titulares por municipio y año.** Esto sí es el **coste**. El gasto vive en
+  la cabeza de la distribución —Pamplona y Tudela saturan el tope de 250 artículos de la
+  API—, no en la cola: con el tope, el corpus a etiquetar baja de 15.505 a 5.520. Cuarenta
+  titulares estiman una proporción con un error de ±8 puntos, de sobra para lo que estas
+  features miden.
+
+El muestreo ordena por `md5(url_sha1 || semilla)` con semilla fija. Sin eso la ablación no
+sería repetible, que es tanto como no haberla preinscrito.
+
+Consecuencia para las features: un municipio del ámbito con sus titulares clasificados y
+ninguna noticia en la ventana vale **0**; uno que no llegó al umbral vale **NaN**. Fundir
+los dos en un cero le enseñaría al modelo que los pueblos pequeños no salen en la prensa,
+que es justamente lo que no sabemos.
+
 ## Predicción registrada
 
 Se deja constancia, para que no se pueda reescribir a posteriori: **lo más probable es que

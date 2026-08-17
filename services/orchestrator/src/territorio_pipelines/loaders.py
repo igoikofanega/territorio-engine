@@ -1055,21 +1055,69 @@ PROVINCIA_NOTICIAS_NOMBRE = "Navarra"
 #: Cada cuántas peticiones se informa del avance del etiquetado.
 _CADA_N_PETICIONES = 20
 
+#: Titulares mínimos para que un municipio entre en el etiquetado. No es un ahorro —los
+#: municipios con menos de diez suman el 1,7 % del corpus—, es una cuestión de validez:
+#: un `pct_negativas` calculado sobre tres titulares no significa nada, y meterlo en la
+#: ablación es meter ruido con formato de dato.
+MIN_TITULARES = 10
+#: Tope de titulares por municipio y año. Esto sí es el ahorro: el coste vive en la
+#: cabeza de la distribución —Pamplona y Tudela saturan el tope de 250 artículos de la
+#: API— y con 40 el corpus a etiquetar cae al 38 %. Cuarenta titulares estiman una
+#: proporción con un error de ±8 puntos, de sobra para lo que miden estas features.
+TOPE_POR_ANIO = 40
+#: Semilla del muestreo. Va en el hash para que la selección sea **reproducible**: la
+#: misma consulta elige siempre los mismos titulares, aunque cambie el orden físico de
+#: las filas. Un muestreo irreproducible haría irrepetible la ablación.
+SEMILLA_MUESTRA = "territorio-engine"
 
-def pendientes_de_etiquetar() -> int:
-    """Titulares sin clasificar. Es el trabajo que le queda a la tanda diaria."""
+#: Universo del etiquetado: municipios que superan el umbral, y dentro de cada uno los
+#: `tope` primeros titulares de cada año según un orden pseudoaleatorio estable.
+#:
+#: El ranking se calcula sobre **todos** los titulares, no solo sobre los pendientes. Si
+#: se hiciera sobre los pendientes, cada ejecución repescaría titulares nuevos del mismo
+#: año y el tope no se respetaría entre tandas.
+_SQL_SELECCION = """
+WITH elegibles AS (
+    SELECT cod_municipio FROM noticia_municipio
+    GROUP BY cod_municipio HAVING count(*) >= :min_titulares
+),
+rankeados AS (
+    SELECT n.cod_municipio, n.url_sha1, n.titular, n.medio, n.modelo,
+           row_number() OVER (
+               PARTITION BY n.cod_municipio, extract(year FROM n.fecha)
+               ORDER BY md5(n.url_sha1 || :semilla)
+           ) AS pos
+    FROM noticia_municipio n JOIN elegibles USING (cod_municipio)
+)
+SELECT {campos} FROM rankeados r
+JOIN dim_municipio d ON d.cod_municipio = r.cod_municipio
+WHERE r.pos <= :tope AND r.modelo IS NULL
+"""
+
+
+def _params_seleccion(min_titulares: int, tope: int) -> dict:
+    return {"min_titulares": min_titulares, "tope": tope, "semilla": SEMILLA_MUESTRA}
+
+
+def pendientes_de_etiquetar(min_titulares: int = MIN_TITULARES, tope: int = TOPE_POR_ANIO) -> int:
+    """Titulares que la tanda diaria llegará a etiquetar.
+
+    Cuenta sobre el mismo universo que `load_extraccion_noticias`, no sobre la tabla
+    entera. Si contase todo, los titulares descartados por el umbral o por el tope no se
+    etiquetarían nunca y el asset creería eternamente que le queda trabajo: el schedule
+    diario no llegaría a apagarse jamás.
+    """
+    sql = _SQL_SELECCION.format(campos="count(*)")
     with engine.connect() as conn:
-        return int(
-            conn.execute(
-                text("SELECT count(*) FROM noticia_municipio WHERE modelo IS NULL")
-            ).scalar_one()
-        )
+        return int(conn.execute(text(sql), _params_seleccion(min_titulares, tope)).scalar_one())
 
 
 def load_extraccion_noticias(
     limite: int | None = None,
     lote: int | None = None,
     progreso: Callable[[dict], None] | None = None,
+    min_titulares: int = MIN_TITULARES,
+    tope_anio: int = TOPE_POR_ANIO,
 ) -> dict:
     """Etiqueta titulares sin etiquetar con el LLM → noticia_municipio.
 
@@ -1084,18 +1132,19 @@ def load_extraccion_noticias(
       cuota diaria agotada no es una avería: es que hoy ya se ha hecho lo que se podía.
       Sale en `parado_por_cuota` para que se vea, no para que se disimule.
 
+    No etiqueta el corpus entero: se queda con los municipios que superan
+    `min_titulares` y, dentro de cada uno, con `tope_anio` titulares por año elegidos de
+    forma reproducible (ver `_SQL_SELECCION`).
+
     `limite` acota los titulares de la tanda; `lote`, los que van en cada petición.
     """
     cfg = llm.config()
     lote = lote or extraccion.LOTE
-    sql = (
-        "SELECT n.cod_municipio AS cod, n.url_sha1, n.titular, n.medio, d.nombre "
-        "FROM noticia_municipio n JOIN dim_municipio d USING (cod_municipio) "
-        "WHERE n.modelo IS NULL ORDER BY n.cod_municipio, n.fecha"
-    )
+    campos = "r.cod_municipio AS cod, r.url_sha1, r.titular, r.medio, d.nombre"
+    sql = _SQL_SELECCION.format(campos=campos) + " ORDER BY r.cod_municipio, r.pos"
     if limite:
         sql += f" LIMIT {int(limite)}"
-    pend = pd.read_sql(sql, engine)
+    pend = pd.read_sql(text(sql), engine, params=_params_seleccion(min_titulares, tope_anio))
 
     client = llm.cliente(cfg)
     etiquetadas = sin_etiqueta = peticiones = 0
@@ -1144,6 +1193,6 @@ def load_extraccion_noticias(
     return {
         **_estado(),
         "parado_por_cuota": parado,
-        "pendientes_restantes": pendientes_de_etiquetar(),
+        "pendientes_restantes": pendientes_de_etiquetar(min_titulares, tope_anio),
         "modelo": cfg["modelo"],
     }

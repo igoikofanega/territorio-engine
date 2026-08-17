@@ -185,3 +185,45 @@ def test_un_429_pasajero_se_reintenta(monkeypatch, sin_esperas):
 
     assert llm.completar(_Cliente(), "un-modelo", "s", "u") == RESPUESTA_OK
     assert llamadas["n"] == 2
+
+
+# --- seleccion del corpus a etiquetar --------------------------------------------------
+
+
+def test_la_seleccion_se_hace_sobre_todos_los_titulares_no_solo_los_pendientes():
+    """El ranking del tope se calcula sobre el corpus entero y el filtro de pendientes se
+    aplica DESPUES. Si se calculara solo sobre los pendientes, cada tanda repescaria
+    titulares nuevos del mismo anio y el tope no se respetaria entre ejecuciones."""
+    from territorio_pipelines.loaders import _SQL_SELECCION
+
+    sql = _SQL_SELECCION.format(campos="*")
+    cte = sql.index("rankeados AS")
+    seleccion = sql.index("SELECT {campos}".format(campos="*"), cte)
+    # dentro de la CTE que rankea no puede filtrarse por modelo
+    assert "modelo IS NULL" not in sql[cte:seleccion]
+    # y en la seleccion final si
+    assert "r.modelo IS NULL" in sql[seleccion:]
+
+
+def test_el_umbral_y_el_tope_son_los_del_plan():
+    from territorio_pipelines import loaders
+
+    assert loaders.MIN_TITULARES == 10
+    assert loaders.TOPE_POR_ANIO == 40
+
+
+def test_el_muestreo_es_reproducible():
+    """La seleccion ordena por un hash con semilla fija, no por azar ni por orden fisico
+    de las filas: dos ejecuciones eligen los mismos titulares y la ablacion es repetible."""
+    from territorio_pipelines.loaders import _SQL_SELECCION, _params_seleccion
+
+    assert "md5(n.url_sha1 || :semilla)" in _SQL_SELECCION
+    assert _params_seleccion(10, 40)["semilla"] == "territorio-engine"
+    assert "random()" not in _SQL_SELECCION
+
+
+def test_el_tope_particiona_por_municipio_y_anio():
+    from territorio_pipelines.loaders import _SQL_SELECCION
+
+    assert "PARTITION BY n.cod_municipio, extract(year FROM n.fecha)" in _SQL_SELECCION
+    assert "r.pos <= :tope" in _SQL_SELECCION
