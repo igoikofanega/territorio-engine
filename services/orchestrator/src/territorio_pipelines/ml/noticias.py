@@ -75,6 +75,7 @@ def construir(
             del_periodo.groupby("cod")
             .agg(
                 n=("signo", "size"),
+                n_signo=("signo", "count"),
                 noticias_signo=("signo", "mean"),
                 negativas=("signo", lambda s: (s < 0).sum()),
                 economicas=("tema", lambda s: s.isin(TEMAS_ECONOMICOS).sum()),
@@ -89,9 +90,10 @@ def construir(
         base["noticias_signo"] = agg["noticias_signo"].to_numpy()
         # Sin noticias el denominador es 0 y los porcentajes salen NaN, que es lo
         # correcto: un porcentaje sobre cero titulares no existe.
-        den = agg["n"].replace(0, pd.NA)
-        base["noticias_pct_negativas"] = (agg["negativas"] / den).to_numpy(float) * 100
-        base["noticias_pct_economicas"] = (agg["economicas"] / den).to_numpy(float) * 100
+        den_noticias = agg["n"].replace(0, pd.NA)
+        den_signo = agg["n_signo"].replace(0, pd.NA)
+        base["noticias_pct_negativas"] = (agg["negativas"] / den_signo).to_numpy(float) * 100
+        base["noticias_pct_economicas"] = (agg["economicas"] / den_noticias).to_numpy(float) * 100
         filas.append(base)
 
     df = pd.concat(filas, ignore_index=True)
