@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 from typing import Any
 
 # El SDK se importa dentro de `cliente()` a propósito: así el módulo se puede importar
@@ -24,6 +25,26 @@ from typing import Any
 #: Respuesta envuelta en un bloque de código markdown. Ocurre con casi todos los
 #: proveedores por mucho que el prompt pida JSON pelado.
 _VALLA = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
+
+
+#: Segundos entre peticiones. Los proveedores gratuitos limitan por minuto: Gemini en AI
+#: Studio va por decenas de peticiones/minuto según el modelo. 4 s ≈ 15/min, conservador.
+THROTTLE_S = float(os.environ.get("LLM_THROTTLE_S", "4"))
+#: Reintentos ante un 429 antes de dar la cuota por agotada y parar limpiamente.
+REINTENTOS_LIMITE = 3
+#: Espera tras un 429. Si es límite por minuto, con esto se pasa; si es por día, no hay
+#: espera que valga y por eso se para en vez de insistir.
+ESPERA_LIMITE_S = 65.0
+
+
+class CuotaAgotada(RuntimeError):
+    """La cuota del proveedor se agotó. No es un error del código: es hora de parar.
+
+    Se distingue de cualquier otro fallo a propósito. Un límite por día no se arregla
+    esperando, y como el etiquetado es incremental, parar y continuar mañana es la
+    respuesta correcta — no reintentar durante horas ni, mucho peor, abortar perdiendo
+    lo ya etiquetado.
+    """
 
 
 def config() -> dict[str, str]:
@@ -58,17 +79,36 @@ def completar(
     temperatura: float = 0.0,
     max_tokens: int = 4000,
 ) -> str:
-    """Una respuesta del modelo, en texto. Temperatura 0: esto es clasificación."""
-    resp = client.chat.completions.create(
-        model=modelo,
-        temperature=temperatura,
-        max_tokens=max_tokens,
-        messages=[
-            {"role": "system", "content": sistema},
-            {"role": "user", "content": usuario},
-        ],
-    )
-    return resp.choices[0].message.content or ""
+    """Una respuesta del modelo, en texto. Temperatura 0: esto es clasificación.
+
+    Espera `THROTTLE_S` **antes** de pedir y reintenta ante un 429. Si el 429 persiste,
+    lanza `CuotaAgotada` para que quien llama pare limpiamente en vez de insistir contra
+    un límite diario.
+    """
+    from openai import RateLimitError
+
+    for intento in range(REINTENTOS_LIMITE):
+        time.sleep(THROTTLE_S)
+        try:
+            resp = client.chat.completions.create(
+                model=modelo,
+                temperature=temperatura,
+                max_tokens=max_tokens,
+                messages=[
+                    {"role": "system", "content": sistema},
+                    {"role": "user", "content": usuario},
+                ],
+            )
+        except RateLimitError:
+            if intento == REINTENTOS_LIMITE - 1:
+                raise CuotaAgotada(
+                    f"{modelo} devuelve 429 tras {REINTENTOS_LIMITE} intentos. "
+                    "Si es un límite diario, continúa mañana: el etiquetado es incremental."
+                ) from None
+            time.sleep(ESPERA_LIMITE_S)
+            continue
+        return resp.choices[0].message.content or ""
+    return ""
 
 
 def json_de(texto: str) -> Any:
