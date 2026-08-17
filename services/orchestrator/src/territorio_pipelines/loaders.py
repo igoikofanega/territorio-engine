@@ -1052,16 +1052,42 @@ WHERE cod_municipio = :cod AND url_sha1 = :url_sha1
 #: 52 provincias porque vive en el servicio de API, que es un proyecto uv aparte; cuando
 #: esta capa deje de ser regional habrá que compartirlo.
 PROVINCIA_NOTICIAS_NOMBRE = "Navarra"
+#: Cada cuántas peticiones se informa del avance del etiquetado.
+_CADA_N_PETICIONES = 20
 
 
-def load_extraccion_noticias(limite: int | None = None, lote: int = extraccion.LOTE) -> dict:
+def pendientes_de_etiquetar() -> int:
+    """Titulares sin clasificar. Es el trabajo que le queda a la tanda diaria."""
+    with engine.connect() as conn:
+        return int(
+            conn.execute(
+                text("SELECT count(*) FROM noticia_municipio WHERE modelo IS NULL")
+            ).scalar_one()
+        )
+
+
+def load_extraccion_noticias(
+    limite: int | None = None,
+    lote: int | None = None,
+    progreso: Callable[[dict], None] | None = None,
+) -> dict:
     """Etiqueta titulares sin etiquetar con el LLM → noticia_municipio.
 
-    **Reanudable e incremental**: solo toca las filas con `modelo IS NULL`, así que
-    relanzarlo continúa donde se quedó y `limite` permite probar con poco gasto antes de
-    soltar el lote entero.
+    Pensado para ejecutarse **por tandas**, que es lo que imponen las cuotas gratuitas:
+
+    - **Incremental.** Solo toca filas con `modelo IS NULL`. Relanzarlo continúa donde se
+      quedó, y cuando no queda nada la ejecución es un no-op barato. Eso es lo que
+      permite programarlo a diario sin pensar en cuántas veces se ha ejecutado ya.
+    - **Se guarda lote a lote**, no al final. Si la cuota se agota a mitad, lo etiquetado
+      hasta ese momento ya está en la base de datos.
+    - **Para limpiamente al agotarse la cuota** (`CuotaAgotada`), en vez de fallar. Una
+      cuota diaria agotada no es una avería: es que hoy ya se ha hecho lo que se podía.
+      Sale en `parado_por_cuota` para que se vea, no para que se disimule.
+
+    `limite` acota los titulares de la tanda; `lote`, los que van en cada petición.
     """
     cfg = llm.config()
+    lote = lote or extraccion.LOTE
     sql = (
         "SELECT n.cod_municipio AS cod, n.url_sha1, n.titular, n.medio, d.nombre "
         "FROM noticia_municipio n JOIN dim_municipio d USING (cod_municipio) "
@@ -1069,17 +1095,35 @@ def load_extraccion_noticias(limite: int | None = None, lote: int = extraccion.L
     )
     if limite:
         sql += f" LIMIT {int(limite)}"
-    pendientes = pd.read_sql(sql, engine)
+    pend = pd.read_sql(sql, engine)
 
     client = llm.cliente(cfg)
-    etiquetadas = sin_etiqueta = 0
-    for (cod, nombre), grupo in pendientes.groupby(["cod", "nombre"], sort=False):
+    etiquetadas = sin_etiqueta = peticiones = 0
+    parado = False
+    t0 = time.monotonic()
+
+    def _estado() -> dict:
+        return {
+            "titulares_etiquetados": etiquetadas,
+            "titulares_sin_etiqueta": sin_etiqueta,
+            "peticiones": peticiones,
+            "minutos": round((time.monotonic() - t0) / 60, 1),
+        }
+
+    for (cod, nombre), grupo in pend.groupby(["cod", "nombre"], sort=False):
+        if parado:
+            break
         filas = grupo.to_dict("records")
         for i in range(0, len(filas), lote):
             trozo = filas[i : i + lote]
-            marcas = extraccion.etiquetar(
-                client, cfg["modelo"], nombre, PROVINCIA_NOTICIAS_NOMBRE, trozo
-            )
+            try:
+                marcas = extraccion.etiquetar(
+                    client, cfg["modelo"], nombre, PROVINCIA_NOTICIAS_NOMBRE, trozo
+                )
+            except llm.CuotaAgotada:
+                parado = True
+                break
+            peticiones += 1
             updates = [
                 {
                     "cod": cod,
@@ -1095,8 +1139,11 @@ def load_extraccion_noticias(limite: int | None = None, lote: int = extraccion.L
                 with engine.begin() as conn:
                     conn.execute(_UPDATE_ETIQUETAS, updates)
                 etiquetadas += len(updates)
+            if progreso and peticiones % _CADA_N_PETICIONES == 0:
+                progreso(_estado())
     return {
-        "titulares_etiquetados": etiquetadas,
-        "titulares_sin_etiqueta": sin_etiqueta,
+        **_estado(),
+        "parado_por_cuota": parado,
+        "pendientes_restantes": pendientes_de_etiquetar(),
         "modelo": cfg["modelo"],
     }

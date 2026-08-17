@@ -111,3 +111,77 @@ def test_confianza_y_signo_se_acotan():
 
 def test_etiquetar_lote_vacio_no_llama_al_modelo():
     assert extraccion.etiquetar(None, "m", "Tudela", "Navarra", []) == {}
+
+
+# --- comportamiento ante la cuota del proveedor ---------------------------------------
+
+
+class _ErrorDeCuota(Exception):
+    """Sustituto de `openai.RateLimitError`, que necesita una respuesta HTTP real."""
+
+
+@pytest.fixture
+def sin_esperas(monkeypatch):
+    """El throttle es correcto en producción e inaceptable en un test."""
+    monkeypatch.setattr(llm.time, "sleep", lambda _s: None)
+
+
+def _cliente_que_siempre_limita(monkeypatch):
+    """Cliente cuyo `create` siempre lanza el error de límite del SDK."""
+    import openai
+
+    monkeypatch.setattr(openai, "RateLimitError", _ErrorDeCuota)
+
+    class _Completions:
+        def create(self, **_kw):
+            raise _ErrorDeCuota("429")
+
+    class _Chat:
+        completions = _Completions()
+
+    class _Cliente:
+        chat = _Chat()
+
+    return _Cliente()
+
+
+def test_la_cuota_agotada_se_distingue_de_una_averia(monkeypatch, sin_esperas):
+    """Un límite diario no se arregla esperando: hay que parar, y quien llama debe poder
+    saber que fue eso y no un fallo del código."""
+    cliente = _cliente_que_siempre_limita(monkeypatch)
+    with pytest.raises(llm.CuotaAgotada):
+        llm.completar(cliente, "un-modelo", "sistema", "usuario")
+
+
+def test_un_429_pasajero_se_reintenta(monkeypatch, sin_esperas):
+    """Si el límite era por minuto, el reintento entra y no se pierde la tanda."""
+    import openai
+
+    monkeypatch.setattr(openai, "RateLimitError", _ErrorDeCuota)
+
+    class _Msg:
+        content = RESPUESTA_OK
+
+    class _Choice:
+        message = _Msg()
+
+    class _Resp:
+        choices = [_Choice()]
+
+    llamadas = {"n": 0}
+
+    class _Completions:
+        def create(self, **_kw):
+            llamadas["n"] += 1
+            if llamadas["n"] == 1:
+                raise _ErrorDeCuota("429")
+            return _Resp()
+
+    class _Chat:
+        completions = _Completions()
+
+    class _Cliente:
+        chat = _Chat()
+
+    assert llm.completar(_Cliente(), "un-modelo", "s", "u") == RESPUESTA_OK
+    assert llamadas["n"] == 2
