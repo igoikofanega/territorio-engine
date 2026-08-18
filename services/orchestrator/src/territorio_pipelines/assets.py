@@ -262,12 +262,24 @@ def noticias_etiquetadas(context: AssetExecutionContext) -> int:
     Agotar la cuota **no es un fallo**: la ejecución termina bien y lo dice en
     `parado_por_cuota`. Marcarla en rojo dejaría el panel en rojo todos los días por
     funcionar como estaba previsto, y entonces el rojo dejaría de significar nada.
+
+    No se etiqueta el corpus entero: `NOTICIAS_MIN_TITULARES` descarta los municipios con
+    muy pocos titulares (validez) y `NOTICIAS_TOPE_ANIO` topa cuántos se etiquetan por
+    municipio y año (coste).
     """
     import os
 
-    from .loaders import load_extraccion_noticias, pendientes_de_etiquetar
+    from .loaders import (
+        MIN_TITULARES,
+        TOPE_POR_ANIO,
+        load_extraccion_noticias,
+        pendientes_de_etiquetar,
+    )
 
-    pendientes = pendientes_de_etiquetar()
+    min_tit = int(os.environ.get("NOTICIAS_MIN_TITULARES", "0")) or MIN_TITULARES
+    tope = int(os.environ.get("NOTICIAS_TOPE_ANIO", "0")) or TOPE_POR_ANIO
+
+    pendientes = pendientes_de_etiquetar(min_tit, tope)
     if not pendientes:
         context.log.info("noticias_etiquetadas: no hay titulares pendientes")
         context.add_output_metadata({"pendientes_restantes": 0, "titulares_etiquetados": 0})
@@ -275,9 +287,16 @@ def noticias_etiquetadas(context: AssetExecutionContext) -> int:
 
     limite = int(os.environ.get("LLM_LIMITE", "0")) or None
     lote = int(os.environ.get("LLM_LOTE", "0")) or None
-    context.log.info(f"noticias_etiquetadas: {pendientes} pendientes, límite de tanda {limite}")
+    context.log.info(
+        f"noticias_etiquetadas: {pendientes} pendientes (umbral {min_tit}, tope {tope}/año), "
+        f"límite de tanda {limite}"
+    )
     result = load_extraccion_noticias(
-        limite=limite, lote=lote, progreso=lambda e: context.log.info(f"etiquetado: {e}")
+        limite=limite,
+        lote=lote,
+        progreso=lambda e: context.log.info(f"etiquetado: {e}"),
+        min_titulares=min_tit,
+        tope_anio=tope,
     )
     context.add_output_metadata(result)
     context.log.info(f"noticias_etiquetadas: {result}")
