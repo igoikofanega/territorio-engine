@@ -139,3 +139,21 @@ describe("cobertura del catálogo", () => {
     }
   });
 });
+
+describe("accesibilidad de las paletas divergentes", () => {
+  // prediccion/futuro/futuro_cohorte comparten FUT_BUCKETS. La paleta original
+  // (RdYlGn) fallaba el chequeo de daltonismo de la skill `dataviz`: verde y rojo son
+  // los dos extremos del eje de confusión de la deuteranopia/protanopia, y aquí es
+  // justo lo que hay que distinguir ("crece" vs "se vacía"). Ahora es azul/rojo.
+  it("la capa de predicción no usa verde para 'crece'", () => {
+    for (const modo of ["prediccion", "futuro", "futuro_cohorte"] as const) {
+      const azulOrojo = /^#(08|31|6b|fc|d7|99)/i;
+      for (const [, hex] of ESCALAS[modo].buckets) {
+        expect(hex, `${modo} ${hex}`).toMatch(azulOrojo);
+        expect(hex.toLowerCase(), `${modo} no debe volver a usar verde`).not.toMatch(
+          /^#(00|1a|a6|31a3|78c6)/,
+        );
+      }
+    }
+  });
+});

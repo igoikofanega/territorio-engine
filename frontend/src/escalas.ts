@@ -27,7 +27,12 @@ import {
 
 import { CLAVES_INDICE, type ClaveIndice, type Modo, type Pesos } from "./types";
 
-const FUT_BUCKETS: [number, string][] = [[20, "#006837"], [5, "#1a9850"], [0, "#a6d96a"], [-10, "#fdae61"], [-20, "#f46d43"], [-100, "#a50026"]];
+// Divergente azul/rojo (ColorBrewer RdBu), no verde/rojo: azul = crece, rojo = decrece,
+// mismo lenguaje que "rendimiento" más abajo. La original (RdYlGn) fallaba el chequeo de
+// daltonismo (skill `dataviz`): ΔE 4,0 en simulación deuteranopia, muy por debajo del
+// suelo de 6 — un lector con esa condición no distinguía "crece mucho" de "cae mucho".
+// Validado con scripts/validate_palette.js: peor par ΔE 13,6 (protanopia), muy por encima.
+const FUT_BUCKETS: [number, string][] = [[20, "#08519c"], [5, "#3182bd"], [0, "#6baed6"], [-10, "#fc8d59"], [-20, "#d7301f"], [-100, "#990000"]];
 // paleta cualitativa para arquetipos (clusters)
 export const PALETA_CAT = ["#66c2a5", "#fc8d62", "#8da0cb", "#e78ac3", "#a6d854", "#ffd92f", "#e5c494", "#b3b3b3"];
 
@@ -126,8 +131,13 @@ export const ESCALAS: Record<
   },
   riesgo: {
     endpoint: "riesgo.geojson", etiqueta: "Riesgo despoblación", icono: Siren, titulo: "P(pérdida fuerte) %", campo: "prob", sufijo: "%",
-    // semáforo: verde <30, ámbar 30-60, rojo >=60
-    buckets: [[60, "#b91c1c"], [30, "#f59e0b"], [0, "#16a34a"]],
+    // semáforo: verde <30, ámbar 30-60, rojo >=60. Verde/rojo es intrínsecamente el par
+    // más difícil para daltonismo (son los dos extremos del eje de confusión), pero pasa
+    // el chequeo (ΔE 11,0 deuteranopia, por encima del suelo de 8): se mantiene por su
+    // valor cultural de semáforo. Verde/ámbar queda en la banda de aviso (ΔE 6-8), así
+    // que aquí SÍ es obligatorio el icono + etiqueta (nunca solo el color): ver Leyenda
+    // y Escenarios.tsx.
+    buckets: [[60, "#b91c1c"], [30, "#d97706"], [0, "#16a34a"]],
   },
 };
 
