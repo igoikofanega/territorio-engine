@@ -77,6 +77,14 @@ export type FichaData = {
   } | null;
   arquetipo: { cluster: number; etiqueta: string } | null;
   rendimiento: { residuo: number | null; z: number | null; clasificacion: string | null } | null;
+  /** Proyección cohorte-componente (Hamilton-Perry): el "contraste metodológico" del
+   * ADR 0004 frente al modelo estadístico de `prediccion`. */
+  proyeccion_cohorte: {
+    anio_horizonte: number;
+    pob_proyectada: number;
+    cambio_pct: number;
+    trayectoria: string;
+  } | null;
   gemelo: {
     cod: string;
     nombre: string;

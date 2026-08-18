@@ -32,9 +32,23 @@ import { CLAVES_INDICE, type ClaveIndice, type Modo, type Pesos } from "./types"
 // daltonismo (skill `dataviz`): ΔE 4,0 en simulación deuteranopia, muy por debajo del
 // suelo de 6 — un lector con esa condición no distinguía "crece mucho" de "cae mucho".
 // Validado con scripts/validate_palette.js: peor par ΔE 13,6 (protanopia), muy por encima.
-const FUT_BUCKETS: [number, string][] = [[20, "#08519c"], [5, "#3182bd"], [0, "#6baed6"], [-10, "#fc8d59"], [-20, "#d7301f"], [-100, "#990000"]];
+// Extremos de la escala de arriba, nombrados: los reutilizan Trayectoria y
+// BarraDivergente (ficha) para que "crece" y "decrece" sean el mismo azul y el mismo
+// rojo en el mapa y en los gráficos de la ficha, en vez de un hex duplicado en cada uno.
+export const COLOR_CRECE = "#08519c";
+export const COLOR_DECAE = "#990000";
+const FUT_BUCKETS: [number, string][] = [[20, COLOR_CRECE], [5, "#3182bd"], [0, "#6baed6"], [-10, "#fc8d59"], [-20, "#d7301f"], [-100, COLOR_DECAE]];
 // paleta cualitativa para arquetipos (clusters)
 export const PALETA_CAT = ["#66c2a5", "#fc8d62", "#8da0cb", "#e78ac3", "#a6d854", "#ffd92f", "#e5c494", "#b3b3b3"];
+
+// Semáforo de riesgo (ver ml/riesgo.py CORTES): mismo nombre que usa `ficha.riesgo.nivel`
+// del backend, para no repetir los tres hexadecimales en cada sitio que dibuja el
+// semáforo (mapa, Escenarios.tsx, y antes también aquí mismo suelto en Ficha.tsx).
+export const RIESGO_COLORES: Record<"rojo" | "ambar" | "verde", string> = {
+  rojo: "#b91c1c",
+  ambar: "#d97706",
+  verde: "#16a34a",
+};
 
 export const ESCALAS: Record<
   Modo,
@@ -137,7 +151,7 @@ export const ESCALAS: Record<
     // valor cultural de semáforo. Verde/ámbar queda en la banda de aviso (ΔE 6-8), así
     // que aquí SÍ es obligatorio el icono + etiqueta (nunca solo el color): ver Leyenda
     // y Escenarios.tsx.
-    buckets: [[60, "#b91c1c"], [30, "#d97706"], [0, "#16a34a"]],
+    buckets: [[60, RIESGO_COLORES.rojo], [30, RIESGO_COLORES.ambar], [0, RIESGO_COLORES.verde]],
   },
 };
 

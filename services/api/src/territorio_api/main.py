@@ -571,6 +571,21 @@ async def municipio_ficha(cod: str) -> dict:
             )
         ).one_or_none()
 
+        # Proyección cohorte-componente (Hamilton-Perry): el "contraste metodológico"
+        # que registra el ADR 0004 frente al modelo estadístico. Se calcula desde hace
+        # tiempo y hasta ahora no llegaba a ninguna pantalla. No se trae también
+        # `proyeccion_municipio` (tendencia simple): nada la usaría, y una consulta más
+        # en una función que ya encadena casi 20 no se paga sin motivo.
+        cohorte = (
+            await conn.execute(
+                text("""
+                    SELECT anio_horizonte, pob_proyectada, cambio_pct, trayectoria
+                    FROM proyeccion_cohorte WHERE cod_municipio = :cod
+                """),
+                {"cod": cod},
+            )
+        ).one_or_none()
+
         infl = (
             await conn.execute(
                 text("""
@@ -727,6 +742,16 @@ async def municipio_ficha(cod: str) -> dict:
         "rendimiento": (
             {"residuo": rend.residuo, "z": rend.z, "clasificacion": rend.clasificacion}
             if rend
+            else None
+        ),
+        "proyeccion_cohorte": (
+            {
+                "anio_horizonte": cohorte.anio_horizonte,
+                "pob_proyectada": cohorte.pob_proyectada,
+                "cambio_pct": cohorte.cambio_pct,
+                "trayectoria": cohorte.trayectoria,
+            }
+            if cohorte
             else None
         ),
         "gemelo": (

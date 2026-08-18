@@ -4,7 +4,6 @@ import {
   Briefcase,
   GraduationCap,
   Home,
-  Newspaper,
   ShoppingCart,
   Stethoscope,
   Users,
@@ -14,8 +13,15 @@ import {
   X,
 } from "lucide-react";
 
+import { COLOR_CRECE, COLOR_DECAE, RIESGO_COLORES } from "../escalas";
+import { etiquetaArquetipo, parsearDrivers } from "../motivos";
 import type { FichaData, NoticiasData, SerieRow } from "../types";
-import Sparkline from "./Sparkline";
+import { veredicto } from "../veredicto";
+import BarraDivergente from "./BarraDivergente";
+import Drivers from "./Drivers";
+import Escenarios from "./Escenarios";
+import Seccion from "./Seccion";
+import Trayectoria from "./Trayectoria";
 
 /** Último valor no nulo de un campo de la serie + el anterior (para el delta). */
 function ultimo(serie: SerieRow[], campo: keyof SerieRow): { anio: number; valor: number; prev: number | null } | null {
@@ -107,44 +113,32 @@ function Componente({ nombre, valor }: { nombre: string; valor: number | null })
  * (no se ha preguntado), dentro pero sin titulares (se preguntó y no hay), y con
  * titulares. Un municipio de Cuenca no es un municipio del que no se habla: es uno que
  * esta capa no cubre. Ver docs/adr/0005-capa-de-noticias-y-llm.md.
+ *
+ * Sin cabecera propia: quien lo envuelve (`Seccion`) ya pone el título "Prensa local".
  */
-function Noticias({ noticias, nombre }: { noticias: NoticiasData | null; nombre: string }) {
-  if (!noticias) return null;
-
+function Noticias({ noticias, nombre }: { noticias: NoticiasData; nombre: string }) {
   if (!noticias.consultado) {
     return (
-      <>
-        <h3>Prensa local</h3>
-        <div style={{ fontSize: 11, color: "var(--text-2)", lineHeight: 1.45 }}>
-          Capa regional: la prensa solo está indexada en {noticias.ambito}. No hay dato para{" "}
-          {nombre}, que no es lo mismo que no salir en la prensa.
-        </div>
-      </>
+      <div style={{ fontSize: 11, color: "var(--text-2)", lineHeight: 1.45 }}>
+        Capa regional: la prensa solo está indexada en {noticias.ambito}. No hay dato para{" "}
+        {nombre}, que no es lo mismo que no salir en la prensa.
+      </div>
     );
   }
 
   if (!noticias.noticias.length) {
     return (
-      <>
-        <h3>Prensa local</h3>
-        <div style={{ fontSize: 11, color: "var(--text-2)" }}>
-          Sin titulares indexados en GDELT (2017→).
-        </div>
-      </>
+      <div style={{ fontSize: 11, color: "var(--text-2)" }}>Sin titulares indexados en GDELT (2017→).</div>
     );
   }
 
   // El color solo marca el signo cuando lo hay; el gris es "neutro o sin clasificar",
   // no un tercer juicio.
   const color = (signo: number | null) =>
-    signo == null || signo === 0 ? "var(--border)" : signo > 0 ? "#15803d" : "#b91c1c";
+    signo == null || signo === 0 ? "var(--border)" : signo > 0 ? COLOR_CRECE : COLOR_DECAE;
 
   return (
     <>
-      <h3>
-        <Newspaper size={12} strokeWidth={1.75} style={{ verticalAlign: "-1px", marginRight: 4 }} />
-        Prensa local
-      </h3>
       <ul style={{ listStyle: "none", margin: 0, padding: 0, display: "grid", gap: 8 }}>
         {noticias.noticias.map((n) => (
           <li key={n.url} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
@@ -185,9 +179,9 @@ export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: F
       </div>
     );
   }
-  const pred = ficha.prediccion;
   const idx = ficha.indice;
   const foto = ficha.wiki?.imagen;
+  const v = veredicto(ficha);
 
   const pob = ultimo(ficha.serie, "poblacion");
   const renta = ultimo(ficha.serie, "renta");
@@ -202,14 +196,42 @@ export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: F
   const deltaPct = (d: { valor: number; prev: number | null } | null) =>
     d && d.prev != null && d.prev !== 0 ? ((d.valor - d.prev) / d.prev) * 100 : null;
 
+  // Contenido por bloque: una Seccion sin nada dentro no se renderiza (quedaría un
+  // desplegable vacío, que confunde más que ayudar).
+  const nDrivers = parsearDrivers(ficha.prediccion?.drivers ?? null).length;
+  const porQueTieneContenido = nDrivers > 0 || !!ficha.demografia || ficha.rendimiento?.residuo != null;
+  const gemeloDestaca = !!(ficha.gemelo && (ficha.gemelo.divergencia ?? 0) >= 5);
+  const nComparables = (gemeloDestaca ? 1 : 0) + ficha.similares.length;
+  const comparablesTieneContenido = nComparables > 0;
+  const vivirAquiTieneContenido = !!idx || !!renta || !!paroPct || !!alquiler || !!extranjeros;
+  const entornoTieneContenido =
+    !!ficha.servicios ||
+    (ficha.aislamiento?.km_salud ?? 0) > 0 ||
+    ficha.conectividad?.pct_fibra != null ||
+    ficha.aire?.pm25 != null ||
+    ficha.clima?.temp != null;
+  const resumenPrensa = noticias
+    ? noticias.consultado
+      ? `${noticias.noticias.length} titular${noticias.noticias.length === 1 ? "" : "es"}`
+      : "fuera del ámbito"
+    : null;
+  // Escala común para las dos barras del motor demográfico: así se comparan entre sí,
+  // no solo contra su propio número.
+  const maxSaldo = Math.max(
+    Math.abs(ficha.demografia?.saldo_vegetativo ?? 0),
+    Math.abs(ficha.demografia?.saldo_migratorio ?? 0),
+    1,
+  );
+
   return (
     <div className="ficha">
-      {/* cabecera héroe: foto o gradiente del primario (on-primary-fixed → primary) */}
+      {/* cabecera héroe: foto o gradiente del primario. 120px fijo (antes 176 con foto):
+          la ficha se abre para responder la pregunta bandera, no para ver una foto. */}
       <div
         style={{
           position: "relative",
           flexShrink: 0,
-          height: foto ? 176 : 120,
+          height: 120,
           background: foto ? `url(${foto}) center/cover` : "linear-gradient(135deg, #001849, #0050cb)",
         }}
       >
@@ -221,7 +243,7 @@ export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: F
           <X size={16} strokeWidth={2} />
         </button>
         <div style={{ position: "absolute", left: 20, right: 20, bottom: 14, color: "white" }}>
-          <div style={{ fontFamily: "'Hanken Grotesk', sans-serif", fontSize: 24, fontWeight: 700, letterSpacing: "-0.01em", lineHeight: 1.1, textShadow: "0 1px 3px rgba(0,0,0,.5)" }}>{ficha.nombre}</div>
+          <div style={{ fontFamily: "'Hanken Grotesk', sans-serif", fontSize: 22, fontWeight: 700, letterSpacing: "-0.01em", lineHeight: 1.1, textShadow: "0 1px 3px rgba(0,0,0,.5)" }}>{ficha.nombre}</div>
           <div style={{ fontSize: 13, opacity: 0.9, marginTop: 2 }}>
             {ficha.provincia.nombre}
             {ficha.wiki?.gentilicio ? ` · ${ficha.wiki.gentilicio}` : ""}
@@ -231,143 +253,76 @@ export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: F
         </div>
       </div>
 
-      <div style={{ flex: 1, overflowY: "auto", padding: 20 }}>
+      <div style={{ flex: 1, overflowY: "auto", padding: "0 20px 20px" }}>
+        {/* identidad: descripción breve (dos líneas), población y arquetipo */}
         {ficha.wiki?.descripcion && (
-          <p style={{ margin: "0 0 14px", lineHeight: 1.45, color: "var(--text)" }}>{ficha.wiki.descripcion}</p>
+          <p
+            style={{
+              margin: "14px 0 8px", lineHeight: 1.4, fontSize: 12, color: "var(--text-2)",
+              display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden",
+            }}
+          >
+            {ficha.wiki.descripcion}
+          </p>
         )}
-
-        {/* KPIs: etiqueta → valor → delta (indicadores más recientes) */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: ficha.wiki?.descripcion ? 0 : 14, marginBottom: 16 }}>
           {pob && (
-            <StatCard
-              icono={Users} label="Población" anio={pob.anio}
-              valor={pob.valor.toLocaleString("es")} unidad="hab"
-              delta={deltaPct(pob)} deltaSemantico
-            />
+            <span style={{ fontSize: 13 }}>
+              <span className="mono" style={{ fontWeight: 700 }}>{pob.valor.toLocaleString("es")}</span>{" "}
+              <span style={{ color: "var(--text-2)" }}>hab. ({pob.anio})</span>
+            </span>
           )}
-          {renta && (
-            <StatCard
-              icono={Wallet} label="Renta" anio={renta.anio}
-              valor={Math.round(renta.valor).toLocaleString("es")} unidad="€/pers"
-              delta={deltaPct(renta)}
-            />
-          )}
-          {paroPct && (
-            <StatCard
-              icono={Briefcase} label="Paro" anio={paroPct.anio}
-              valor={paroPct.valor.toFixed(0)} unidad="‰ hab"
-            />
-          )}
-          {alquiler && (
-            <StatCard
-              icono={Home} label="Alquiler" anio={alquiler.anio}
-              valor={alquiler.valor.toFixed(1)} unidad="€/m²"
-              delta={deltaPct(alquiler)}
-            />
-          )}
-          {extranjeros && (
-            <StatCard
-              icono={UsersRound} label="Extranjeros" anio={extranjeros.anio}
-              valor={extranjeros.valor.toFixed(1)} unidad="%"
-              delta={deltaPct(extranjeros)}
-            />
+          {ficha.arquetipo && (
+            <span
+              className="chip"
+              style={{ cursor: "default", background: "var(--bg)", color: "var(--text-2)" }}
+              title={`Arquetipo #${ficha.arquetipo.cluster}: ${ficha.arquetipo.etiqueta}`}
+            >
+              {etiquetaArquetipo(ficha.arquetipo.etiqueta)}
+            </span>
           )}
         </div>
 
-        <h3>Evolución de la población</h3>
-        <Sparkline serie={ficha.serie} />
+        {/* veredicto: la pregunta bandera del proyecto, siempre visible */}
+        <div style={{ paddingBottom: 16, borderBottom: "1px solid var(--border)" }}>
+          <p style={{ margin: "0 0 4px", fontSize: 14, lineHeight: 1.45, fontWeight: 600, color: v.tono === "sin-datos" ? "var(--text-2)" : v.tono === "incierto" ? "var(--text)" : v.tono === "crece" ? COLOR_CRECE : COLOR_DECAE }}>
+            {v.titular}
+          </p>
+          {v.contraste && (
+            <p style={{ margin: "0 0 10px", fontSize: 11, color: "var(--text-2)", lineHeight: 1.4 }}>{v.contraste}</p>
+          )}
+          {v.confianza && (v.tono === "crece" || v.tono === "se-vacia") && (
+            <div className="label-caps" style={{ fontSize: 9, marginBottom: 10 }}>Confianza {v.confianza}</div>
+          )}
+          <Trayectoria serie={ficha.serie} prediccion={ficha.prediccion} inflexion={ficha.inflexion} tono={v.tono} />
+          {ficha.riesgo && (
+            <div style={{ marginTop: 14 }}>
+              <Escenarios riesgo={ficha.riesgo} nombre={ficha.nombre} horizonteAnios={ficha.prediccion ? ficha.prediccion.anio_horizonte - ficha.prediccion.anio_base : undefined} />
+            </div>
+          )}
+        </div>
 
-        {idx && (
-          <>
-            <h3>¿Dónde vivir?</h3>
-            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-              <Gauge valor={idx.score} />
-              <div style={{ flex: 1 }}>
-                <Componente nombre="renta" valor={idx.componentes.renta} />
-                <Componente nombre="empleo" valor={idx.componentes.paro} />
-                <Componente nombre="asequibilidad" valor={idx.componentes.alquiler} />
-                <Componente nombre="vitalidad" valor={idx.componentes.envejecimiento} />
-                <Componente nombre="servicios" valor={idx.componentes.servicios} />
+        {porQueTieneContenido && (
+          <Seccion titulo="Por qué" abierta>
+            {nDrivers > 0 && <Drivers drivers={ficha.prediccion?.drivers ?? null} />}
+            {ficha.demografia && (
+              <div style={{ marginTop: nDrivers > 0 ? 14 : 0 }}>
+                <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 6 }}>
+                  Motor demográfico: <span style={{ textTransform: "capitalize" }}>{ficha.demografia.tipo}</span>
+                </div>
+                <BarraDivergente etiqueta="Vegetativo" valor={ficha.demografia.saldo_vegetativo} max={maxSaldo} estimado />
+                <BarraDivergente etiqueta="Migratorio" valor={ficha.demografia.saldo_migratorio} max={maxSaldo} />
               </div>
-            </div>
-          </>
-        )}
-
-        {pred && (
-          <>
-            <h3>Predicción a {pred.anio_horizonte}</h3>
-            <div>
-              <strong style={{ color: pred.cambio_pct >= 0 ? "#15803d" : "#b91c1c", fontSize: 15 }}>
-                {pred.cambio_pct >= 0 ? "+" : ""}{pred.cambio_pct}%
-              </strong>
-              {pred.cambio_inf != null && (
-                <span style={{ color: "var(--text-2)" }}> [{pred.cambio_inf}%..{pred.cambio_sup}%]</span>
-              )}
-              <span style={{ color: "var(--text-2)" }}> → {pred.pob_proyectada.toLocaleString("es")} hab</span>
-            </div>
-            {pred.drivers && <div style={{ color: "var(--text-2)", fontSize: 11, marginTop: 2 }}>{pred.drivers}</div>}
-          </>
-        )}
-
-        {ficha.riesgo && (
-          <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-            <span
-              style={{
-                width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
-                background: ficha.riesgo.nivel === "rojo" ? "#b91c1c" : ficha.riesgo.nivel === "ambar" ? "#f59e0b" : "#16a34a",
-              }}
-            />
-            <span style={{ color: "var(--text-2)" }}>
-              Riesgo de despoblación{" "}
-              <strong style={{ color: "var(--text)" }}>
-                {ficha.riesgo.nivel === "rojo" ? "alto" : ficha.riesgo.nivel === "ambar" ? "medio" : "bajo"}
-              </strong>{" "}
-              ({ficha.riesgo.prob}% de prob. de pérdida fuerte a 5 años)
-            </span>
-          </div>
-        )}
-
-        {ficha.inflexion && (
-          <>
-            <h3>Punto de inflexión</h3>
-            <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.45 }}>
-              Su población <strong style={{ color: "var(--text)" }}>{ficha.inflexion.tipo}</strong>{" "}
-              en torno a <strong style={{ color: "var(--text)" }}>{ficha.inflexion.anio}</strong>: pasó de{" "}
-              {ficha.inflexion.pend_antes} a {ficha.inflexion.pend_despues} hab/año.
-            </div>
-          </>
-        )}
-
-        {ficha.demografia && (
-          <>
-            <h3>Motor demográfico (2015-2024)</h3>
-            <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.5 }}>
-              <strong style={{ color: "var(--text)", textTransform: "capitalize" }}>{ficha.demografia.tipo}</strong>.{" "}
-              Saldo vegetativo{" "}
-              <strong style={{ color: (ficha.demografia.saldo_vegetativo ?? 0) >= 0 ? "#15803d" : "#b91c1c" }}>
-                {(ficha.demografia.saldo_vegetativo ?? 0) >= 0 ? "+" : ""}{(ficha.demografia.saldo_vegetativo ?? 0).toLocaleString("es")}
-              </strong>{" "}
-              (nac−def), migratorio{" "}
-              <strong style={{ color: (ficha.demografia.saldo_migratorio ?? 0) >= 0 ? "#15803d" : "#b91c1c" }}>
-                {(ficha.demografia.saldo_migratorio ?? 0) >= 0 ? "+" : ""}{(ficha.demografia.saldo_migratorio ?? 0).toLocaleString("es")}
-              </strong>.
-              <div style={{ fontSize: 10, marginTop: 3, opacity: 0.8 }}>Vegetativo estimado con tasas provinciales.</div>
-            </div>
-          </>
-        )}
-
-        {(ficha.rendimiento?.residuo != null || ficha.gemelo) && (
-          <>
-            <h3>Contra pronóstico</h3>
+            )}
             {ficha.rendimiento?.residuo != null && (
-              <div style={{ fontSize: 12, marginBottom: 6 }}>
+              <div style={{ fontSize: 12, marginTop: 14 }}>
                 {ficha.rendimiento.clasificacion === "sobre" && (
-                  <span style={{ color: "#15803d", fontWeight: 600 }}>
+                  <span style={{ color: COLOR_CRECE, fontWeight: 600 }}>
                     Crece {ficha.rendimiento.residuo} pp más de lo que sus características predicen.
                   </span>
                 )}
                 {ficha.rendimiento.clasificacion === "bajo" && (
-                  <span style={{ color: "#b91c1c", fontWeight: 600 }}>
+                  <span style={{ color: COLOR_DECAE, fontWeight: 600 }}>
                     Crece {Math.abs(ficha.rendimiento.residuo)} pp menos de lo que sus características predicen.
                   </span>
                 )}
@@ -378,115 +333,119 @@ export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: F
                 )}
               </div>
             )}
-            {ficha.gemelo && ficha.gemelo.divergencia != null && ficha.gemelo.divergencia >= 5 && (
-              <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.45 }}>
+          </Seccion>
+        )}
+
+        {comparablesTieneContenido && (
+          <Seccion titulo="Comparables" resumen={`${nComparables} pueblo${nComparables === 1 ? "" : "s"}`}>
+            {gemeloDestaca && ficha.gemelo && (
+              <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.45, marginBottom: ficha.similares.length ? 12 : 0 }}>
                 Su gemelo estadístico,{" "}
                 <button className="chip" onClick={() => onSelect(ficha.gemelo!.cod)} title={ficha.gemelo.provincia}>
                   {ficha.gemelo.nombre}
                 </button>{" "}
                 — casi idéntico en datos — {(ficha.gemelo.crec_gemelo ?? 0) > (ficha.gemelo.crec_propio ?? 0) ? "creció" : "cayó"} un{" "}
-                <strong style={{ color: "var(--text)" }}>
-                  {ficha.gemelo.crec_gemelo}%
-                </strong>{" "}
+                <strong style={{ color: "var(--text)" }}>{ficha.gemelo.crec_gemelo}%</strong>{" "}
                 (2020-2025) frente al {ficha.gemelo.crec_propio}% de {ficha.nombre}. Un experimento natural que invita a preguntarse por qué.
               </div>
             )}
-          </>
+            {ficha.similares.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                {ficha.similares.map((s) => (
+                  <button key={s.cod} className="chip" onClick={() => onSelect(s.cod)} title={s.provincia}>
+                    {s.nombre}
+                  </button>
+                ))}
+              </div>
+            )}
+          </Seccion>
         )}
 
-        {ficha.servicios && (
-          <>
-            <h3>Servicios (OSM)</h3>
-            <div style={{ display: "flex", gap: 14, color: "var(--text-2)", fontSize: 12, alignItems: "center" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <Stethoscope size={13} strokeWidth={1.75} /> {ficha.servicios.salud ?? 0}
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <GraduationCap size={13} strokeWidth={1.75} /> {ficha.servicios.educacion ?? 0}
-              </span>
-              <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <ShoppingCart size={13} strokeWidth={1.75} /> {ficha.servicios.comercio ?? 0}
-              </span>
-              <span style={{ marginLeft: "auto", opacity: 0.8 }}>total {ficha.servicios.total ?? 0}</span>
-            </div>
-          </>
-        )}
-        {ficha.aislamiento && (ficha.aislamiento.km_salud ?? 0) > 0 && (
-          <div style={{ fontSize: 11, color: "var(--text-2)", marginTop: 4 }}>
-            Sanidad más cercana a {ficha.aislamiento.km_salud} km
-            {ficha.aislamiento.km_capital != null && <> · capital a {ficha.aislamiento.km_capital} km</>}
-          </div>
-        )}
-
-        {ficha.aire && ficha.aire.pm25 != null && (
-          <>
-            <h3>Calidad del aire</h3>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12 }}>
-              <span
-                style={{
-                  width: 10, height: 10, borderRadius: "50%", flexShrink: 0,
-                  background: ficha.aire.pm25 <= 5 ? "#16a34a" : ficha.aire.pm25 <= 10 ? "#f59e0b" : "#b91c1c",
-                }}
-              />
-              <span style={{ color: "var(--text-2)" }}>
-                PM2.5 <strong style={{ color: "var(--text)" }}>{ficha.aire.pm25} µg/m³</strong>
-                {ficha.aire.no2 != null && <> · NO₂ {ficha.aire.no2}</>}
-                {ficha.aire.pm10 != null && <> · PM10 {ficha.aire.pm10}</>}
-              </span>
-            </div>
-            <div style={{ fontSize: 10, color: "var(--text-2)", marginTop: 2 }}>
-              Guía OMS: PM2.5 ≤ 5 µg/m³ anual. Rejilla EEA 1 km (2025).
-            </div>
-          </>
-        )}
-
-        {ficha.conectividad && ficha.conectividad.pct_fibra != null && (
-          <>
-            <h3>Conectividad</h3>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", fontSize: 12, color: "var(--text-2)" }}>
-              <span><Wifi size={12} strokeWidth={1.75} style={{ verticalAlign: "-1px" }} /> {ficha.conectividad.pct_fibra}% fibra</span>
-              {ficha.conectividad.pct_100mbps != null && <span>· {ficha.conectividad.pct_100mbps}% ≥100 Mbps</span>}
-              {ficha.conectividad.pct_5g != null && <span>· {ficha.conectividad.pct_5g}% 5G</span>}
-            </div>
-          </>
-        )}
-
-        {ficha.clima && ficha.clima.temp != null && (
-          <>
-            <h3>Clima</h3>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", fontSize: 12, color: "var(--text-2)" }}>
-              <span>🌡️ {ficha.clima.temp} °C media</span>
-              {ficha.clima.temp_max_media != null && ficha.clima.temp_min_media != null && (
-                <span>({ficha.clima.temp_min_media}–{ficha.clima.temp_max_media} °C)</span>
+        {vivirAquiTieneContenido && (
+          <Seccion titulo="Vivir aquí" resumen={idx?.score != null ? `${idx.score}/100` : null}>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: idx ? 14 : 0 }}>
+              {renta && (
+                <StatCard icono={Wallet} label="Renta" anio={renta.anio} valor={Math.round(renta.valor).toLocaleString("es")} unidad="€/pers" delta={deltaPct(renta)} />
               )}
-              {ficha.clima.dias_despejados != null && <span>☀️ {ficha.clima.dias_despejados} días despejados</span>}
-              {ficha.clima.precip != null && <span>🌧️ {ficha.clima.precip} mm/año</span>}
-              {ficha.clima.humedad_media != null && <span>💧 {ficha.clima.humedad_media}% hum.</span>}
+              {paroPct && <StatCard icono={Briefcase} label="Paro" anio={paroPct.anio} valor={paroPct.valor.toFixed(0)} unidad="‰ hab" />}
+              {alquiler && (
+                <StatCard icono={Home} label="Alquiler" anio={alquiler.anio} valor={alquiler.valor.toFixed(1)} unidad="€/m²" delta={deltaPct(alquiler)} />
+              )}
+              {extranjeros && (
+                <StatCard icono={UsersRound} label="Extranjeros" anio={extranjeros.anio} valor={extranjeros.valor.toFixed(1)} unidad="%" delta={deltaPct(extranjeros)} />
+              )}
             </div>
-          </>
+            {idx && (
+              <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                <Gauge valor={idx.score} />
+                <div style={{ flex: 1 }}>
+                  <Componente nombre="renta" valor={idx.componentes.renta} />
+                  <Componente nombre="empleo" valor={idx.componentes.paro} />
+                  <Componente nombre="asequibilidad" valor={idx.componentes.alquiler} />
+                  <Componente nombre="vitalidad" valor={idx.componentes.envejecimiento} />
+                  <Componente nombre="servicios" valor={idx.componentes.servicios} />
+                </div>
+              </div>
+            )}
+          </Seccion>
         )}
 
-        {ficha.arquetipo && (
-          <div style={{ marginTop: 14 }}>
-            <span className="chip" style={{ cursor: "default", background: "var(--bg)", color: "var(--text-2)" }}>
-              Arquetipo #{ficha.arquetipo.cluster}: {ficha.arquetipo.etiqueta}
-            </span>
-          </div>
+        {entornoTieneContenido && (
+          <Seccion titulo="Entorno">
+            {ficha.servicios && (
+              <div style={{ display: "flex", gap: 14, color: "var(--text-2)", fontSize: 12, alignItems: "center", marginBottom: 10 }}>
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <Stethoscope size={13} strokeWidth={1.75} /> {ficha.servicios.salud ?? 0}
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <GraduationCap size={13} strokeWidth={1.75} /> {ficha.servicios.educacion ?? 0}
+                </span>
+                <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <ShoppingCart size={13} strokeWidth={1.75} /> {ficha.servicios.comercio ?? 0}
+                </span>
+                <span style={{ marginLeft: "auto", opacity: 0.8 }}>total {ficha.servicios.total ?? 0}</span>
+              </div>
+            )}
+            {(ficha.aislamiento?.km_salud ?? 0) > 0 && (
+              <div style={{ fontSize: 11, color: "var(--text-2)", marginBottom: 10 }}>
+                Sanidad más cercana a {ficha.aislamiento!.km_salud} km
+                {ficha.aislamiento!.km_capital != null && <> · capital a {ficha.aislamiento!.km_capital} km</>}
+              </div>
+            )}
+            {ficha.conectividad?.pct_fibra != null && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: "4px 14px", fontSize: 12, color: "var(--text-2)", marginBottom: 10 }}>
+                <span><Wifi size={12} strokeWidth={1.75} style={{ verticalAlign: "-1px" }} /> {ficha.conectividad.pct_fibra}% fibra</span>
+                {ficha.conectividad.pct_100mbps != null && <span>· {ficha.conectividad.pct_100mbps}% ≥100 Mbps</span>}
+                {ficha.conectividad.pct_5g != null && <span>· {ficha.conectividad.pct_5g}% 5G</span>}
+              </div>
+            )}
+            {ficha.aire?.pm25 != null && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, marginBottom: 6 }}>
+                <span
+                  style={{
+                    width: 9, height: 9, borderRadius: "50%", flexShrink: 0,
+                    background: ficha.aire.pm25 <= 5 ? RIESGO_COLORES.verde : ficha.aire.pm25 <= 10 ? RIESGO_COLORES.ambar : RIESGO_COLORES.rojo,
+                  }}
+                />
+                <span style={{ color: "var(--text-2)" }}>
+                  PM2.5 <strong style={{ color: "var(--text)" }}>{ficha.aire.pm25} µg/m³</strong>{" "}
+                  <span style={{ fontSize: 10 }}>(guía OMS: ≤5)</span>
+                </span>
+              </div>
+            )}
+            {ficha.clima?.temp != null && (
+              <div style={{ fontSize: 12, color: "var(--text-2)" }}>
+                {ficha.clima.temp} °C media
+                {ficha.clima.dias_despejados != null && <> · {ficha.clima.dias_despejados} días despejados/año</>}
+              </div>
+            )}
+          </Seccion>
         )}
 
-        <Noticias noticias={noticias} nombre={ficha.nombre} />
-
-        {ficha.similares.length > 0 && (
-          <>
-            <h3>Pueblos como {ficha.nombre}</h3>
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-              {ficha.similares.map((s) => (
-                <button key={s.cod} className="chip" onClick={() => onSelect(s.cod)} title={s.provincia}>
-                  {s.nombre}
-                </button>
-              ))}
-            </div>
-          </>
+        {noticias && (
+          <Seccion titulo="Prensa local" resumen={resumenPrensa}>
+            <Noticias noticias={noticias} nombre={ficha.nombre} />
+          </Seccion>
         )}
       </div>
     </div>
