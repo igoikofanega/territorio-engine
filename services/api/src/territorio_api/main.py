@@ -154,6 +154,33 @@ async def resumen(prov: str | None = None) -> dict:
                 p,
             )
         ).all()
+        # La respuesta agregada a la pregunta bandera: cuántos municipios el modelo
+        # predice que crecen, cuántos que se vacían, y cuántos no permiten afirmar
+        # ninguna de las dos cosas (banda de incertidumbre que cruza cero) — el mismo
+        # criterio que `veredicto.ts::cruzaCero` en la ficha de un municipio, aplicado
+        # aquí a los 8.217 (o los de la provincia) de golpe. No repite también el
+        # criterio de discrepancia con la proyección cohorte-componente: esa segunda
+        # condición existe para no afirmar una dirección en la ficha de UN municipio, y
+        # aquí el peso lo lleva la banda —duplicar la lógica completa en SQL por una
+        # agregación no compensa la deuda de mantener dos implementaciones sincronizadas.
+        veredictos = (
+            await conn.execute(
+                text(f"""
+                    SELECT
+                        count(*) FILTER (WHERE p.cod_municipio IS NULL) AS sin_datos,
+                        count(*) FILTER (WHERE p.cod_municipio IS NOT NULL
+                                          AND p.cambio_inf >= 0) AS crece,
+                        count(*) FILTER (WHERE p.cod_municipio IS NOT NULL
+                                          AND p.cambio_sup <= 0) AS se_vacia,
+                        count(*) FILTER (WHERE p.cod_municipio IS NOT NULL
+                                          AND p.cambio_inf < 0 AND p.cambio_sup > 0) AS incierto
+                    FROM dim_municipio d
+                    LEFT JOIN prediccion_ml p ON p.cod_municipio = d.cod_municipio
+                    {filtro}
+                """),  # noqa: S608
+                p,
+            )
+        ).one()
 
     def fmt(rows, campo):
         return [
@@ -174,6 +201,23 @@ async def resumen(prov: str | None = None) -> dict:
         "JOIN prediccion_ml p ON p.cod_municipio = d.cod_municipio",
         campo="p.cambio_pct AS cambio",
     )
+    # El extremo que faltaba: "mas_crecen" solo enseñaba la cola de arriba. En un
+    # proyecto sobre despoblación, la cola de abajo —quién se vacía más rápido— no es
+    # opcional.
+    mas_caen = await top(
+        "p.cambio_pct ASC NULLS LAST",
+        "JOIN prediccion_ml p ON p.cod_municipio = d.cod_municipio",
+        campo="p.cambio_pct AS cambio",
+    )
+    # Gemelo divergente: dos municipios casi idénticos en datos que han tirado por
+    # caminos distintos (ver ml/gemelos.py). Calculado desde hace tiempo, mostrado hasta
+    # ahora solo en la ficha de un municipio a la vez; aquí sale el ranking de quiénes
+    # divergen más de su par, en el ámbito entero.
+    mas_divergen = await top(
+        "g.divergencia DESC NULLS LAST",
+        "JOIN gemelo_municipio g ON g.cod_municipio = d.cod_municipio",
+        campo="g.divergencia AS divergencia",
+    )
     remontan = await top(
         "inf.magnitud DESC NULLS LAST",
         "JOIN inflexion_municipio inf ON inf.cod_municipio = d.cod_municipio",
@@ -192,6 +236,14 @@ async def resumen(prov: str | None = None) -> dict:
             "remonta": giros.get("remonta", 0),
             "se_hunde": giros.get("se hunde", 0) + giros.get("acelera caída", 0),
         },
+        # Respuesta agregada a la pregunta bandera. Mismo criterio que
+        # veredicto.ts::cruzaCero, en SQL: ver el comentario junto a la consulta.
+        "veredictos": {
+            "crece": veredictos.crece,
+            "se_vacia": veredictos.se_vacia,
+            "incierto": veredictos.incierto,
+            "sin_datos": veredictos.sin_datos,
+        },
         "distribucion_indice": [{"tramo": r.tramo, "n": r.n} for r in dist if r.tramo],
         "rankings": {
             "mejor_indice": fmt(mejor_indice, "score"),
@@ -201,6 +253,8 @@ async def resumen(prov: str | None = None) -> dict:
                 if r.prob is not None
             ][:5],
             "mas_crecen": fmt(mas_crecen, "cambio"),
+            "mas_caen": fmt(mas_caen, "cambio"),
+            "mas_divergen": fmt(mas_divergen, "divergencia"),
             "remontan": fmt(remontan, "anio"),
         },
     }

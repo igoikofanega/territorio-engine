@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { FichaData } from "./types";
-import { veredicto } from "./veredicto";
+import { resumenAgregado, veredicto } from "./veredicto";
 
 /** Ficha mínima con todo lo demás en null/vacío, para no repetir 20 campos por test. */
 function baseFicha(overrides: Partial<FichaData> = {}): FichaData {
@@ -147,5 +147,35 @@ describe("veredicto: confianza según el ancho de la banda", () => {
   it("sin banda (cambio_inf/sup null), confianza es null", () => {
     const f = baseFicha({ prediccion: prediccion({ cambio_inf: null, cambio_sup: null }) });
     expect(veredicto(f).confianza).toBeNull();
+  });
+});
+
+describe("resumenAgregado", () => {
+  it("caso real medido en Navarra: mayoría incierta, cero 'se vacía' con certeza", () => {
+    const frase = resumenAgregado({ crece: 65, se_vacia: 0, incierto: 207, sin_datos: 0 }, "Navarra");
+    expect(frase).toContain("65 crecen");
+    expect(frase).toContain("0 se vacían");
+    expect(frase).toContain("207 (76%)");
+  });
+
+  it("con sin_datos > 0, se cuentan aparte del total con predicción", () => {
+    const frase = resumenAgregado({ crece: 10, se_vacia: 5, incierto: 5, sin_datos: 3 }, "Aragón");
+    expect(frase).toContain("De 20 municipios con predicción");
+    expect(frase).toContain("3 no tienen predicción");
+  });
+
+  it("sin incierto, no menciona la banda de incertidumbre", () => {
+    const frase = resumenAgregado({ crece: 10, se_vacia: 0, incierto: 0, sin_datos: 0 }, "X");
+    expect(frase).not.toContain("banda de incertidumbre");
+  });
+
+  it("ámbito vacío no revienta", () => {
+    const frase = resumenAgregado({ crece: 0, se_vacia: 0, incierto: 0, sin_datos: 0 }, "X");
+    expect(frase.length).toBeGreaterThan(0);
+  });
+
+  it("todos sin datos no revienta (división por cero)", () => {
+    const frase = resumenAgregado({ crece: 0, se_vacia: 0, incierto: 0, sin_datos: 8 }, "X");
+    expect(frase).toContain("no predice ninguno");
   });
 });

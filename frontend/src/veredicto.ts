@@ -129,3 +129,40 @@ export function veredicto(f: FichaData): Veredicto {
 
   return { tono, titular, confianza, contraste };
 }
+
+/** Recuento de municipios por `tono` en un ámbito (provincia o España): la salida de
+ * `/resumen` (`veredictos.{crece,se_vacia,incierto,sin_datos}`), calculada en SQL con el
+ * mismo criterio que `cruzaCero` de arriba — ver el comentario junto a la consulta en
+ * `main.py`. No repite la condición de discrepancia con la cohorte: esa existe para no
+ * afirmar dirección en la ficha de un municipio suelto, y aquí el peso lo lleva la banda.
+ */
+export type VeredictosAgregados = { crece: number; se_vacia: number; incierto: number; sin_datos: number };
+
+/** La frase que responde la pregunta bandera para un ÁMBITO entero, no un municipio.
+ *
+ * El caso que hace que esta frase importe: en Navarra, el 76% de los municipios caen en
+ * "incierto" (banda que cruza cero) y NINGUNO tiene una banda enteramente negativa — el
+ * modelo, a este horizonte y con estos datos, casi nunca se atreve a decir "se vacía con
+ * certeza", ni siquiera en una región con problema de despoblación rural conocido. Es un
+ * hallazgo real sobre los límites del modelo, no un defecto de esta frase: decirlo tal
+ * cual es más honesto que forzar una narrativa de "muchos pueblos se vacían" que los
+ * números no sostienen.
+ */
+export function resumenAgregado(v: VeredictosAgregados, ambito: string): string {
+  const total = v.crece + v.se_vacia + v.incierto + v.sin_datos;
+  if (total === 0) return `Sin predicciones para ${ambito}.`;
+  const conPrediccion = total - v.sin_datos;
+  if (conPrediccion === 0) {
+    return `El modelo no predice ninguno de los ${total} municipios de ${ambito} en este momento.`;
+  }
+  const pctIncierto = Math.round((v.incierto / conPrediccion) * 100);
+  const partes = [`${v.crece} crecen`, `${v.se_vacia} se vacían`];
+  let frase = `De ${conPrediccion} municipios con predicción en ${ambito}, el modelo espera con confianza que ${partes.join(" y ")}.`;
+  if (v.incierto > 0) {
+    frase += ` Para ${v.incierto} (${pctIncierto}%), la banda de incertidumbre no permite afirmar una dirección.`;
+  }
+  if (v.sin_datos > 0) {
+    frase += ` ${v.sin_datos} no tienen predicción.`;
+  }
+  return frase;
+}
