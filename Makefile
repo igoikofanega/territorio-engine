@@ -36,6 +36,9 @@ typecheck: ## Comprobación de tipos (mypy) de los servicios Python
 	cd services/api && uv run mypy
 	cd services/orchestrator && uv run mypy
 
+front-build: ## Build de producción (temporal, para medir tamaño de bundle)
+	$(NODE_RUN) sh -c "npm ci --silent && npx vite build"
+
 front-lint: ## Lint + tipos del frontend (en contenedor)
 	$(NODE_RUN) sh -c "npm ci --silent && npx tsc --noEmit && npx eslint ."
 

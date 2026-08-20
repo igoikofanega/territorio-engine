@@ -27,13 +27,39 @@ import {
 
 import { CLAVES_INDICE, type ClaveIndice, type Modo, type Pesos } from "./types";
 
-const FUT_BUCKETS: [number, string][] = [[20, "#006837"], [5, "#1a9850"], [0, "#a6d96a"], [-10, "#fdae61"], [-20, "#f46d43"], [-100, "#a50026"]];
+// Divergente azul/rojo (ColorBrewer RdBu), no verde/rojo: azul = crece, rojo = decrece,
+// mismo lenguaje que "rendimiento" más abajo. La original (RdYlGn) fallaba el chequeo de
+// daltonismo (skill `dataviz`): ΔE 4,0 en simulación deuteranopia, muy por debajo del
+// suelo de 6 — un lector con esa condición no distinguía "crece mucho" de "cae mucho".
+// Validado con scripts/validate_palette.js: peor par ΔE 13,6 (protanopia), muy por encima.
+// Extremos de la escala de arriba, nombrados: los reutilizan Trayectoria y
+// BarraDivergente (ficha) para que "crece" y "decrece" sean el mismo azul y el mismo
+// rojo en el mapa y en los gráficos de la ficha, en vez de un hex duplicado en cada uno.
+export const COLOR_CRECE = "#08519c";
+export const COLOR_DECAE = "#990000";
+const FUT_BUCKETS: [number, string][] = [[20, COLOR_CRECE], [5, "#3182bd"], [0, "#6baed6"], [-10, "#fc8d59"], [-20, "#d7301f"], [-100, COLOR_DECAE]];
 // paleta cualitativa para arquetipos (clusters)
 export const PALETA_CAT = ["#66c2a5", "#fc8d62", "#8da0cb", "#e78ac3", "#a6d854", "#ffd92f", "#e5c494", "#b3b3b3"];
 
+// Semáforo de riesgo (ver ml/riesgo.py CORTES): mismo nombre que usa `ficha.riesgo.nivel`
+// del backend, para no repetir los tres hexadecimales en cada sitio que dibuja el
+// semáforo (mapa, Escenarios.tsx, y antes también aquí mismo suelto en Ficha.tsx).
+export const RIESGO_COLORES: Record<"rojo" | "ambar" | "verde", string> = {
+  rojo: "#b91c1c",
+  ambar: "#d97706",
+  verde: "#16a34a",
+};
+
 export const ESCALAS: Record<
   Modo,
-  { endpoint: string; etiqueta: string; icono: LucideIcon; titulo: string; campo: string; sufijo: string; anios?: string; categorico?: boolean; buckets: [number, string][] }
+  {
+    endpoint: string; etiqueta: string; icono: LucideIcon; titulo: string; campo: string; sufijo: string;
+    anios?: string; categorico?: boolean; buckets: [number, string][];
+    /** Línea corta bajo la leyenda, solo donde el color no se explica solo (divergentes,
+     * o hue que no sigue la convención "oscuro = más"). El resto no la necesita: el
+     * rango con su unidad ya dice lo que hace falta. */
+    lectura?: string;
+  }
 > = {
   arquetipos: {
     endpoint: "arquetipos.geojson", etiqueta: "Arquetipos", icono: Shapes, titulo: "Arquetipos", campo: "cluster", sufijo: "", categorico: true, buckets: [],
@@ -78,6 +104,7 @@ export const ESCALAS: Record<
   clima: {
     endpoint: "clima.geojson", etiqueta: "Clima", icono: CloudSun, titulo: "Temp. media °C", campo: "temp", sufijo: " °C",
     buckets: [[18, "#d73027"], [15, "#fc8d59"], [12, "#fee090"], [9, "#91bfdb"], [0, "#4575b4"]],
+    lectura: "Rojo = más cálido · Azul = más frío",
   },
   aislamiento: {
     endpoint: "aislamiento.geojson", etiqueta: "Aislamiento", icono: MapPinOff, titulo: "Km a sanidad", campo: "km_salud", sufijo: " km",
@@ -105,6 +132,7 @@ export const ESCALAS: Record<
     endpoint: "rendimiento.geojson", etiqueta: "Contra pronóstico", icono: Target, titulo: "Residuo vs predicho (pp)", campo: "residuo", sufijo: " pp",
     // divergente RdBu: azul = sobre-rinde, rojo = bajo-rinde
     buckets: [[15, "#2166ac"], [5, "#67a9cf"], [-5, "#f7f7f7"], [-15, "#ef8a62"], [-1000, "#b2182b"]],
+    lectura: "Azul = crece más de lo esperado · Rojo = crece menos",
   },
   inflexion: {
     endpoint: "inflexion.geojson", etiqueta: "Punto de inflexión", icono: Milestone, titulo: "¿Cómo cambió la tendencia?", campo: "tipo", sufijo: "", categorico: true, buckets: [],
@@ -115,19 +143,28 @@ export const ESCALAS: Record<
   prediccion: {
     endpoint: "prediccion.geojson", etiqueta: "Predicción ML", icono: Sparkles, titulo: "Cambio a 2028", campo: "cambio_pct", sufijo: "%",
     buckets: FUT_BUCKETS,
+    lectura: "Azul = gana población · Rojo = pierde población",
   },
   futuro: {
     endpoint: "futuro.geojson", etiqueta: "Futuro (tendencia)", icono: TrendingUp, titulo: "Cambio a 2035", campo: "cambio_pct", sufijo: "%",
     buckets: FUT_BUCKETS,
+    lectura: "Azul = gana población · Rojo = pierde población",
   },
   futuro_cohorte: {
     endpoint: "futuro-cohorte.geojson", etiqueta: "Futuro (cohorte)", icono: Baby, titulo: "Cambio a 2037", campo: "cambio_pct", sufijo: "%",
     buckets: FUT_BUCKETS,
+    lectura: "Azul = gana población · Rojo = pierde población",
   },
   riesgo: {
     endpoint: "riesgo.geojson", etiqueta: "Riesgo despoblación", icono: Siren, titulo: "P(pérdida fuerte) %", campo: "prob", sufijo: "%",
-    // semáforo: verde <30, ámbar 30-60, rojo >=60
-    buckets: [[60, "#b91c1c"], [30, "#f59e0b"], [0, "#16a34a"]],
+    // semáforo: verde <30, ámbar 30-60, rojo >=60. Verde/rojo es intrínsecamente el par
+    // más difícil para daltonismo (son los dos extremos del eje de confusión), pero pasa
+    // el chequeo (ΔE 11,0 deuteranopia, por encima del suelo de 8): se mantiene por su
+    // valor cultural de semáforo. Verde/ámbar queda en la banda de aviso (ΔE 6-8), así
+    // que aquí SÍ es obligatorio el icono + etiqueta (nunca solo el color): ver Leyenda
+    // y Escenarios.tsx.
+    buckets: [[60, RIESGO_COLORES.rojo], [30, RIESGO_COLORES.ambar], [0, RIESGO_COLORES.verde]],
+    lectura: "Probabilidad de perder más del 10% de población en 5 años",
   },
 };
 
@@ -183,11 +220,27 @@ export const DEMOGRAFIA_LEYENDA = [
   { color: "#e8e8e8", label: "Sin datos" },
 ];
 
-// agrupación de modos para la sidebar
-export const GRUPOS_MODOS: { titulo: string; modos: Modo[] }[] = [
-  { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "extranjeros", "servicios", "fibra", "aire", "aislamiento", "clima", "sol", "frio", "envejecimiento"] },
-  { titulo: "Síntesis", modos: ["indice", "arquetipos", "rendimiento", "inflexion", "demografia", "lisa_crecimiento", "lisa_renta"] },
-  { titulo: "Futuro", modos: ["prediccion", "riesgo", "futuro", "futuro_cohorte"] },
+// Agrupación de modos para la sidebar, por PREGUNTA en vez de por procedencia del dato.
+// Antes era "Hoy" (13 capas en una lista plana, con scroll) · "Síntesis" (7) · "Futuro"
+// (4): un laberinto de 24 opciones que obligaba a leer la lista entera para encontrar
+// una capa. Cada grupo separa lo que se consulta a menudo (`modos`, siempre visible) de
+// lo que es más de analista (`secundarios`, plegado por defecto vía `Seccion`): pasa de
+// 24 ítems siempre a la vista a 11, con dos desplegables de 5 y 8.
+export const GRUPOS_MODOS: { titulo: string; modos: Modo[]; secundarios?: Modo[] }[] = [
+  { titulo: "Quién vive", modos: ["poblacion", "extranjeros", "envejecimiento"] },
+  {
+    titulo: "Cómo se vive",
+    modos: ["renta", "paro", "alquiler", "servicios", "fibra"],
+    secundarios: ["aire", "aislamiento", "clima", "sol", "frio"],
+  },
+  {
+    titulo: "Qué se espera",
+    modos: ["indice", "prediccion", "riesgo"],
+    secundarios: [
+      "futuro", "futuro_cohorte", "rendimiento", "inflexion", "demografia", "arquetipos",
+      "lisa_crecimiento", "lisa_renta",
+    ],
+  },
 ];
 
 export const PESOS_DEFECTO: Pesos = { renta: 0.25, paro: 0.20, alquiler: 0.20, envejecimiento: 0.15, servicios: 0.20 };

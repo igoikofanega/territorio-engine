@@ -4,6 +4,17 @@ import { ESCALAS, GRUPOS_MODOS } from "../escalas";
 import type { Modo, Pesos, Prov } from "../types";
 import Buscador from "./Buscador";
 import PanelPesos from "./PanelPesos";
+import Seccion from "./Seccion";
+
+function ItemCapa({ modo, activo, onClick }: { modo: Modo; activo: boolean; onClick: () => void }) {
+  const Icono = ESCALAS[modo].icono;
+  return (
+    <button className={`sidebar-item${activo ? " activo" : ""}`} onClick={onClick}>
+      <Icono size={16} strokeWidth={1.75} className="sidebar-icono" />
+      {ESCALAS[modo].etiqueta}
+    </button>
+  );
+}
 
 export default function Sidebar({
   provincias,
@@ -92,15 +103,22 @@ export default function Sidebar({
           {GRUPOS_MODOS.map((g) => (
             <div key={g.titulo}>
               <div className="grupo-titulo">{g.titulo}</div>
-              {g.modos.map((m) => {
-                const Icono = ESCALAS[m].icono;
-                return (
-                  <button key={m} className={`sidebar-item${modo === m ? " activo" : ""}`} onClick={() => onModo(m)}>
-                    <Icono size={16} strokeWidth={1.75} className="sidebar-icono" />
-                    {ESCALAS[m].etiqueta}
-                  </button>
-                );
-              })}
+              {g.modos.map((m) => (
+                <ItemCapa key={m} modo={m} activo={modo === m} onClick={() => onModo(m)} />
+              ))}
+              {g.secundarios && g.secundarios.length > 0 && (
+                <Seccion
+                  titulo="Más capas"
+                  resumen={g.secundarios.includes(modo) ? ESCALAS[modo].etiqueta : `${g.secundarios.length}`}
+                  abierta={g.secundarios.includes(modo)}
+                >
+                  <div style={{ display: "flex", flexDirection: "column", paddingTop: 2 }}>
+                    {g.secundarios.map((m) => (
+                      <ItemCapa key={m} modo={m} activo={modo === m} onClick={() => onModo(m)} />
+                    ))}
+                  </div>
+                </Seccion>
+              )}
             </div>
           ))}
         </nav>
