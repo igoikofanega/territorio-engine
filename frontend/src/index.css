@@ -418,17 +418,9 @@ body {
   display: flex;
   flex-direction: column;
   font-size: 14px;
-  animation: ficha-entra 0.22s ease-out;
-}
-@keyframes ficha-entra {
-  from {
-    transform: translateX(24px);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+  /* La entrada Y la salida las anima `motion` (Ficha.tsx envuelto en <m.div> dentro de
+     <AnimatePresence> en App.tsx): un @keyframes de CSS solo puede animar la entrada,
+     nunca la salida de un componente que React desmonta al instante. */
 }
 
 /* cabeceras de sección de la ficha: overline Geist con separador inferior */

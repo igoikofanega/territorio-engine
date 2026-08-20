@@ -12,6 +12,7 @@ import {
   Wifi,
   X,
 } from "lucide-react";
+import { m } from "motion/react";
 
 import { COLOR_CRECE, COLOR_DECAE, RIESGO_COLORES } from "../escalas";
 import { etiquetaArquetipo, parsearDrivers } from "../motivos";
@@ -170,16 +171,36 @@ function Noticias({ noticias, nombre }: { noticias: NoticiasData; nombre: string
   );
 }
 
+// Entrada y salida del drawer. La salida es lo que un @keyframes de CSS no puede dar:
+// anima mientras React desmonta, no solo mientras monta.
+const ENTRA_SALE_DRAWER = {
+  initial: { x: 24, opacity: 0 },
+  animate: { x: 0, opacity: 1 },
+  exit: { x: 24, opacity: 0 },
+  transition: { duration: 0.2, ease: "easeOut" },
+} as const;
+
+/** Stagger corto de los bloques desplegables: guía la lectura de arriba abajo, no es un
+ * espectáculo. Solo la entrada inicial — el veredicto, arriba, no se anima: es la
+ * respuesta principal y debe sentirse inmediata, no "aparecer" tras un retraso. */
+function entraSeccion(i: number) {
+  return {
+    initial: { opacity: 0, y: 8 },
+    animate: { opacity: 1, y: 0 },
+    transition: { duration: 0.22, delay: i * 0.05, ease: "easeOut" },
+  } as const;
+}
+
 export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: FichaData | null; noticias: NoticiasData | null; onClose: () => void; onSelect: (cod: string) => void }) {
   if (!ficha) {
     return (
-      <div className="ficha" style={{ padding: 16 }}>
+      <m.div className="ficha" style={{ padding: 16 }} {...ENTRA_SALE_DRAWER}>
         <button className="btn-ghost" onClick={onClose} style={{ float: "right" }}><X size={16} /></button>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 40, color: "var(--text-2)", fontSize: 13 }}>
           <span className="spinner" aria-hidden="true" />
           Cargando la ficha del municipio…
         </div>
-      </div>
+      </m.div>
     );
   }
   const idx = ficha.indice;
@@ -227,7 +248,7 @@ export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: F
   );
 
   return (
-    <div className="ficha">
+    <m.div className="ficha" {...ENTRA_SALE_DRAWER}>
       {/* cabecera héroe: foto o gradiente del primario. 120px fijo (antes 176 con foto):
           la ficha se abre para responder la pregunta bandera, no para ver una foto. */}
       <div
@@ -306,6 +327,7 @@ export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: F
         </div>
 
         {porQueTieneContenido && (
+          <m.div {...entraSeccion(0)}>
           <Seccion titulo="Por qué" abierta>
             {nDrivers > 0 && <Drivers drivers={ficha.prediccion?.drivers ?? null} />}
             {ficha.demografia && (
@@ -337,9 +359,11 @@ export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: F
               </div>
             )}
           </Seccion>
+          </m.div>
         )}
 
         {comparablesTieneContenido && (
+          <m.div {...entraSeccion(1)}>
           <Seccion titulo="Comparables" resumen={`${nComparables} pueblo${nComparables === 1 ? "" : "s"}`}>
             {gemeloDestaca && ficha.gemelo && (
               <div style={{ fontSize: 12, color: "var(--text-2)", lineHeight: 1.45, marginBottom: ficha.similares.length ? 12 : 0 }}>
@@ -362,9 +386,11 @@ export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: F
               </div>
             )}
           </Seccion>
+          </m.div>
         )}
 
         {vivirAquiTieneContenido && (
+          <m.div {...entraSeccion(2)}>
           <Seccion titulo="Vivir aquí" resumen={idx?.score != null ? `${idx.score}/100` : null}>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: idx ? 14 : 0 }}>
               {renta && (
@@ -391,9 +417,11 @@ export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: F
               </div>
             )}
           </Seccion>
+          </m.div>
         )}
 
         {entornoTieneContenido && (
+          <m.div {...entraSeccion(3)}>
           <Seccion titulo="Entorno">
             {ficha.servicios && (
               <div style={{ display: "flex", gap: 14, color: "var(--text-2)", fontSize: 12, alignItems: "center", marginBottom: 10 }}>
@@ -443,14 +471,17 @@ export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: F
               </div>
             )}
           </Seccion>
+          </m.div>
         )}
 
         {noticias && (
+          <m.div {...entraSeccion(4)}>
           <Seccion titulo="Prensa local" resumen={resumenPrensa}>
             <Noticias noticias={noticias} nombre={ficha.nombre} />
           </Seccion>
+          </m.div>
         )}
       </div>
-    </div>
+    </m.div>
   );
 }
