@@ -3,28 +3,39 @@ import { describe, expect, it } from "vitest";
 import { ESCALAS, GRUPOS_MODOS, PESOS_DEFECTO, color, combinaCustom } from "./escalas";
 import { CLAVES_INDICE, type Modo } from "./types";
 
+// `modos` (siempre visibles) + `secundarios` (plegados, ver Sidebar.tsx): las dos
+// cuentan como "alcanzable desde el menú", solo que una está a un clic más.
+const modosDeGrupo = (g: (typeof GRUPOS_MODOS)[number]) => [...g.modos, ...(g.secundarios ?? [])];
+
 describe("catálogo de modos", () => {
   // ESCALAS y GRUPOS_MODOS se editan por separado: es fácil añadir un modo a uno
   // y olvidarlo en el otro. El síntoma sería una entrada de menú que no pinta nada,
   // o una capa inalcanzable desde la interfaz.
-  it("todo modo del menú existe en ESCALAS", () => {
+  it("todo modo del menú (visible o plegado) existe en ESCALAS", () => {
     for (const grupo of GRUPOS_MODOS) {
-      for (const modo of grupo.modos) {
+      for (const modo of modosDeGrupo(grupo)) {
         expect(ESCALAS[modo], `modo "${modo}" del grupo "${grupo.titulo}"`).toBeDefined();
       }
     }
   });
 
   it("no hay modos duplicados entre grupos", () => {
-    const todos = GRUPOS_MODOS.flatMap((g) => g.modos);
+    const todos = GRUPOS_MODOS.flatMap(modosDeGrupo);
     expect(todos).toHaveLength(new Set(todos).size);
+  });
+
+  it("un modo no está a la vez visible y plegado dentro del mismo grupo", () => {
+    for (const grupo of GRUPOS_MODOS) {
+      const solapan = grupo.modos.filter((m) => grupo.secundarios?.includes(m));
+      expect(solapan, grupo.titulo).toEqual([]);
+    }
   });
 
   it("toda capa definida es alcanzable desde el menú", () => {
     // El sentido contrario del test anterior: una capa en ESCALAS que no está en
     // ningún grupo existe en el código y se sirve por API, pero ningún usuario puede
     // llegar a ella. Se queda muerta sin que nada falle.
-    const enMenu = new Set(GRUPOS_MODOS.flatMap((g) => g.modos));
+    const enMenu = new Set(GRUPOS_MODOS.flatMap(modosDeGrupo));
     const huerfanas = Object.keys(ESCALAS).filter((m) => !enMenu.has(m as Modo));
     expect(huerfanas).toEqual([]);
   });

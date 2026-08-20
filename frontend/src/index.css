@@ -90,6 +90,28 @@ body {
   box-shadow: var(--shadow);
 }
 
+/* indicador de carga del mapa (App.tsx): un aro que gira, sin animación de entrada —
+   eso llega con `motion` en el siguiente bloque. */
+.spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: spinner-gira 0.7s linear infinite;
+}
+@keyframes spinner-gira {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
+
 .input {
   width: 100%;
   padding: 8px 10px;
@@ -387,7 +409,7 @@ body {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 400px;
+  width: min(440px, 100vw); /* 400px se quedaba justo para el cono de Trayectoria */
   z-index: 1100;
   background: var(--panel);
   border-left: 1px solid var(--border);

@@ -52,7 +52,14 @@ export const RIESGO_COLORES: Record<"rojo" | "ambar" | "verde", string> = {
 
 export const ESCALAS: Record<
   Modo,
-  { endpoint: string; etiqueta: string; icono: LucideIcon; titulo: string; campo: string; sufijo: string; anios?: string; categorico?: boolean; buckets: [number, string][] }
+  {
+    endpoint: string; etiqueta: string; icono: LucideIcon; titulo: string; campo: string; sufijo: string;
+    anios?: string; categorico?: boolean; buckets: [number, string][];
+    /** Línea corta bajo la leyenda, solo donde el color no se explica solo (divergentes,
+     * o hue que no sigue la convención "oscuro = más"). El resto no la necesita: el
+     * rango con su unidad ya dice lo que hace falta. */
+    lectura?: string;
+  }
 > = {
   arquetipos: {
     endpoint: "arquetipos.geojson", etiqueta: "Arquetipos", icono: Shapes, titulo: "Arquetipos", campo: "cluster", sufijo: "", categorico: true, buckets: [],
@@ -97,6 +104,7 @@ export const ESCALAS: Record<
   clima: {
     endpoint: "clima.geojson", etiqueta: "Clima", icono: CloudSun, titulo: "Temp. media °C", campo: "temp", sufijo: " °C",
     buckets: [[18, "#d73027"], [15, "#fc8d59"], [12, "#fee090"], [9, "#91bfdb"], [0, "#4575b4"]],
+    lectura: "Rojo = más cálido · Azul = más frío",
   },
   aislamiento: {
     endpoint: "aislamiento.geojson", etiqueta: "Aislamiento", icono: MapPinOff, titulo: "Km a sanidad", campo: "km_salud", sufijo: " km",
@@ -124,6 +132,7 @@ export const ESCALAS: Record<
     endpoint: "rendimiento.geojson", etiqueta: "Contra pronóstico", icono: Target, titulo: "Residuo vs predicho (pp)", campo: "residuo", sufijo: " pp",
     // divergente RdBu: azul = sobre-rinde, rojo = bajo-rinde
     buckets: [[15, "#2166ac"], [5, "#67a9cf"], [-5, "#f7f7f7"], [-15, "#ef8a62"], [-1000, "#b2182b"]],
+    lectura: "Azul = crece más de lo esperado · Rojo = crece menos",
   },
   inflexion: {
     endpoint: "inflexion.geojson", etiqueta: "Punto de inflexión", icono: Milestone, titulo: "¿Cómo cambió la tendencia?", campo: "tipo", sufijo: "", categorico: true, buckets: [],
@@ -134,14 +143,17 @@ export const ESCALAS: Record<
   prediccion: {
     endpoint: "prediccion.geojson", etiqueta: "Predicción ML", icono: Sparkles, titulo: "Cambio a 2028", campo: "cambio_pct", sufijo: "%",
     buckets: FUT_BUCKETS,
+    lectura: "Azul = gana población · Rojo = pierde población",
   },
   futuro: {
     endpoint: "futuro.geojson", etiqueta: "Futuro (tendencia)", icono: TrendingUp, titulo: "Cambio a 2035", campo: "cambio_pct", sufijo: "%",
     buckets: FUT_BUCKETS,
+    lectura: "Azul = gana población · Rojo = pierde población",
   },
   futuro_cohorte: {
     endpoint: "futuro-cohorte.geojson", etiqueta: "Futuro (cohorte)", icono: Baby, titulo: "Cambio a 2037", campo: "cambio_pct", sufijo: "%",
     buckets: FUT_BUCKETS,
+    lectura: "Azul = gana población · Rojo = pierde población",
   },
   riesgo: {
     endpoint: "riesgo.geojson", etiqueta: "Riesgo despoblación", icono: Siren, titulo: "P(pérdida fuerte) %", campo: "prob", sufijo: "%",
@@ -152,6 +164,7 @@ export const ESCALAS: Record<
     // que aquí SÍ es obligatorio el icono + etiqueta (nunca solo el color): ver Leyenda
     // y Escenarios.tsx.
     buckets: [[60, RIESGO_COLORES.rojo], [30, RIESGO_COLORES.ambar], [0, RIESGO_COLORES.verde]],
+    lectura: "Probabilidad de perder más del 10% de población en 5 años",
   },
 };
 
@@ -207,11 +220,27 @@ export const DEMOGRAFIA_LEYENDA = [
   { color: "#e8e8e8", label: "Sin datos" },
 ];
 
-// agrupación de modos para la sidebar
-export const GRUPOS_MODOS: { titulo: string; modos: Modo[] }[] = [
-  { titulo: "Hoy", modos: ["poblacion", "renta", "alquiler", "paro", "extranjeros", "servicios", "fibra", "aire", "aislamiento", "clima", "sol", "frio", "envejecimiento"] },
-  { titulo: "Síntesis", modos: ["indice", "arquetipos", "rendimiento", "inflexion", "demografia", "lisa_crecimiento", "lisa_renta"] },
-  { titulo: "Futuro", modos: ["prediccion", "riesgo", "futuro", "futuro_cohorte"] },
+// Agrupación de modos para la sidebar, por PREGUNTA en vez de por procedencia del dato.
+// Antes era "Hoy" (13 capas en una lista plana, con scroll) · "Síntesis" (7) · "Futuro"
+// (4): un laberinto de 24 opciones que obligaba a leer la lista entera para encontrar
+// una capa. Cada grupo separa lo que se consulta a menudo (`modos`, siempre visible) de
+// lo que es más de analista (`secundarios`, plegado por defecto vía `Seccion`): pasa de
+// 24 ítems siempre a la vista a 11, con dos desplegables de 5 y 8.
+export const GRUPOS_MODOS: { titulo: string; modos: Modo[]; secundarios?: Modo[] }[] = [
+  { titulo: "Quién vive", modos: ["poblacion", "extranjeros", "envejecimiento"] },
+  {
+    titulo: "Cómo se vive",
+    modos: ["renta", "paro", "alquiler", "servicios", "fibra"],
+    secundarios: ["aire", "aislamiento", "clima", "sol", "frio"],
+  },
+  {
+    titulo: "Qué se espera",
+    modos: ["indice", "prediccion", "riesgo"],
+    secundarios: [
+      "futuro", "futuro_cohorte", "rendimiento", "inflexion", "demografia", "arquetipos",
+      "lisa_crecimiento", "lisa_renta",
+    ],
+  },
 ];
 
 export const PESOS_DEFECTO: Pesos = { renta: 0.25, paro: 0.20, alquiler: 0.20, envejecimiento: 0.15, servicios: 0.20 };

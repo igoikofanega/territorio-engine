@@ -36,6 +36,7 @@ export default function App() {
   const [anioSel, setAnioSel] = useState<number | null>(null);
   const [geo, setGeo] = useState<FeatureCollection | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(false);
   const [codSel, setCodSel] = useState<string | null>(null);
   const [ficha, setFicha] = useState<FichaData | null>(null);
   const [noticias, setNoticias] = useState<NoticiasData | null>(null);
@@ -93,12 +94,14 @@ export default function App() {
   useEffect(() => {
     if (esc.anios && anioSel == null) return; // esperando a tener año
     setError(null);
+    setCargando(true);
     const sep = esc.endpoint.includes("?") ? "&" : "?";
     const q = esc.anios ? `${sep}prov=${prov}&anio=${anioSel}` : `${sep}prov=${prov}`;
     fetch(`${API}/${esc.endpoint}${q}`)
       .then((r) => r.json())
       .then(setGeo)
-      .catch(() => setError(`No se pudo cargar /${esc.endpoint}`));
+      .catch(() => setError(`No se pudo cargar /${esc.endpoint}`))
+      .finally(() => setCargando(false));
   }, [prov, modo, anioSel, esc.endpoint, esc.anios]);
 
   const categorias = modo.startsWith("lisa_")
@@ -225,10 +228,23 @@ export default function App() {
           <Leyenda
             titulo={esc.titulo}
             buckets={esc.buckets}
+            sufijo={esc.sufijo}
             categorias={categorias}
+            lectura={esc.lectura}
             nota={modo === "indice" && pesosDirty ? "pesos ajustados" : null}
           />
         </MapContainer>
+        )}
+        {vista === "mapa" && cargando && (
+          <div className="panel" style={{ position: "absolute", top: 14, left: 14, zIndex: 1000, padding: "6px 12px", fontSize: 12, color: "var(--text-2)", display: "flex", alignItems: "center", gap: 8 }}>
+            <span className="spinner" aria-hidden="true" />
+            Cargando {esc.etiqueta.toLowerCase()}…
+          </div>
+        )}
+        {vista === "mapa" && !cargando && !error && geo && geo.features.length === 0 && (
+          <div className="panel" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 1000, padding: "14px 18px", fontSize: 13, color: "var(--text-2)", textAlign: "center", maxWidth: 260 }}>
+            Sin datos de «{esc.etiqueta}» para esta provincia{esc.anios && anioSel ? ` en ${anioSel}` : ""}.
+          </div>
         )}
         {recomendadorAbierto && (
           <Recomendador

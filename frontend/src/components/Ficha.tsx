@@ -175,7 +175,10 @@ export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: F
     return (
       <div className="ficha" style={{ padding: 16 }}>
         <button className="btn-ghost" onClick={onClose} style={{ float: "right" }}><X size={16} /></button>
-        <p style={{ color: "var(--text-2)" }}>Cargando…</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 40, color: "var(--text-2)", fontSize: 13 }}>
+          <span className="spinner" aria-hidden="true" />
+          Cargando la ficha del municipio…
+        </div>
       </div>
     );
   }
