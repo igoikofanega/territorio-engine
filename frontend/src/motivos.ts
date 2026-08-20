@@ -94,9 +94,11 @@ export function parsearDrivers(drivers: string | null): Driver[] {
   return drivers
     .split(" · ")
     .map((token) => {
-      const direccion = token.slice(-1) as Direccion;
+      const dir = token.slice(-1);
+      if (dir !== "↑" && dir !== "↓") return null;
       const etiqueta = token.slice(0, -1);
+      const direccion = dir as Direccion;
       return { etiqueta, direccion, texto: frase(etiqueta, direccion) };
     })
-    .filter((d) => d.direccion === "↑" || d.direccion === "↓");
+    .filter((d): d is Driver => d !== null);
 }
