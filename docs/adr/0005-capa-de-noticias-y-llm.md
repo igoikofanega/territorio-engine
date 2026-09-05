@@ -173,3 +173,25 @@ también sea publicable.
   ingesta aterriza el crudo en `/data/raw/gdelt/` y es **reanudable**. Se empieza por un
   piloto para no comprometer 4 horas antes de saber si la puerta pasa.
 - El frontend marca la capa como **regional (Navarra)**, no como ausencia de dato.
+
+## Nota de auditoría — 2026-09-05
+
+**El criterio de la sección 8 no se toca.** Esta nota existe porque durante un tiempo el
+código *no lo aplicó*, y eso debe quedar registrado en vez de corregirse en silencio.
+
+La primera implementación de `ml/ablacion.py` decidía con otro criterio —`mae(con) <
+mae(sin) − 2·sd(semillas)` y `mae(con) < mae(permutadas)`, sobre un estrato de población—
+sin el umbral absoluto de 0,20 pp y **sin el intervalo bootstrap**, con años base
+derivados de los datos en vez de 2018-2021, sin filtrar por provincia y permutando la
+columna entera en vez de dentro de cada año base. Su docstring presentaba ese criterio
+como si fuera el preinscrito.
+
+Se ha reescrito para aplicar literalmente las tres condiciones de la sección 8, la
+configuración de la sección 7 y la puerta de cobertura de la sección 6, que tampoco
+estaba implementada. Lo protege `tests/test_ablacion.py`, que falla si alguien cambia los
+umbrales.
+
+La corrección se hace **con el etiquetado al 38 % y sin haber ejecutado la ablación
+todavía**: no se ha visto ningún resultado al decidirla. Ese es justamente el punto — un
+criterio ajustado después de ver el número no es un criterio, y un criterio que el código
+no aplica tampoco lo es.
