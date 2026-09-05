@@ -1,6 +1,6 @@
 # Estado del proyecto y por dónde seguir
 
-> **Documento de traspaso.** Última actualización: **2026-08-20**.
+> **Documento de traspaso.** Última actualización: **2026-09-05**.
 > Si eres un agente empezando una conversación nueva: lee esto y
 > [`AGENTS.md`](../AGENTS.md) antes de tocar nada. Aquí está el *estado* y el *plan*;
 > en `AGENTS.md`, las reglas.
@@ -24,13 +24,84 @@ El repositorio está **publicado y verde**: <https://github.com/igoikofanega/ter
 Base de datos de desarrollo poblada: **8.217 municipios**, 96.585 filas de hechos,
 ventana 2015-2026.
 
-### Métricas del modelo (backtest temporal, de MLflow)
+### Métricas del modelo (backtest temporal, corte único)
 
 | Modelo | MAE (pp) | R² |
 |---|---|---|
 | Persistencia (baseline) | 7.65 | — |
 | Tendencia (baseline) | 10.02 | — |
-| **HistGradientBoosting** | **5.79** | **0.34** |
+| **HistGradientBoosting** | **5.98** | **0.30** |
+
+> **Estas cifras cambiaron el 2026-09-05 y son peores que las anteriores a propósito.**
+> Hasta esa fecha se publicaba MAE 5.79 / R² 0.34; ese número salía de un dataset con
+> fuga temporal (ver abajo). Sigue siendo un corte único sin dispersión: pendiente el
+> backtest de origen rodante.
+
+---
+
+## Fase 4 — Rigor de la evaluación (en curso, 2026-09-05)
+
+El objetivo de esta fase no es mejorar el MAE, es medirlo bien.
+
+### La fuga temporal de `pct_extranjeros` (resuelta)
+
+`ml/features.py` leía el % de extranjeros con `DISTINCT ON ... ORDER BY anio DESC`, es
+decir el valor **más reciente**, y lo aplicaba a todos los años base incluidos los de
+entrenamiento — pese a que `fact_municipio_anual` tiene serie anual 2015-2022.
+
+Medido sobre la base real (8.117 municipios), correlación con el cambio de población
+2015→2020:
+
+| Valor usado | corr. con el target |
+|---|---|
+| `pct_extranjeros` de 2015 (contemporáneo) | 0.159 |
+| `pct_extranjeros` de 2022 (futuro) | 0.275 |
+
+Y el efecto en el backtest, mismo corte y mismos datos:
+
+| | MAE (pp) | R² |
+|---|---|---|
+| Con fuga (lo que se publicaba) | 5.790 | 0.340 |
+| **Corregido (`_asof`)** | **5.981** | **0.301** |
+
+La regla ahora es una sola, igual en entrenamiento y en inferencia: para el año base T
+vale el dato más reciente con año ≤ T. Lo protege `tests/test_features.py`, que falla si
+se reintroduce el fallo (comprobado revirtiéndolo).
+
+### Lo que sí es estático, y lo que sólo lo parece
+
+No todo lo invariante en el tiempo es una fuga:
+
+- **Clima**: AEMET publica una *normal climática*, no una serie anual municipal. Una
+  normal de 30 años no codifica el cambio de población de 2015-2020. Es legítimo.
+- **Cobertura de fibra**: SETELECO publica una **foto** del despliegue actual, sin
+  histórico. Esto sí es un riesgo de fuga (la fibra llegó antes a los municipios que
+  crecían) y **no se puede desfasar con los datos que hay**.
+
+Medido, quitando cada grupo del modelo corregido:
+
+| | k | MAE (pp) | R² |
+|---|---|---|---|
+| todas | 17 | 5.981 | 0.301 |
+| sin fibra | 16 | 6.043 | 0.284 |
+| sin clima | 13 | 6.122 | 0.259 |
+| sin ambas | 12 | 6.261 | 0.228 |
+
+Las dos aportan señal, así que **se quedan, con la limitación declarada** en el código y
+en el README. Si algún día SETELECO publica histórico, `pct_fibra` debe pasar por `_asof`
+como los extranjeros.
+
+### Trampa de entorno descubierta aquí
+
+`docker compose exec orchestrator` **no entra necesariamente en el contenedor del
+servicio**: si hay un `docker compose run --rm orchestrator` vivo (el etiquetado de
+noticias corre así, durante horas), compose puede resolver el nombre a ese contenedor,
+que lleva la imagen antigua. Se pierde mucho tiempo creyendo que el rebuild no funciona.
+Para verificar código dentro del contenedor, usa el nombre exacto:
+
+```bash
+docker exec -i territorio-engine-orchestrator-1 ...
+```
 
 ---
 
