@@ -106,6 +106,15 @@ ingest-noticias-serie: ## Serie completa de noticias GDELT (Navarra, 2017-2025, 
 etiquetar-noticias: ## Etiqueta titulares con el LLM (pertenencia, tema, signo) → noticia_municipio
 	docker compose run --rm orchestrator uv run dagster asset materialize --select noticias_etiquetadas -m territorio_pipelines.definitions
 
+noticias-anual: ## Agrega noticias etiquetadas a (municipio, año) → municipio_noticias_anual
+	docker compose run --rm orchestrator uv run dagster asset materialize --select noticias_anual -m territorio_pipelines.definitions
+
+ablacion-noticias: ## Ablación de tres brazos: ¿las noticias mejoran el modelo?
+	docker compose run --rm orchestrator uv run dagster asset materialize --select ablacion_noticias -m territorio_pipelines.definitions
+
+narrativa: ## Genera informes narrativos anclados por municipio → narrativa_municipio
+	docker compose run --rm orchestrator uv run dagster asset materialize --select narrativa -m territorio_pipelines.definitions
+
 noticias-progreso: ## Estado de la ingesta de noticias (municipios cubiertos, artículos, huecos)
 	@docker compose exec -T db psql -U $${POSTGRES_USER:-territorio} -d $${POSTGRES_DB:-territorio} -c "SELECT count(*) AS articulos, count(DISTINCT cod_municipio) AS con_noticias, (SELECT count(*) FROM dim_municipio WHERE cod_provincia = '31') AS ambito, count(*) FILTER (WHERE modelo IS NOT NULL) AS etiquetados, min(fecha) AS desde, max(fecha) AS hasta FROM noticia_municipio;"
 	@echo "consultas resueltas (crudos): $$(find raw/gdelt -name '*.json' 2>/dev/null | wc -l) de $$(( $$(docker compose exec -T db psql -U $${POSTGRES_USER:-territorio} -d $${POSTGRES_DB:-territorio} -tAc "SELECT count(*) FROM dim_municipio WHERE cod_provincia = '31'") * 2 ))"

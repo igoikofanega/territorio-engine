@@ -268,6 +268,16 @@ def noticias_etiquetadas(context: AssetExecutionContext) -> int:
     return result["titulares_etiquetados"]
 
 
+@asset(group_name="modelo", deps=[noticias_etiquetadas])
+def noticias_anual(context: AssetExecutionContext) -> int:
+    """Agrega noticias etiquetadas a (municipio, año) → municipio_noticias_anual."""
+    from .loaders import load_noticias_anual
+
+    result = load_noticias_anual()
+    context.add_output_metadata(result)
+    return result["filas"]
+
+
 @asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, piramide, servicios])
 def indice(context: AssetExecutionContext) -> int:
     """Índice compuesto "¿dónde vivir?" → indice_municipio.
@@ -296,6 +306,32 @@ def prediccion_ml(context: AssetExecutionContext) -> int:
     context.add_output_metadata(result)
     context.log.info(f"prediccion_ml: {result}")
     return result["municipios"]
+
+
+@asset(group_name="modelo", deps=[prediccion_ml, noticias_anual])
+def ablacion_noticias(context: AssetExecutionContext) -> int:
+    """Ablación de tres brazos: ¿las noticias mejoran el modelo? Ver ADR 0005."""
+    from .db import engine
+    from .ml.ablacion import ablacion
+
+    result = ablacion(engine)
+    context.add_output_metadata(result)
+    context.log.info(f"ablacion: {result['decision']}")
+    return 1
+
+
+@asset(group_name="modelo", deps=[prediccion_ml])
+def narrativa(context: AssetExecutionContext) -> int:
+    """Informe narrativo anclado por municipio → narrativa_municipio. Requiere 0031."""
+    import os
+
+    from .loaders import load_narrativa
+
+    limite = int(os.environ.get("LLM_LIMITE", "0")) or None
+    result = load_narrativa(limite=limite)
+    context.add_output_metadata(result)
+    context.log.info(f"narrativa: {result}")
+    return result["generados"]
 
 
 @asset(group_name="modelo", deps=[padron, paro_sepe, renta_adrh, alquiler, clima])

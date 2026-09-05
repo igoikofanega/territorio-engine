@@ -856,3 +856,26 @@ async def municipio_noticias(cod: str, limit: int = NOTICIAS_LIMITE) -> dict:
             for f in filas
         ],
     }
+
+
+@app.get("/municipio/{cod}/narrativa")
+async def municipio_narrativa(cod: str) -> dict:
+    """Informe narrativo precalculado con grounding determinista."""
+    async with engine.connect() as conn:
+        fila = (
+            await conn.execute(
+                text("""
+                    SELECT texto, modelo, aceptado
+                    FROM narrativa_municipio
+                    WHERE cod_municipio = :cod AND aceptado
+                """),
+                {"cod": cod},
+            )
+        ).one_or_none()
+    if fila is None:
+        return {"disponible": False}
+    return {
+        "disponible": True,
+        "texto": fila.texto,
+        "modelo": fila.modelo,
+    }

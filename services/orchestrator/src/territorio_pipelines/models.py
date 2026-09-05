@@ -317,6 +317,35 @@ class NoticiaMunicipio(Base):
     modelo = Column(String(80))
 
 
+class MunicipioNoticiasAnual(Base):
+    """Noticias agregadas a (municipio, año). Solo las que pertenecen al municipio."""
+
+    __tablename__ = "municipio_noticias_anual"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    anio = Column(Integer, primary_key=True)
+    n_noticias = Column(Integer, nullable=False, server_default="0")
+    n_positivas = Column(Integer, nullable=False, server_default="0")
+    n_negativas = Column(Integer, nullable=False, server_default="0")
+    n_empleo = Column(Integer, nullable=False, server_default="0")
+    n_empresa = Column(Integer, nullable=False, server_default="0")
+    n_vivienda = Column(Integer, nullable=False, server_default="0")
+    n_servicios = Column(Integer, nullable=False, server_default="0")
+    n_infraestructura = Column(Integer, nullable=False, server_default="0")
+
+
+class NarrativaMunicipio(Base):
+    """Informe narrativo precalculado con grounding determinista."""
+
+    __tablename__ = "narrativa_municipio"
+
+    cod_municipio = Column(String(5), primary_key=True)
+    texto = Column(String)
+    hash_datos = Column(String(40), nullable=False)
+    modelo = Column(String(80))
+    aceptado = Column(Boolean, nullable=False, server_default="false")
+
+
 class ProyeccionCohorte(Base):
     """Proyección cohorte-componente (Hamilton-Perry). Requiere pirámide cargada."""
 

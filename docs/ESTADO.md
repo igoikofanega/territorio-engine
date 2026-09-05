@@ -1,6 +1,6 @@
 # Estado del proyecto y por dónde seguir
 
-> **Documento de traspaso.** Última actualización: **2026-08-15**.
+> **Documento de traspaso.** Última actualización: **2026-08-20**.
 > Si eres un agente empezando una conversación nueva: lee esto y
 > [`AGENTS.md`](../AGENTS.md) antes de tocar nada. Aquí está el *estado* y el *plan*;
 > en `AGENTS.md`, las reglas.
@@ -16,7 +16,7 @@ El repositorio está **publicado y verde**: <https://github.com/igoikofanega/ter
 | Commits | 54, todos atribuidos a `igoikofanega <i.goikofanega@gmail.com>` |
 | CI | 7 jobs, todos en verde |
 | Imágenes | `api`, `orchestrator`, `frontend` en GHCR (amd64 + arm64) |
-| Tests | 147 (101 API · 46 orchestrator · 16 frontend) |
+| Tests | 225 (107 API · 102 orchestrator · 16 frontend) |
 | Licencia | Apache-2.0, con `NOTICE` de las 14 fuentes |
 | Secretos | 0 filtraciones (gitleaks + trufflehog sobre todo el historial) |
 | Protecciones | Escaneo de secretos, push protection, sin force-push en `main` |
@@ -79,16 +79,19 @@ el **criterio de aceptación de la ablación**, escrito antes de ver ningún res
 |---|---|
 | ADR 0005 | ✅ |
 | Ingesta GDELT (migración 0029, adaptador, loader, asset, targets) | ✅ |
-| Cliente LLM + extracción de etiquetas | ✅ código; **sin ejecutar, faltan credenciales** |
+| Cliente LLM + extracción de etiquetas | ✅ ejecutado (Gemini 3.1 Flash Lite) |
 | Panel de noticias en la ficha + endpoint | ✅ |
-| Golden set (exportación + métricas) | ✅ herramientas; sin etiquetar |
+| Golden set (exportación + métricas) | ✅ herramientas; falta etiquetar el golden set |
 | Observabilidad de la ingesta | ✅ |
-| Piloto + puerta de decisión | ⏳ corriendo |
-| Features + ablación | ❌ |
-| Informe narrativo | ❌ |
+| Piloto + puerta de decisión | ⏳ etiquetado corriendo (11.056/34.126, 32,4%) |
+| Features de noticias (migración 0030, `features_noticias.py`) | ✅ código + 23 tests |
+| Ablación de tres brazos (`ablacion.py`) | ✅ código; pendiente ejecución con datos |
+| Informe narrativo (migración 0031, `narrativa.py`, endpoint) | ✅ código + 17 tests |
+| Agregación noticias_anual | ✅ parcial (57 filas, 15 municipios) |
 
-**Lo que hace falta para seguir:** `LLM_BASE_URL`, `LLM_API_KEY` y `LLM_MODELO` en el
-`.env`. Sin eso no se puede etiquetar, y sin etiquetar no hay ni golden set ni features.
+**En progreso:** el etiquetado masivo de ~30k artículos se ejecuta en background
+(Gemini 3.1 Flash Lite via API de Google). Una vez completo, hay que re-agregar
+`noticias_anual`, ejecutar la ablación, y generar las narrativas.
 
 #### Lo que se aprendió midiendo, y que cambia el plan
 

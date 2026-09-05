@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import time
 from collections import defaultdict
 from collections.abc import Callable, Sequence
@@ -1061,6 +1062,7 @@ def load_extraccion_noticias(limite: int | None = None, lote: int = extraccion.L
     relanzarlo continúa donde se quedó y `limite` permite probar con poco gasto antes de
     soltar el lote entero.
     """
+    throttle = float(os.environ.get("LLM_THROTTLE_S", "4") or "4")
     cfg = llm.config()
     sql = (
         "SELECT n.cod_municipio AS cod, n.url_sha1, n.titular, n.medio, d.nombre "
@@ -1077,9 +1079,19 @@ def load_extraccion_noticias(limite: int | None = None, lote: int = extraccion.L
         filas = grupo.to_dict("records")
         for i in range(0, len(filas), lote):
             trozo = filas[i : i + lote]
-            marcas = extraccion.etiquetar(
-                client, cfg["modelo"], nombre, PROVINCIA_NOTICIAS_NOMBRE, trozo
-            )
+            try:
+                marcas = extraccion.etiquetar(
+                    client, cfg["modelo"], nombre, PROVINCIA_NOTICIAS_NOMBRE, trozo
+                )
+            except Exception:
+                time.sleep(throttle * 5)
+                try:
+                    marcas = extraccion.etiquetar(
+                        client, cfg["modelo"], nombre, PROVINCIA_NOTICIAS_NOMBRE, trozo
+                    )
+                except Exception:
+                    sin_etiqueta += len(trozo)
+                    continue
             updates = [
                 {
                     "cod": cod,
@@ -1095,8 +1107,134 @@ def load_extraccion_noticias(limite: int | None = None, lote: int = extraccion.L
                 with engine.begin() as conn:
                     conn.execute(_UPDATE_ETIQUETAS, updates)
                 etiquetadas += len(updates)
+            time.sleep(throttle)
     return {
         "titulares_etiquetados": etiquetadas,
         "titulares_sin_etiqueta": sin_etiqueta,
+        "modelo": cfg["modelo"],
+    }
+
+
+_UPSERT_NOTICIAS_ANUAL = text("""
+INSERT INTO municipio_noticias_anual
+    (cod_municipio, anio, n_noticias, n_positivas, n_negativas,
+     n_empleo, n_empresa, n_vivienda, n_servicios, n_infraestructura)
+VALUES (:cod, :anio, :n_noticias, :n_positivas, :n_negativas,
+        :n_empleo, :n_empresa, :n_vivienda, :n_servicios, :n_infraestructura)
+ON CONFLICT (cod_municipio, anio) DO UPDATE SET
+    n_noticias = EXCLUDED.n_noticias, n_positivas = EXCLUDED.n_positivas,
+    n_negativas = EXCLUDED.n_negativas, n_empleo = EXCLUDED.n_empleo,
+    n_empresa = EXCLUDED.n_empresa, n_vivienda = EXCLUDED.n_vivienda,
+    n_servicios = EXCLUDED.n_servicios, n_infraestructura = EXCLUDED.n_infraestructura
+""")
+
+
+def load_noticias_anual() -> dict:
+    """Agrega noticia_municipio → municipio_noticias_anual (solo pertenecientes)."""
+    df = pd.read_sql(
+        "SELECT cod_municipio AS cod, EXTRACT(YEAR FROM fecha)::int AS anio, "
+        "tema, signo "
+        "FROM noticia_municipio WHERE pertenece = true",
+        engine,
+    )
+    if df.empty:
+        return {"filas": 0}
+    agg = (
+        df.groupby(["cod", "anio"])
+        .agg(
+            n_noticias=("tema", "size"),
+            n_positivas=("signo", lambda s: int((s > 0).sum())),
+            n_negativas=("signo", lambda s: int((s < 0).sum())),
+            n_empleo=("tema", lambda s: int((s == "empleo").sum())),
+            n_empresa=("tema", lambda s: int((s == "empresa").sum())),
+            n_vivienda=("tema", lambda s: int((s == "vivienda").sum())),
+            n_servicios=("tema", lambda s: int((s == "servicios").sum())),
+            n_infraestructura=("tema", lambda s: int((s == "infraestructura").sum())),
+        )
+        .reset_index()
+    )
+    with engine.begin() as conn:
+        conn.execute(_UPSERT_NOTICIAS_ANUAL, agg.to_dict("records"))
+    return {"filas": len(agg)}
+
+
+_UPSERT_NARRATIVA = text("""
+INSERT INTO narrativa_municipio (cod_municipio, texto, hash_datos, modelo, aceptado)
+VALUES (:cod, :texto, :hash_datos, :modelo, :aceptado)
+ON CONFLICT (cod_municipio) DO UPDATE SET
+    texto = EXCLUDED.texto, hash_datos = EXCLUDED.hash_datos,
+    modelo = EXCLUDED.modelo, aceptado = EXCLUDED.aceptado
+""")
+
+
+def load_narrativa(limite: int | None = None) -> dict:
+    """Genera informes narrativos para municipios con datos suficientes."""
+    from . import narrativa
+
+    cfg = llm.config()
+    client = llm.cliente(cfg)
+
+    municipios = pd.read_sql(
+        "SELECT d.cod_municipio AS cod, d.nombre, "
+        "f.poblacion_total AS poblacion, f.paro_media_anual AS paro, "
+        "f.renta_neta_media_persona AS renta, f.anio, "
+        "p.cambio_pct, p.cambio_inf, p.cambio_sup, p.drivers, p.anio_horizonte, "
+        "r.prob AS prob_riesgo, r.nivel AS nivel_riesgo, "
+        "dem.dominante AS motor_demografico, dem.tipo AS tipo_demo "
+        "FROM dim_municipio d "
+        "LEFT JOIN LATERAL ("
+        "  SELECT * FROM fact_municipio_anual "
+        "  WHERE cod_municipio = d.cod_municipio ORDER BY anio DESC LIMIT 1"
+        ") f ON true "
+        "LEFT JOIN prediccion_ml p ON p.cod_municipio = d.cod_municipio "
+        "LEFT JOIN riesgo_municipio r ON r.cod_municipio = d.cod_municipio "
+        "LEFT JOIN demografia_municipio dem ON dem.cod_municipio = d.cod_municipio "
+        "WHERE d.cod_provincia = '31'",
+        engine,
+    )
+    if limite:
+        municipios = municipios.head(limite)
+
+    todos_los_nombres = set(pd.read_sql("SELECT nombre FROM dim_municipio", engine)["nombre"])
+    generados = rechazados = sin_cambio = 0
+    for _, row in municipios.iterrows():
+        datos = {k: v for k, v in row.to_dict().items() if pd.notna(v)}
+        h = narrativa.hash_datos(datos)
+        existente = pd.read_sql(
+            "SELECT hash_datos FROM narrativa_municipio WHERE cod_municipio = %(cod)s",
+            engine,
+            params={"cod": row["cod"]},
+        )
+        if not existente.empty and existente.iloc[0]["hash_datos"] == h:
+            sin_cambio += 1
+            continue
+
+        nombres_ok = {row["nombre"]}
+        if "drivers" in datos:
+            pass
+
+        result = narrativa.generar(client, cfg["modelo"], datos, nombres_ok, todos_los_nombres)
+        with engine.begin() as conn:
+            conn.execute(
+                _UPSERT_NARRATIVA,
+                [
+                    {
+                        "cod": row["cod"],
+                        "texto": result["texto"],
+                        "hash_datos": h,
+                        "modelo": cfg["modelo"][:80],
+                        "aceptado": result["aceptado"],
+                    }
+                ],
+            )
+        if result["aceptado"]:
+            generados += 1
+        else:
+            rechazados += 1
+
+    return {
+        "generados": generados,
+        "rechazados": rechazados,
+        "sin_cambio": sin_cambio,
         "modelo": cfg["modelo"],
     }

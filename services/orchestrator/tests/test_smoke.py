@@ -7,6 +7,9 @@ def test_definitions_load():
     assert "dim_municipio" in names
     assert "padron" in names
     assert "prediccion_ml" in names
+    assert "noticias_anual" in names
+    assert "ablacion_noticias" in names
+    assert "narrativa" in names
 
 
 def test_no_quedan_assets_stub():
