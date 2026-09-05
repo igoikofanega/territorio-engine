@@ -1,10 +1,12 @@
 """Modelo predictivo de variación de población + backtest temporal (con MLflow).
 
 Gradient boosting (HistGradientBoosting) que predice el cambio % de población a 5 años
-desde las features del municipio. Se valida con un corte TEMPORAL (entreno con años base
-antiguos, valido con los recientes cuyo futuro ya se conoce) y se compara con dos
-baselines honestos: persistencia (0% de cambio) y tendencia (extrapolar el crecimiento
-reciente). Todo se registra en MLflow.
+desde las features del municipio. Se valida con un backtest de **origen rodante** (varios
+pliegues, entrenando siempre solo con el pasado) y se compara con dos baselines honestos:
+persistencia (0% de cambio) y tendencia (extrapolar el crecimiento reciente).
+
+El backtest vive en `evaluacion.py`, no aquí: así MLflow, el informe versionado de
+`docs/evaluacion/` y el README citan el mismo número en vez de tres cálculos parecidos.
 """
 
 from __future__ import annotations
@@ -14,8 +16,6 @@ import mlflow.sklearn
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import HistGradientBoostingRegressor
-from sklearn.inspection import permutation_importance
-from sklearn.metrics import mean_absolute_error, r2_score
 from sqlalchemy.engine import Engine
 
 from .. import calendario as cal
@@ -102,34 +102,35 @@ def entrenar_y_predecir(engine: Engine) -> tuple[pd.DataFrame, dict]:
     nuevo. Registra métricas, importancia y el modelo (Model Registry) en MLflow.
     Devuelve (predicciones, métricas).
     """
-    anios_base, anios_train, anios_val = cal.anios_backtest(engine, HORIZONTE)
-    if not anios_val:
-        raise RuntimeError(
-            f"no hay años suficientes para un backtest a {HORIZONTE} años "
-            f"(base disponible: {anios_base})"
-        )
+    # Import diferido: `evaluacion` importa de este módulo, así que arriba sería circular.
+    from .evaluacion import backtest_rodante
+    from .evaluacion import importancia as importancia_permutacion
+
+    anios_base, _, _ = cal.anios_backtest(engine, HORIZONTE)
     anio_pred = cal.ultimo_anio_comun(engine, COLUMNAS_PRED)
     if anio_pred is None:
         raise RuntimeError(f"ningún año cubre a la vez {COLUMNAS_PRED}")
 
+    # --- backtest de origen rodante + baselines ---
+    # No es un corte único: son varios pliegues temporales, y lo que se publica es la
+    # media con su desviación. Vive en `evaluacion.py` para que MLflow, el informe de
+    # docs/evaluacion/ y el README citen exactamente el mismo número.
+    bt = backtest_rodante(engine)
+    if not bt["n_pliegues"]:
+        raise RuntimeError(f"ningún pliegue utilizable para {HORIZONTE} años: {bt['descartados']}")
+    media = lambda clave: float(np.mean([p[clave] for p in bt["pliegues"]]))  # noqa: E731
+    metrics = {
+        "mae": bt["mae_media"],
+        "mae_desviacion": bt["mae_desviacion"],
+        "r2": round(media("r2"), 3),
+        "mae_persistencia": round(media("mae_persistencia"), 3),
+        "mae_tendencia": round(media("mae_tendencia"), 3),
+        "n_pliegues": bt["n_pliegues"],
+    }
+    importancia = {d["feature"]: d["importancia"] for d in importancia_permutacion(engine)}
+
     df = construir_dataset(engine, anios_base)
     df = df[df[TARGET].notna()]
-    tr = df[df["anio_base"].isin(anios_train)]
-    va = df[df["anio_base"].isin(anios_val)]
-
-    # --- backtest temporal + baselines ---
-    mb = nuevo_modelo()
-    mb.fit(tr[FEATURES], tr[TARGET])
-    yva = va[TARGET].to_numpy()
-    pv = mb.predict(va[FEATURES])
-    metrics = {
-        "mae": float(mean_absolute_error(yva, pv)),
-        "r2": float(r2_score(yva, pv)),
-        "mae_persistencia": float(mean_absolute_error(yva, np.zeros_like(yva))),
-        "mae_tendencia": float(mean_absolute_error(yva, _tendencia(va["crec_prev3"].to_numpy()))),
-    }
-    imp = permutation_importance(mb, va[FEATURES], yva, n_repeats=5, random_state=0)
-    importancia = {f: float(v) for f, v in zip(FEATURES, imp.importances_mean, strict=False)}
 
     # --- modelos finales (punto + banda de incertidumbre 10-90) sobre todos los datos ---
     punto = nuevo_modelo()
@@ -145,8 +146,8 @@ def entrenar_y_predecir(engine: Engine) -> tuple[pd.DataFrame, dict]:
         mlflow.log_params(
             {
                 "modelo": "HistGradientBoosting",
-                "n_train": len(tr),
-                "n_val": len(va),
+                "n_pliegues": bt["n_pliegues"],
+                "anios_val": str([p["anio_val"] for p in bt["pliegues"]]),
                 "anio_pred": anio_pred,
             }
         )
@@ -172,4 +173,4 @@ def entrenar_y_predecir(engine: Engine) -> tuple[pd.DataFrame, dict]:
         }
     )
     pred["pob_proyectada"] = (dp["pob"].to_numpy() * (1 + cambio / 100)).round()
-    return pred[pred["pob_base"].notna()], {**metrics, "n_train": len(tr), "n_val": len(va)}
+    return pred[pred["pob_base"].notna()], metrics

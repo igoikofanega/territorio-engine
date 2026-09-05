@@ -22,6 +22,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
+from territorio_pipelines.ml import evaluacion as ev
 from territorio_pipelines.ml import modelo as m
 from territorio_pipelines.ml.features import FEATURES, TARGET
 
@@ -31,6 +32,8 @@ ANIOS_BASE = [2015, 2016, 2017, 2018, 2019, 2020]
 ANIOS_TRAIN = [2015, 2016, 2017, 2018]
 ANIOS_VAL = [2019, 2020]
 ANIO_PRED = 2023
+# Pliegues de origen rodante equivalentes a la ventana de arriba.
+FOLDS = [(ANIOS_TRAIN, 2019), ([*ANIOS_TRAIN, 2019], 2020)]
 
 
 def _dataset(anios: list[int], n: int = 120) -> pd.DataFrame:
@@ -48,6 +51,7 @@ def _dataset(anios: list[int], n: int = 120) -> pd.DataFrame:
         d["crec_prev3"] = rng.uniform(0.85, 1.15, size=n)
         d["cod"] = [f"{i:05d}" for i in range(n)]
         d["pob"] = rng.integers(80, 50_000, size=n).astype(float)
+        d["cod_provincia"] = d["cod"].str[:2]
         d["anio_base"] = t
         d[TARGET] = 2 * d["log_pob"] - 1.5 * d["paro_1000"] + rng.normal(scale=0.5, size=n)
         if anios == [ANIO_PRED]:
@@ -78,6 +82,10 @@ def entrenamiento(tmp_path_factory):
     if mlflow.get_experiment_by_name(m.EXPERIMENTO) is None:
         mlflow.create_experiment(m.EXPERIMENTO, artifact_location=(tmp / "artefactos").as_uri())
     mp.setattr(m, "construir_dataset", lambda engine, anios, horizonte=m.HORIZONTE: _dataset(anios))
+    # El backtest vive en `evaluacion`, que lee sus propios datos y sus propios pliegues:
+    # hay que interceptar también ahí para que el test siga sin tocar la base de datos.
+    mp.setattr(ev, "construir_dataset", lambda engine, anios: _dataset(anios))
+    mp.setattr(ev.cal, "folds_rodantes", lambda e, h, embargo=1: FOLDS)
     # El calendario consulta la base de datos para derivar los años; aquí se fija la
     # ventana a mano para que el test siga siendo hermético. Que los años se deriven en
     # producción lo cubre tests/test_calendario.py.
@@ -91,13 +99,34 @@ def entrenamiento(tmp_path_factory):
 
 def test_metricas_del_backtest(entrenamiento):
     _, metricas, _ = entrenamiento
-    for clave in ("mae", "r2", "mae_persistencia", "mae_tendencia", "n_train", "n_val"):
+    for clave in ("mae", "mae_desviacion", "r2", "mae_persistencia", "mae_tendencia", "n_pliegues"):
         assert clave in metricas, f"falta la métrica {clave}"
-    assert metricas["n_train"] > 0 and metricas["n_val"] > 0
     assert np.isfinite(metricas["mae"]) and metricas["mae"] >= 0
     # Los baselines honestos deben calcularse siempre, no solo cuando conviene.
     assert np.isfinite(metricas["mae_persistencia"])
     assert np.isfinite(metricas["mae_tendencia"])
+
+
+def test_el_backtest_tiene_mas_de_un_pliegue(entrenamiento):
+    """Una cifra sin dispersión parece más precisa de lo que es. Si alguien vuelve al
+    corte único, la desviación desaparece y este test lo dice."""
+    _, metricas, _ = entrenamiento
+    assert metricas["n_pliegues"] >= 2
+    assert metricas["mae_desviacion"] >= 0
+
+
+def test_el_modelo_bate_a_no_hacer_nada(entrenamiento):
+    """La comprobación que faltaba: el test anterior verificaba que las métricas fuesen
+    finitas, no que el modelo sirviera. Sobre estos datos la señal está plantada a
+    propósito (`target = 2*log_pob - 1.5*paro_1000 + ruido`), así que un modelo sano
+    tiene que ganar a la persistencia por mucho. Si no, algo se ha roto río arriba —el
+    dataset, las features o el ajuste— y hasta ahora eso pasaba el CI en verde."""
+    _, metricas, _ = entrenamiento
+    assert metricas["mae"] < metricas["mae_persistencia"], (
+        f"el modelo (MAE {metricas['mae']}) no bate a asumir que nada cambia "
+        f"(MAE {metricas['mae_persistencia']})"
+    )
+    assert metricas["r2"] > 0.5, f"R² de {metricas['r2']} sobre una señal plantada a mano"
 
 
 def test_forma_de_las_predicciones(entrenamiento):
