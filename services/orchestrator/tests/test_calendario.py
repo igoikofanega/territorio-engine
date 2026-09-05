@@ -103,3 +103,40 @@ def test_anios_backtest_con_ventana_insuficiente(monkeypatch):
     base, train, val = cal.anios_backtest(object(), horizonte=5)
     assert base == [2015]
     assert val == []
+
+
+def test_folds_rodantes_son_cronologicos(engine_falso):
+    """Cada pliegue entrena con años anteriores al de validación. Nunca al revés."""
+    folds = cal.folds_rodantes(engine_falso, horizonte=5, embargo=1)
+    for train, val in folds:
+        assert max(train) < val
+        assert val not in train
+
+
+def test_folds_rodantes_respetan_el_embargo(monkeypatch):
+    monkeypatch.setattr(
+        cal,
+        "cobertura",
+        lambda e, c, tabla=cal.TABLA: pd.Series(dict.fromkeys(range(2015, 2026), 100)),
+    )
+    folds = cal.folds_rodantes(object(), horizonte=5, embargo=3)
+    assert folds, "debería quedar algún pliegue"
+    for train, val in folds:
+        assert val - max(train) >= 3
+
+
+def test_un_embargo_mayor_deja_menos_pliegues(monkeypatch):
+    """Es el coste de eliminar el solape, y hay que poder verlo."""
+    monkeypatch.setattr(
+        cal,
+        "cobertura",
+        lambda e, c, tabla=cal.TABLA: pd.Series(dict.fromkeys(range(2015, 2026), 100)),
+    )
+    flojo = cal.folds_rodantes(object(), horizonte=5, embargo=1)
+    estricto = cal.folds_rodantes(object(), horizonte=5, embargo=5)
+    assert len(estricto) < len(flojo)
+
+
+def test_folds_rodantes_sin_datos_no_revienta(monkeypatch):
+    monkeypatch.setattr(cal, "cobertura", lambda e, c, tabla=cal.TABLA: pd.Series(dtype="int64"))
+    assert cal.folds_rodantes(object(), horizonte=5) == []

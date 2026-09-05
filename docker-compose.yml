@@ -53,6 +53,9 @@ services:
       # El golden set de noticias tiene que acabar en el repositorio (se versiona), no
       # en un volumen: es lo que hace reproducible la medición de la extracción.
       - ./docs/golden:/app/docs/golden
+      # El informe de evaluación también se versiona: es la evidencia detrás de
+      # las cifras del README, que antes se copiaban a mano desde MLflow.
+      - ./docs/evaluacion:/app/docs/evaluacion
       - dagster_home:/dagster_home
     depends_on:
       db:

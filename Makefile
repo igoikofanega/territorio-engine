@@ -119,6 +119,11 @@ noticias-progreso: ## Estado de la ingesta de noticias (municipios cubiertos, ar
 	@docker compose exec -T db psql -U $${POSTGRES_USER:-territorio} -d $${POSTGRES_DB:-territorio} -c "SELECT count(*) AS articulos, count(DISTINCT cod_municipio) AS con_noticias, (SELECT count(*) FROM dim_municipio WHERE cod_provincia = '31') AS ambito, count(*) FILTER (WHERE modelo IS NOT NULL) AS etiquetados, min(fecha) AS desde, max(fecha) AS hasta FROM noticia_municipio;"
 	@echo "consultas resueltas (crudos): $$(find raw/gdelt -name '*.json' 2>/dev/null | wc -l) de $$(( $$(docker compose exec -T db psql -U $${POSTGRES_USER:-territorio} -d $${POSTGRES_DB:-territorio} -tAc "SELECT count(*) FROM dim_municipio WHERE cod_provincia = '31'") * 2 ))"
 
+evaluar: ## Informe de evaluación versionado (backtest rodante, error, calibración) → docs/evaluacion/
+	# --user con el UID del host: el informe se versiona, así que no puede salir como root.
+	docker compose run --rm --user "$$(id -u):$$(id -g)" -e HOME=/tmp orchestrator \
+		uv run python -m territorio_pipelines.ml.informe
+
 golden-export: ## Exporta la muestra de titulares para etiquetar a mano → raw/golden/
 	docker compose run --rm orchestrator uv run python -c "from territorio_pipelines.db import engine; from territorio_pipelines import golden; print(golden.exportar(engine), 'filas en', golden.PARA_ETIQUETAR)"
 

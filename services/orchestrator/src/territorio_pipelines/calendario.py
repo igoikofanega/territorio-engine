@@ -105,3 +105,39 @@ def anios_backtest(
         return base, base, []
     corte = max(1, round(len(base) * frac_train))
     return base, base[:corte], base[corte:]
+
+
+def folds_rodantes(
+    engine: Engine,
+    horizonte: int,
+    embargo: int = 1,
+    columna: str = "poblacion_total",
+) -> list[tuple[list[int], int]]:
+    """Pliegues de **origen rodante**: `[(años_train, año_val), ...]`, del más antiguo al más nuevo.
+
+    Un corte único da un número sin dispersión. Rodando el origen se obtienen varios
+    pliegues, todos temporales, y se puede reportar media ± desviación en vez de una cifra
+    suelta que parece más precisa de lo que es.
+
+    `embargo` es la separación mínima, en años, entre el último año base de entrenamiento
+    y el año base de validación. Importa porque el target mira `horizonte` años adelante:
+    con `embargo=1` (contiguo) las ventanas de target de train y validación se solapan en
+    `horizonte - 1` años sobre los mismos municipios, y parte de lo que el modelo "acierta"
+    en validación es una trayectoria que ya vio. Con `embargo=horizonte` no hay solape
+    ninguno, a costa de quedarse con muy pocos pliegues.
+
+    Ninguno de los dos es el valor correcto en abstracto: la comparación entre ambos es la
+    que dice cuánto del acierto venía del solape.
+    """
+    anios = anios_cubiertos(engine, columna)
+    if not anios:
+        return []
+    tope = anios[-1] - horizonte
+    base = [a for a in anios if a <= tope]
+    paso = max(1, embargo)
+    folds = []
+    for val in base:
+        train = [t for t in base if t <= val - paso]
+        if train:
+            folds.append((train, val))
+    return folds
