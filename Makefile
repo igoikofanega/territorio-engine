@@ -119,6 +119,9 @@ noticias-progreso: ## Estado de la ingesta de noticias (municipios cubiertos, ar
 	@docker compose exec -T db psql -U $${POSTGRES_USER:-territorio} -d $${POSTGRES_DB:-territorio} -c "SELECT count(*) AS articulos, count(DISTINCT cod_municipio) AS con_noticias, (SELECT count(*) FROM dim_municipio WHERE cod_provincia = '31') AS ambito, count(*) FILTER (WHERE modelo IS NOT NULL) AS etiquetados, min(fecha) AS desde, max(fecha) AS hasta FROM noticia_municipio;"
 	@echo "consultas resueltas (crudos): $$(find raw/gdelt -name '*.json' 2>/dev/null | wc -l) de $$(( $$(docker compose exec -T db psql -U $${POSTGRES_USER:-territorio} -d $${POSTGRES_DB:-territorio} -tAc "SELECT count(*) FROM dim_municipio WHERE cod_provincia = '31'") * 2 ))"
 
+comprobar: ## Comprobaciones de calidad de la matriz (asset checks de Dagster)
+	docker compose run --rm orchestrator uv run dagster job execute -j comprobaciones -m territorio_pipelines.definitions
+
 evaluar: ## Informe de evaluación versionado (backtest rodante, error, calibración) → docs/evaluacion/
 	# --user con el UID del host: el informe se versiona, así que no puede salir como root.
 	docker compose run --rm --user "$$(id -u):$$(id -g)" -e HOME=/tmp orchestrator \

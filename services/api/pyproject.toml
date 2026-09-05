@@ -29,6 +29,14 @@ packages = ["src/territorio_api"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+# Umbral de cobertura. Se recogía desde el principio pero no bloqueaba nada: el CI
+# subía el informe a Codecov con `continue-on-error`, así que bajar la cobertura no
+# rompía ningún job. El listón está justo por debajo del 69% actual: no obliga a
+# subirlo, impide bajarlo sin darse cuenta. Súbelo cuando la cobertura suba.
+[tool.coverage.report]
+fail_under = 65
+exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
 asyncio_mode = "auto"
 
 # Arranque deliberadamente permisivo: mypy entra como red de seguridad contra

@@ -16,7 +16,7 @@ El repositorio está **publicado y verde**: <https://github.com/igoikofanega/ter
 | Commits | 54, todos atribuidos a `igoikofanega <i.goikofanega@gmail.com>` |
 | CI | 7 jobs, todos en verde |
 | Imágenes | `api`, `orchestrator`, `frontend` en GHCR (amd64 + arm64) |
-| Tests | 225 (107 API · 102 orchestrator · 16 frontend) |
+| Tests | 287 (110 API · 161 orchestrator · 16 frontend) |
 | Licencia | Apache-2.0, con `NOTICE` de las 14 fuentes |
 | Secretos | 0 filtraciones (gitleaks + trufflehog sobre todo el historial) |
 | Protecciones | Escaneo de secretos, push protection, sin force-push en `main` |
@@ -90,6 +90,18 @@ Medido, quitando cada grupo del modelo corregido:
 Las dos aportan señal, así que **se quedan, con la limitación declarada** en el código y
 en el README. Si algún día SETELECO publica histórico, `pct_fibra` debe pasar por `_asof`
 como los extranjeros.
+
+### Lo que ahora protege el CI y antes no
+
+- **`test_ml_humo.py` exige que el modelo sirva**, no solo que las métricas sean finitas.
+  Barajar el target pasaba los 7 jobs en verde; ahora falla (comprobado rompiéndolo).
+- **Cinco `asset_check` de Dagster** sobre la matriz (`comprobaciones.py`): códigos de 5
+  dígitos, censo de municipios, unicidad de `(cod_municipio, anio)`, población plausible y
+  cobertura homogénea por año. No había ninguno, con 15 fuentes haciendo UPSERT sobre la
+  misma tabla. `make comprobar` los lanza sueltos contra la base tal como esté.
+- **Umbral de cobertura**: 80% en el orquestador, 65% en la API (justo por debajo del 82%
+  y el 69% actuales). Antes se recogía la cobertura pero la subida a Codecov iba con
+  `continue-on-error`, así que bajarla no rompía nada.
 
 ### Dos fallos visibles que encontró la primera captura de pantalla
 
