@@ -70,6 +70,10 @@ services:
 
   frontend:
     build: ./frontend
+    environment:
+      # Mapa base. Vacías = OpenStreetMap, que no pide clave. Ver .env.example.
+      VITE_TILES_URL: ${VITE_TILES_URL:-}
+      VITE_TILES_ATTR: ${VITE_TILES_ATTR:-}
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
     depends_on:

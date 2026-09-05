@@ -17,6 +17,17 @@ import { CLAVES_INDICE, type FichaData, type Modo, type NoticiasData, type Pesos
 
 const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
 
+// Mapa base. CARTO dejó de servir `basemaps.cartocdn.com` sin clave: quien clonaba el
+// repositorio veía el mapa entero cubierto de marcas "API KEY REQUIRED". El defecto es
+// ahora OpenStreetMap, que no pide clave, y quien tenga una de CARTO (mejor fondo para un
+// coroplético, porque es más apagado) la pone en VITE_TILES_URL sin tocar código.
+const TILES_URL =
+  import.meta.env.VITE_TILES_URL || "https://tile.openstreetmap.org/{z}/{x}/{y}.png";
+const TILES_ATTR =
+  import.meta.env.VITE_TILES_ATTR ||
+  '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
+const TILES_OPACIDAD = Number(import.meta.env.VITE_TILES_OPACIDAD ?? 0.45);
+
 function FitBounds({ geo }: { geo: FeatureCollection | null }) {
   const map = useMap();
   useEffect(() => {
@@ -194,10 +205,10 @@ export default function App() {
           />
         ) : (
         <MapContainer center={[42.0, -4.5]} zoom={9} style={{ height: "100%" }} zoomControl={false}>
-          <TileLayer
-            url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
-          />
+          {/* El fondo va atenuado a propósito: el mapa base es contexto, y el estilo
+              estándar de OSM (verdes, carreteras rojas) compite con los azules del
+              coroplético, que es el dato. */}
+          <TileLayer url={TILES_URL} attribution={TILES_ATTR} opacity={TILES_OPACIDAD} />
           {geo && (
             <GeoJSON
               key={`${prov}-${modo}-${anioSel}-${codSel ?? ""}-${modo === "indice" ? CLAVES_INDICE.map((k) => pesos[k].toFixed(2)).join(",") : ""}`}

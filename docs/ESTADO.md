@@ -91,6 +91,39 @@ Las dos aportan señal, así que **se quedan, con la limitación declarada** en 
 en el README. Si algún día SETELECO publica histórico, `pct_fibra` debe pasar por `_asof`
 como los extranjeros.
 
+### Dos fallos visibles que encontró la primera captura de pantalla
+
+Intentar ilustrar el README destapó lo que ningún test miraba, porque nadie había mirado
+la aplicación desde cero:
+
+1. **El mapa abría vacío.** `/poblacion/anios` era el único endpoint de años que **no
+   filtraba por su propia columna**: devolvía `DISTINCT anio` de `fact_municipio_anual`,
+   así que 2026 salía el primero —tiene 7.030 filas de paro y cero de población— y el
+   frontend lo tomaba como año por defecto. La misma trampa que `calendario.py` resuelve
+   en el orquestador, colada en la API. Cubierto ahora por un test parametrizado sobre
+   los tres endpoints de años.
+2. **El mapa base pedía clave.** CARTO dejó de servir `basemaps.cartocdn.com` sin API
+   key, así que el fondo salía cubierto de marcas "API KEY REQUIRED". El defecto es ahora
+   OpenStreetMap, que no pide clave, configurable por `VITE_TILES_URL`. Va **atenuado al
+   45%** a propósito: el estilo estándar de OSM compite con los azules del coroplético.
+
+### Capturas: Firefox headless ya no sirve
+
+`firefox --headless --screenshot` **pinta la interfaz pero no el mapa** en este servidor:
+ni teselas ni polígonos, aunque la escala salga bien (es decir, `fitBounds` sí corre).
+Da el mismo resultado con Xvfb y sin iframe, así que no es el envoltorio.
+
+Lo que funciona es la imagen de Playwright, que además permite esperar a una condición
+real del DOM en vez de al evento `load`:
+
+```bash
+docker run --rm --network host -v /tmp/shots:/w -v /tmp/shots/out:/salida \
+  -w /w mcr.microsoft.com/playwright:v1.48.0-jammy node capturar.js
+```
+
+El script espera a `.leaflet-overlay-pane path` (>50 elementos) e informa de cuántos
+polígonos y teselas cargaron, que es lo que delata un mapa roto.
+
 ### Trampa de entorno descubierta aquí
 
 `docker compose exec orchestrator` **no entra necesariamente en el contenedor del

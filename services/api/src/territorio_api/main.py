@@ -248,10 +248,21 @@ async def buscar(q: str, limit: int = 12) -> list[dict]:
 
 @app.get("/poblacion/anios")
 async def poblacion_anios() -> list[int]:
+    """Años con dato de población, no años presentes en la tabla.
+
+    El filtro `IS NOT NULL` no es decorativo: `fact_municipio_anual` contiene años a
+    medio cargar. 2026 tiene 7.030 filas de paro y cero de población, porque el CSV del
+    SEPE del año en curso sale antes que el Padrón. Sin filtrar, este endpoint devolvía
+    2026 el primero, el frontend lo tomaba como año por defecto y **el mapa abría vacío**.
+    Es la misma trampa que `calendario.py` resuelve en el orquestador.
+    """
     async with engine.connect() as conn:
         rows = (
             await conn.execute(
-                text("SELECT DISTINCT anio FROM fact_municipio_anual ORDER BY anio DESC")
+                text(
+                    "SELECT DISTINCT anio FROM fact_municipio_anual "
+                    "WHERE poblacion_total IS NOT NULL ORDER BY anio DESC"
+                )
             )
         ).all()
     return [r.anio for r in rows]

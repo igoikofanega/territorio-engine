@@ -106,3 +106,64 @@ def test_la_factoria_no_filtra_estado_entre_capas():
     assert len(set(resumenes.values())) == len(CAPAS)
     for capa in CAPAS:
         assert resumenes[capa.ruta] == capa.resumen
+
+
+class _ConnEspia:
+    """Registra el SQL que se ejecuta, sin base de datos detrás."""
+
+    def __init__(self):
+        self.sql: list[str] = []
+
+    async def execute(self, consulta, *_a, **_k):
+        self.sql.append(str(consulta))
+        return self
+
+    def all(self):
+        return []
+
+
+class _EngineEspia:
+    def __init__(self, conn):
+        self.conn = conn
+
+    def connect(self):
+        conn = self.conn
+
+        class _Ctx:
+            async def __aenter__(self):
+                return conn
+
+            async def __aexit__(self, *_a):
+                return False
+
+        return _Ctx()
+
+
+@pytest.mark.parametrize(
+    ("ruta", "columna"),
+    [
+        ("/poblacion/anios", "poblacion_total"),
+        ("/paro/anios", "paro_media_anual"),
+        ("/renta/anios", "renta_neta_media_persona"),
+    ],
+)
+def test_los_anios_solo_incluyen_anios_con_dato(monkeypatch, ruta, columna):
+    """La matriz tiene años a medio cargar: 2026 trae 7.030 filas de paro del SEPE y cero
+    de población, porque el CSV del año en curso sale antes que el Padrón.
+
+    `/poblacion/anios` era el único de estos endpoints que no filtraba por su propia
+    columna, así que devolvía 2026 el primero, el frontend lo tomaba como año por defecto
+    y **el mapa abría vacío**. Es la misma trampa que `calendario.py` resuelve en el
+    orquestador, colada en la API.
+    """
+    from fastapi.testclient import TestClient
+
+    from territorio_api import main
+
+    espia = _ConnEspia()
+    monkeypatch.setattr(main, "engine", _EngineEspia(espia))
+    TestClient(main.app).get(ruta)
+    assert espia.sql, "el endpoint no llegó a consultar la base de datos"
+    assert f"{columna} IS NOT NULL" in espia.sql[0], (
+        f"{ruta} no filtra por {columna}: devolverá años sin dato"
+    )
