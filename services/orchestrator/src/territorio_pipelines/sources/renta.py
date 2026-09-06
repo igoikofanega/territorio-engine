@@ -99,18 +99,31 @@ def parse_px(path: Path) -> pd.DataFrame:
 
 
 def records_from_df(df: pd.DataFrame, anio_min: int = ANIO_MIN) -> Iterator[dict]:
-    """Filas `(cod, anio, renta)` solo de municipios. Función pura (testeable).
+    """Filas `(cod, anio, renta, secreto)` solo de municipios. Función pura (testeable).
 
     La columna del indicador se detecta dinámicamente porque su nombre varía entre
     provincias (p. ej. Álava: "Indicadores de renta media", sin "y mediana").
+
+    **Las filas enmascaradas se conservan, no se descartan.** El INE publica la fila del
+    municipio-año con el valor VACÍO cuando la renta está protegida por secreto
+    estadístico; antes se filtraban con `notna()` y el hueco quedaba indistinguible de un
+    municipio que la fuente ni siquiera menciona. La diferencia importa: el
+    enmascaramiento está correlacionado con el tamaño —en Navarra, 726 de 2.448 filas—, y
+    el tamaño predice el target del modelo. Ahora salen con `renta=None` y `secreto=True`.
     """
     ind_col = next(c for c in df.columns if c not in ("Unidades territoriales", "Periodo", "DATA"))
     d = df[df[ind_col] == INDICADOR].copy()
     d["cod"] = d["Unidades territoriales"].str.split(" ", n=1).str[0]
     d = d[d["cod"].str.match(_COD5)]
     d["anio"] = pd.to_numeric(d["Periodo"], errors="coerce")
-    d = d[d["anio"] >= anio_min]
+    d = d[d["anio"].notna() & (d["anio"] >= anio_min)]
     d["renta"] = pd.to_numeric(d["DATA"], errors="coerce")
-    d = d[d["renta"].notna()].drop_duplicates(subset=["cod", "anio"])
+    d = d.drop_duplicates(subset=["cod", "anio"])
     for r in d[["cod", "anio", "renta"]].itertuples(index=False):
-        yield {"cod": r.cod, "anio": int(r.anio), "renta": float(r.renta)}
+        secreto = bool(pd.isna(r.renta))
+        yield {
+            "cod": r.cod,
+            "anio": int(r.anio),
+            "renta": None if secreto else float(r.renta),
+            "secreto": secreto,
+        }

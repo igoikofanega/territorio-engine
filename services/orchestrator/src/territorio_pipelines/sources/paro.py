@@ -48,13 +48,24 @@ def parse_csv(path: Path) -> pd.DataFrame:
 
 
 def records_from_df(df: pd.DataFrame) -> Iterator[dict]:
-    """Filas `(cod, anio, paro)` = media anual del paro registrado. Función pura."""
+    """Filas `(cod, anio, paro, meses)` = media anual del paro registrado. Función pura.
+
+    `meses` es el número de meses realmente promediados. Sin él, un año con 3 meses
+    cargados y otro con 12 dan una columna idéntica: la media de un año a medias no es
+    comparable con la de un año completo, y el año en curso siempre está a medias
+    (el CSV del SEPE sale mes a mes). Quien consuma la columna puede ahora descartarlos.
+    """
     d = df[COLS].copy()
     d["cod"] = d["Codigo Municipio"].str.strip()
     d = d[d["cod"].str.match(r"^\d{5}$")]
     d["anio"] = pd.to_numeric(d["Código mes"].str[:4], errors="coerce")
     d["paro"] = pd.to_numeric(d["total Paro Registrado"], errors="coerce")
     d = d.dropna(subset=["anio", "paro"])
-    g = d.groupby(["cod", "anio"])["paro"].mean().round().reset_index()
+    g = d.groupby(["cod", "anio"])["paro"].agg(["mean", "size"]).reset_index()
     for r in g.itertuples(index=False):
-        yield {"cod": r.cod, "anio": int(r.anio), "paro": int(r.paro)}
+        yield {
+            "cod": r.cod,
+            "anio": int(r.anio),
+            "paro": int(round(r.mean)),
+            "meses": int(r.size),
+        }

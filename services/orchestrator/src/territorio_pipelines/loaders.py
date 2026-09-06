@@ -96,9 +96,11 @@ ON CONFLICT (cod_municipio, anio) DO UPDATE SET
 
 
 _INSERT_PARO = text("""
-INSERT INTO fact_municipio_anual (cod_municipio, anio, paro_media_anual)
-VALUES (:cod, :anio, :paro)
-ON CONFLICT (cod_municipio, anio) DO UPDATE SET paro_media_anual = EXCLUDED.paro_media_anual
+INSERT INTO fact_municipio_anual (cod_municipio, anio, paro_media_anual, paro_meses)
+VALUES (:cod, :anio, :paro, :meses)
+ON CONFLICT (cod_municipio, anio) DO UPDATE SET
+    paro_media_anual = EXCLUDED.paro_media_anual,
+    paro_meses = EXCLUDED.paro_meses
 """)
 
 
@@ -119,10 +121,12 @@ def load_paro(anios: list[int] | None = None) -> dict[str, int]:
 
 
 _INSERT_RENTA = text("""
-INSERT INTO fact_municipio_anual (cod_municipio, anio, renta_neta_media_persona)
-VALUES (:cod, :anio, :renta)
+INSERT INTO fact_municipio_anual
+    (cod_municipio, anio, renta_neta_media_persona, flag_renta_secreto)
+VALUES (:cod, :anio, :renta, :secreto)
 ON CONFLICT (cod_municipio, anio) DO UPDATE SET
-    renta_neta_media_persona = EXCLUDED.renta_neta_media_persona
+    renta_neta_media_persona = EXCLUDED.renta_neta_media_persona,
+    flag_renta_secreto = EXCLUDED.flag_renta_secreto
 """)
 
 

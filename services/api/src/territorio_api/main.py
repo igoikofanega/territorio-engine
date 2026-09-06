@@ -462,7 +462,11 @@ async def municipio_ficha(cod: str) -> dict:
                     SELECT anio, poblacion_total, paro_media_anual,
                            renta_neta_media_persona AS renta, alquiler_eur_m2 AS alquiler,
                            temp_media_anual AS temp, precip_anual_mm AS precip,
-                           pct_extranjeros
+                           pct_extranjeros,
+                           -- Banderas de calidad: un hueco enmascarado por secreto
+                           -- estadístico no es lo mismo que un dato no publicado, y la
+                           -- media anual de paro sobre 7 meses no es la de 12.
+                           flag_renta_secreto, paro_meses
                     FROM fact_municipio_anual
                     WHERE cod_municipio = :cod
                     ORDER BY anio
@@ -680,6 +684,8 @@ async def municipio_ficha(cod: str) -> dict:
                 "temp": r.temp,
                 "precip": r.precip,
                 "pct_extranjeros": r.pct_extranjeros,
+                "renta_secreto": r.flag_renta_secreto,
+                "paro_meses": r.paro_meses,
             }
             for r in serie
         ],

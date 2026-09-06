@@ -91,6 +91,41 @@ Las dos aportan señal, así que **se quedan, con la limitación declarada** en 
 en el README. Si algún día SETELECO publica histórico, `pct_fibra` debe pasar por `_asof`
 como los extranjeros.
 
+### Banderas de calidad de dato (migración 0032)
+
+Era la deuda que `AGENTS.md` señalaba como la más incoherente con sus principios. Ya no
+está.
+
+**`flag_renta_secreto`.** El INE **publica la fila del municipio-año con el valor vacío**
+cuando la renta está protegida por secreto estadístico; `renta.py` la descartaba con
+`notna()`, así que el hueco quedaba indistinguible de "la fuente no lo publica". No es
+contable: en 2016, el **33 % de los municipios de menos de 500 habitantes** no tenía renta
+frente al **0 %** de los de 500-1.000. La ausencia está correlacionada con el tamaño, y el
+tamaño predice el target.
+
+| Año | Medida | Enmascarada | No publicada |
+|---|---|---|---|
+| 2015 | 6.762 | **1.377** | 0 |
+| 2019 | 6.557 | **1.582** | 0 |
+| 2020 | 8.123 | 16 | 0 |
+
+El salto de 2020 es un cambio de metodología del INE (el Atlas amplió cobertura), no un
+cambio en los municipios.
+
+**`paro_meses`.** La media anual del paro se calculaba sobre los meses que hubiera. Al
+contarlos apareció esto: **en 2020 ningún municipio tiene los 12** (entre 7 y 11), y 2020
+es año base de validación del backtest. Además, ~1.650 municipios al año quedan por debajo
+de 12 desde 2022.
+
+**Ninguna de las dos entra en el modelo, y está medido.** Sobre los mismos pliegues, MAE
+idéntico a seis decimales (5,743336) en las cuatro variantes: `renta` ya lleva la
+información como NaN, que el gradient boosting aprovecha de forma nativa, y `paro_meses`
+es constante dentro de cada ventana de entrenamiento. Están para quien lee el dato y para
+el contrato, no para el predictor. Se ven en la ficha del municipio.
+
+**Las cifras publicadas se movieron** al reingerir: MAE 5,796 → **5,744 ± 0,278**. README,
+model card y pantalla de metodología actualizados desde `docs/evaluacion/informe.md`.
+
 ### Golden set: etiquetado, medido, y con su advertencia
 
 Estaba pendiente desde la fase 3 y bloqueaba todo lo demás: no se construyen features

@@ -17,3 +17,11 @@ def test_media_anual_y_filtra_agregados():
     assert recs[("04001", 2024)]["paro"] == 90
     assert recs[("34120", 2024)]["paro"] == 5000
     assert all(k[0] != "Total" for k in recs)
+
+
+def test_cuenta_los_meses_promediados():
+    """Un año con 2 meses cargados y otro con 12 daban una columna idéntica. El año en
+    curso siempre está a medias, porque el CSV del SEPE sale mes a mes."""
+    recs = {(r["cod"], r["anio"]): r for r in records_from_df(DF)}
+    assert recs[("04001", 2024)]["meses"] == 2
+    assert recs[("34120", 2024)]["meses"] == 1

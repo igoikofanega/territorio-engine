@@ -34,6 +34,7 @@ function StatCard({
   anio,
   delta,
   deltaSemantico,
+  nota,
 }: {
   icono: typeof Users;
   label: string;
@@ -42,6 +43,7 @@ function StatCard({
   anio?: number;
   delta?: number | null;
   deltaSemantico?: boolean; // colorear verde/rojo (solo cuando subir es inequívocamente bueno)
+  nota?: string; // bandera de calidad del dato: qué le pasa a esta cifra
 }) {
   return (
     <div className="stat-card">
@@ -54,6 +56,11 @@ function StatCard({
         {valor}
         {unidad && <span className="stat-unidad">{unidad}</span>}
       </div>
+      {nota && (
+        <div style={{ fontSize: 10, color: "var(--text-2)", marginTop: 3, lineHeight: 1.35 }}>
+          {nota}
+        </div>
+      )}
       {delta != null && Number.isFinite(delta) && (
         <div className="stat-delta" style={deltaSemantico ? { color: delta >= 0 ? "#15803d" : "#b91c1c" } : undefined}>
           {delta >= 0 ? <ArrowUpRight size={11} strokeWidth={2} /> : <ArrowDownRight size={11} strokeWidth={2} />}
@@ -194,6 +201,13 @@ export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: F
   const alquiler = ultimo(ficha.serie, "alquiler");
   const paro = ultimo(ficha.serie, "paro");
   const extranjeros = ultimo(ficha.serie, "pct_extranjeros");
+  // Banderas de calidad. Un hueco enmascarado por secreto estadístico no es lo mismo que
+  // un dato que la fuente no publica, y hasta ahora los dos se veían igual: sin tarjeta.
+  const rentaEnmascarada = ficha.serie.some((r) => r.renta_secreto);
+  const anioParo = paro?.anio;
+  const mesesParo = anioParo
+    ? (ficha.serie.find((r) => r.anio === anioParo)?.paro_meses ?? null)
+    : null;
   // paro absoluto → ‰ sobre la población del mismo año (si la hay)
   const paroPct =
     paro && pob
@@ -245,17 +259,28 @@ export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: F
               delta={deltaPct(pob)} deltaSemantico
             />
           )}
-          {renta && (
+          {renta ? (
             <StatCard
               icono={Wallet} label="Renta" anio={renta.anio}
               valor={Math.round(renta.valor).toLocaleString("es")} unidad="€/pers"
               delta={deltaPct(renta)}
+              nota={rentaEnmascarada ? "algún año va sin publicar por secreto estadístico" : undefined}
             />
-          )}
+          ) : rentaEnmascarada ? (
+            <StatCard
+              icono={Wallet} label="Renta" valor="—"
+              nota="el INE no la publica: secreto estadístico por el tamaño del municipio"
+            />
+          ) : null}
           {paroPct && (
             <StatCard
               icono={Briefcase} label="Paro" anio={paroPct.anio}
               valor={paroPct.valor.toFixed(0)} unidad="‰ hab"
+              nota={
+                mesesParo != null && mesesParo < 12
+                  ? `media de ${mesesParo} ${mesesParo === 1 ? "mes" : "meses"}, no del año completo`
+                  : undefined
+              }
             />
           )}
           {alquiler && (

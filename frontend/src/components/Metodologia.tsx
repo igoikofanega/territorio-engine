@@ -16,8 +16,8 @@ import { AlertTriangle, BookOpen, Database, MapPin, Scale } from "lucide-react";
 const ERROR_POR_TAMANO = [
   { tramo: "menos de 500 hab", n: 4001, mae: "8,53", persistencia: "9,83" },
   { tramo: "500 – 2.000", n: 1871, mae: "4,24", persistencia: "5,88" },
-  { tramo: "2.000 – 10.000", n: 1500, mae: "3,07", persistencia: "5,47" },
-  { tramo: "más de 10.000", n: 759, mae: "2,36", persistencia: "4,63" },
+  { tramo: "2.000 – 10.000", n: 1500, mae: "3,04", persistencia: "5,47" },
+  { tramo: "más de 10.000", n: 759, mae: "2,33", persistencia: "4,63" },
 ];
 
 const FUENTES = [
@@ -103,7 +103,7 @@ export default function Metodologia() {
           el pasado y daría un número mucho más bonito que no significaría nada.
         </p>
         <p style={{ margin: 0 }}>
-          Resultado: <strong>5,80 ± 0,23 puntos porcentuales</strong> de error absoluto
+          Resultado: <strong>5,74 ± 0,28 puntos porcentuales</strong> de error absoluto
           medio, frente a 7,65 de suponer que nada cambia y 10,02 de extrapolar la
           tendencia reciente. Extrapolar la tendencia es <em>peor</em> que no hacer nada:
           es lo que pasa con poblaciones pequeñas y ruidosas.
@@ -149,7 +149,7 @@ export default function Metodologia() {
         </Aviso>
         <p style={{ margin: "10px 0 0" }}>
           Además, los errores <strong>están agrupados en el mapa</strong> (I de Moran =
-          0,11, p = 0,001): municipios vecinos fallan en el mismo sentido, lo que significa
+          0,10, p = 0,001): municipios vecinos fallan en el mismo sentido, lo que significa
           que hay geografía que las variables no capturan. La despoblación es un fenómeno
           comarcal, no municipal.
         </p>

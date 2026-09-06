@@ -41,6 +41,12 @@ export type SerieRow = {
   temp: number | null;
   precip: number | null;
   pct_extranjeros: number | null;
+  /** El INE enmascara la renta de los municipios pequeños por secreto estadístico. Un
+   *  hueco enmascarado no es lo mismo que un dato que la fuente no publica. */
+  renta_secreto: boolean | null;
+  /** Meses realmente promediados en la media anual de paro. En 2020 ningún municipio
+   *  tiene los 12, así que esa media no es comparable con la de otros años. */
+  paro_meses: number | null;
 };
 
 export type FichaData = {

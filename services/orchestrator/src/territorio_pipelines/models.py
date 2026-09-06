@@ -1,5 +1,5 @@
 from geoalchemy2 import Geometry
-from sqlalchemy import Boolean, Column, Date, Float, Integer, String
+from sqlalchemy import Boolean, Column, Date, Float, Integer, SmallInteger, String
 
 from .db import Base
 
@@ -58,6 +58,10 @@ class FactMunicipioAnual(Base):
     # 0025 — población extranjera (INE 33571)
     poblacion_extranjera = Column(Integer)
     pct_extranjeros = Column(Float)
+    # 0032 — banderas de calidad. Un NULL podía significar tres cosas: no publicado,
+    # enmascarado por secreto estadístico, o cargado a medias. Estas columnas las separan.
+    flag_renta_secreto = Column(Boolean)
+    paro_meses = Column(SmallInteger)
 
 
 class FactPiramide(Base):

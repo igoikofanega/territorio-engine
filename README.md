@@ -70,7 +70,7 @@ more precise than it is:
 |---|---|---|
 | Persistence (assume no change) | 7.65 | — |
 | Trend (extrapolate recent growth) | 10.02 | — |
-| **HistGradientBoosting** | **5.80 ± 0.23** | **0.35** |
+| **HistGradientBoosting** | **5.74 ± 0.28** | **0.36** |
 
 The model beats persistence by 24% and naive trend extrapolation by 42%. Note that
 extrapolating the trend is *worse* than assuming nothing changes — a useful reminder about
@@ -91,7 +91,7 @@ the honest number is the one published now.
 
 **Overlapping windows are priced, not hidden.** The target looks 5 years ahead, so with
 contiguous folds the training and validation windows share trajectory over the same
-municipalities. With a 2-year embargo the MAE rises to 6.33. A full embargo (= the horizon)
+municipalities. With a 2-year embargo the MAE rises to 6.16. A full embargo (= the horizon)
 is **not feasible**: population data starts in 2015 and there are not enough base years
 left. That is a limit of the data, and it is stated rather than quietly skipped.
 
@@ -104,13 +104,13 @@ villages, and that is exactly where the model is weakest:
 |---|---|---|---|
 | <500 | 4,001 | **8.53** | 9.83 |
 | 500-2,000 | 1,871 | 4.24 | 5.88 |
-| 2,000-10,000 | 1,500 | 3.07 | 5.47 |
-| >10,000 | 759 | **2.36** | 4.63 |
+| 2,000-10,000 | 1,500 | 3.04 | 5.47 |
+| >10,000 | 759 | **2.33** | 4.63 |
 
-A factor of 3.6 between the extremes. The model still wins in every stratum, but by much
+A factor of 3.7 between the extremes. The model still wins in every stratum, but by much
 less than the aggregate suggests.
 
-**The residuals are spatially autocorrelated.** Moran's I on the error = **0.114**
+**The residuals are spatially autocorrelated.** Moran's I on the error = **0.104**
 (p = 0.001, 8 nearest neighbours by centroid). Neighbouring municipalities fail in the same
 direction, so there is geography the 17 features do not capture — expected, since
 depopulation is a regional phenomenon, and the clearest direction for improvement.
@@ -122,8 +122,8 @@ on its own.
 **Calibration: a negative result, published anyway.** The depopulation risk classifier —
 will this town lose >10% of its population in 5 years? — is calibrated with isotonic
 regression. Measured on a year the calibrator never saw (train / calibrate / test are three
-separate temporal blocks), it **does not improve** the Brier score: 0.0768 calibrated versus
-0.0756 uncalibrated. Above 40% the model promises more than happens.
+separate temporal blocks), it **does not improve** the Brier score: 0.0760 calibrated versus
+0.0753 uncalibrated. Above 40% the model promises more than happens.
 
 ![Reliability diagram](docs/evaluacion/fiabilidad.png)
 
@@ -146,6 +146,24 @@ surnames. Disambiguation is not preprocessing here; it is half the job.
 The golden set was labelled by a model (a more capable one), **not by a human**, and that
 is stated wherever the number appears — it measures agreement between two models, so a
 bias shared by both would be invisible.
+
+**Missing data is flagged, and the flag was measured before being trusted.** INE publishes
+the income row for a municipality-year with an *empty* value when it is protected by
+statistical secrecy. The adapter used to drop those rows, so a `NULL` was indistinguishable
+between "masked" and "never published". That is not bookkeeping: **in 2016, 33% of
+municipalities under 500 inhabitants had no income figure versus 0% of those between 500
+and 1,000**. The missingness is correlated with size, and size predicts the target.
+
+Flagging it also surfaced a second problem: the SEPE annual unemployment mean is computed
+over whatever months the file contains, and **in 2020 not a single municipality has all
+twelve** (7–11). 2020 is a validation base year.
+
+Both flags are now columns (`flag_renta_secreto`, `paro_meses`). Neither goes into the
+model: measured over the same folds, adding them changes the MAE by nothing at all
+(5.743336 in every variant, to six decimals). `renta` already carries the information as a
+NaN that the gradient booster exploits natively, and `paro_meses` is constant within every
+training window. They are there for the reader and the data contract, not the predictor —
+which is why it was worth measuring rather than assuming.
 
 **Explainability without overclaiming.** Permutation importance globally; per-municipality
 "drivers" derived from importance × correlation sign × deviation from the median. The code
