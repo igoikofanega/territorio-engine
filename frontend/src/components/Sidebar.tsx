@@ -1,7 +1,7 @@
 import { GitCompareArrows, PanelLeftClose, Wand2 } from "lucide-react";
 
 import { ESCALAS, GRUPOS_MODOS } from "../escalas";
-import type { Modo, Pesos, Prov } from "../types";
+import type { Modo, Pesos, Prov, Vista } from "../types";
 import Buscador from "./Buscador";
 import PanelPesos from "./PanelPesos";
 
@@ -38,7 +38,7 @@ export default function Sidebar({
   onColapsar: () => void;
   onRecomendador: () => void;
   onComparar: () => void;
-  vista: "mapa" | "resumen";
+  vista: Vista;
   nMunicipios: number | null;
   error: string | null;
 }) {

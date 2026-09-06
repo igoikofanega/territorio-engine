@@ -9,11 +9,12 @@ import Ficha from "./components/Ficha";
 import Leyenda from "./components/Leyenda";
 import Comparar from "./components/Comparar";
 import Dashboard from "./components/Dashboard";
+import Metodologia from "./components/Metodologia";
 import Recomendador from "./components/Recomendador";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
 import { color, combinaCustom, DEMOGRAFIA_COLORES, DEMOGRAFIA_LEYENDA, ESCALAS, INFLEXION_COLORES, INFLEXION_LEYENDA, LISA_COLORES, LISA_LEYENDA, PALETA_CAT, PESOS_DEFECTO, tooltip } from "./escalas";
-import { CLAVES_INDICE, type FichaData, type Modo, type NoticiasData, type Pesos, type Prov } from "./types";
+import { CLAVES_INDICE, type FichaData, type Modo, type NoticiasData, type Pesos, type Prov, type Vista } from "./types";
 
 const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
 
@@ -54,7 +55,7 @@ export default function App() {
   const [sidebarAbierta, setSidebarAbierta] = useState(true);
   const [recomendadorAbierto, setRecomendadorAbierto] = useState(false);
   const [compararAbierto, setCompararAbierto] = useState(false);
-  const [vista, setVista] = useState<"mapa" | "resumen">("mapa");
+  const [vista, setVista] = useState<Vista>("mapa");
   const esc = ESCALAS[modo];
 
   useEffect(() => {
@@ -197,7 +198,9 @@ export default function App() {
           onExport={exportar}
         />
         <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
-        {vista === "resumen" ? (
+        {vista === "metodologia" ? (
+          <Metodologia />
+        ) : vista === "resumen" ? (
           <Dashboard
             prov={prov}
             ambitoNombre={provincias.find((p) => p.cod === prov)?.nombre ?? "España"}

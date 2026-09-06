@@ -91,6 +91,20 @@ Las dos aportan señal, así que **se quedan, con la limitación declarada** en 
 en el README. Si algún día SETELECO publica histórico, `pct_fibra` debe pasar por `_asof`
 como los extranjeros.
 
+### Página de metodología en la interfaz
+
+`frontend/src/components/Metodologia.tsx`, tercera pestaña junto a Mapa y Resumen. Existía
+la deuda desde el ADR 0005, que exige publicar el MAE de la ablación **siempre** junto al
+aviso de no comparabilidad y no tenía dónde: no había ninguna pantalla de metodología.
+
+Recoge el error por tamaño de municipio, la autocorrelación espacial de los residuos, el
+aviso de que el semáforo ordena pero no cuantifica, qué capas son regionales (la prensa es
+solo de Navarra) y las 14 fuentes con su licencia, incluidas las dos de compartir igual.
+
+**Las cifras están escritas a mano** a partir de `docs/evaluacion/informe.md`. Si cambian
+allí, hay que cambiarlas aquí; está dicho en el docstring del componente. Servirlas desde
+la API sería lo correcto, pero exige exponer el informe como endpoint y no está hecho.
+
 ### Lo que ahora protege el CI y antes no
 
 - **`test_ml_humo.py` exige que el modelo sirva**, no solo que las métricas sean finitas.

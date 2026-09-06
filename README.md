@@ -41,6 +41,12 @@ The per-municipality dossier — here Abáigar, Navarra, population 74. Note the
 
 ![Municipality dossier](docs/img/ficha.png)
 
+The caveats are a tab, not a footnote. Error by municipality size, spatial autocorrelation
+of the residuals, the traffic light's calibration failure, which layers are regional, and
+every source with its licence — all in the product, not only in this README.
+
+![Methodology tab](docs/img/metodologia.png)
+
 ---
 
 ## ML approach
@@ -273,6 +279,14 @@ make front-check  # tsc + eslint + vitest
 make hooks        # install pre-commit (once)
 ```
 
+Two targets check the **data** rather than the code, which the test suite cannot do
+because it runs without a database:
+
+```bash
+make comprobar    # Dagster asset checks over the matrix
+make evaluar      # regenerate docs/evaluacion/ from the current database
+```
+
 Node is **not** required on the host — the frontend targets run in a throwaway container
 with your UID, so nothing lands in the repo owned by root.
 
@@ -286,9 +300,23 @@ Tests must pass **without network access and without API keys**; anything extern
 exercised through recorded fixtures. That is what keeps this reproducible for someone who
 just cloned it.
 
-CI runs lint, mypy, tests with coverage, the full frontend pipeline, a schema-drift check
-against a real PostGIS instance, a Docker build of all five services, and publishes
-multi-arch images (amd64 + arm64) to GHCR on `main`.
+CI runs lint, mypy, tests with coverage (with a threshold that fails the build, not just a
+report), the full frontend pipeline, a schema-drift check against a real PostGIS instance,
+a Docker build of all five services, and publishes multi-arch images (amd64 + arm64) to
+GHCR on `main`.
+
+**What the tests actually defend.** Three of them exist because the corresponding failure
+happened, silently, and passed CI green:
+
+- `test_features.py` — no feature of base year T may come from a year after T.
+- `test_ml_humo.py` — the model must beat the persistence baseline, not merely produce
+  finite metrics.
+- `test_loaders.py` — every UPSERT must refresh every column it inserts, or re-ingesting
+  leaves stale data without ever failing.
+
+The data checks live outside the test suite, in `comprobaciones.py`, because they need a
+populated database: 5-digit municipality codes, key uniqueness, plausible population, and
+no year loaded halfway.
 
 **Current status and roadmap**: [`docs/ESTADO.md`](docs/ESTADO.md) (in Spanish) tracks what
 is done, what is next, and the known debt.

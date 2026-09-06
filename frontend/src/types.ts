@@ -1,3 +1,7 @@
+/** Vistas de la aplicacion. La metodologia es pestana y no pie de pagina porque el
+ *  proyecto hace afirmaciones que necesitan su nota al pie a la vista. */
+export type Vista = "mapa" | "resumen" | "metodologia";
+
 export type Modo =
   | "indice"
   | "poblacion"
