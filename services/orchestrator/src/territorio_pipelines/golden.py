@@ -26,6 +26,7 @@ import csv
 import os
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 from sqlalchemy.engine import Engine
 
@@ -37,10 +38,16 @@ PARA_ETIQUETAR = RAW_DIR / "golden" / "noticias-para-etiquetar.csv"
 #: el repositorio, no en un volumen.
 ETIQUETAS = Path(os.environ.get("GOLDEN_ETIQUETAS", "/app/docs/golden/noticias-etiquetas.csv"))
 
-#: Titulares por municipio en la muestra. Con ~20 municipios cubiertos da unas 160 filas,
-#: suficiente para una proporción con un error de ±8 puntos, que es lo que hace falta para
-#: decidir si la extracción sirve.
+#: Titulares por municipio en la muestra.
 POR_MUNICIPIO = 8
+
+#: Tope de la muestra. La estratificación por municipio se pensó con ~20 municipios
+#: cubiertos (8 × 20 ≈ 160 filas); con 189 cubiertos la muestra se fue a 1.303, que ya no
+#: es etiquetable con cuidado por nadie. El tope mantiene el tamaño en el orden que hace
+#: falta —unas 200 filas dan ±7 puntos en una proporción, suficiente para decidir si la
+#: extracción sirve— sin romper la estratificación: se sortean municipios enteros, no
+#: filas sueltas, para que sigan entrando pueblos pequeños y no solo Pamplona y Tudela.
+TOPE_MUESTRA = 200
 
 CAMPOS_TRABAJO = (
     "cod_municipio",
@@ -56,8 +63,16 @@ CAMPOS_TRABAJO = (
 CAMPOS_ETIQUETAS = ("cod_municipio", "url_sha1", "pertenece", "tema", "signo")
 
 
-def muestra(engine: Engine, por_municipio: int = POR_MUNICIPIO) -> pd.DataFrame:
-    """Muestra estratificada por municipio, reproducible (semilla fija)."""
+def muestra(
+    engine: Engine, por_municipio: int = POR_MUNICIPIO, tope: int = TOPE_MUESTRA
+) -> pd.DataFrame:
+    """Muestra estratificada por municipio, reproducible (semilla fija).
+
+    Si con todos los municipios cubiertos se pasa del `tope`, se sortean **municipios
+    enteros** hasta caber. Recortar filas sueltas dejaría la muestra dominada por los
+    municipios con más prensa, que son justo los grandes: el sesgo que la estratificación
+    existe para evitar.
+    """
     df = pd.read_sql(
         "SELECT n.cod_municipio, n.url_sha1, d.nombre AS municipio, n.medio, n.fecha, n.titular "
         "FROM noticia_municipio n JOIN dim_municipio d USING (cod_municipio)",
@@ -65,9 +80,15 @@ def muestra(engine: Engine, por_municipio: int = POR_MUNICIPIO) -> pd.DataFrame:
     )
     if df.empty:
         return df
+    if tope and len(df["cod_municipio"].unique()) * por_municipio > tope:
+        rng = np.random.default_rng(0)
+        codigos = np.sort(df["cod_municipio"].unique())
+        cuantos = max(1, tope // por_municipio)
+        elegidos = rng.choice(codigos, size=min(cuantos, len(codigos)), replace=False)
+        df = df[df["cod_municipio"].isin(elegidos)]
     return (
-        df.groupby("cod_municipio", group_keys=False)
-        .apply(lambda g: g.sample(min(len(g), por_municipio), random_state=0), include_groups=True)
+        df.groupby("cod_municipio", group_keys=False)[list(df.columns)]
+        .apply(lambda g: g.sample(min(len(g), por_municipio), random_state=0))
         .sort_values(["cod_municipio", "fecha"])
         .reset_index(drop=True)
     )

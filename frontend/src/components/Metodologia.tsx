@@ -192,9 +192,17 @@ export default function Metodologia() {
             todos los años. En el caso de la fibra eso es un riesgo declarado, porque llegó
             antes a los municipios que ya crecían.
           </li>
-          <li>
+          <li style={{ marginBottom: 6 }}>
             <strong>Los "factores" de cada municipio son correlación, no causa.</strong> Son
             una pista para investigar, no una explicación.
+          </li>
+          <li>
+            <strong>La prensa se filtra antes de usarse.</strong> Solo el 13,5 % de los
+            titulares que la fuente atribuye a un municipio hablan de verdad de él: hay
+            muchos homónimos, y nombres como Peralta o Legarda aparecen como apellidos. Un
+            clasificador decide cuáles cuentan, y su acierto está medido (95,1 % contra una
+            muestra de referencia de 193 titulares). Esa referencia la etiquetó un modelo,
+            no una persona, y por eso mide acuerdo entre modelos, no verdad.
           </li>
         </ul>
       </Seccion>

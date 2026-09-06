@@ -16,7 +16,7 @@ El repositorio está **publicado y verde**: <https://github.com/igoikofanega/ter
 | Commits | 54, todos atribuidos a `igoikofanega <i.goikofanega@gmail.com>` |
 | CI | 7 jobs, todos en verde |
 | Imágenes | `api`, `orchestrator`, `frontend` en GHCR (amd64 + arm64) |
-| Tests | 287 (110 API · 161 orchestrator · 16 frontend) |
+| Tests | 337 (110 API · 211 orchestrator · 16 frontend) |
 | Licencia | Apache-2.0, con `NOTICE` de las 14 fuentes |
 | Secretos | 0 filtraciones (gitleaks + trufflehog sobre todo el historial) |
 | Protecciones | Escaneo de secretos, push protection, sin force-push en `main` |
@@ -90,6 +90,32 @@ Medido, quitando cada grupo del modelo corregido:
 Las dos aportan señal, así que **se quedan, con la limitación declarada** en el código y
 en el README. Si algún día SETELECO publica histórico, `pct_fibra` debe pasar por `_asof`
 como los extranjeros.
+
+### Golden set: etiquetado, medido, y con su advertencia
+
+Estaba pendiente desde la fase 3 y bloqueaba todo lo demás: no se construyen features
+sobre una extracción cuya calidad no está medida.
+
+**La referencia la etiquetó Claude Opus 5, no una persona.** Está dicho en el ADR, en el
+README y en la pantalla de metodología. Mide acuerdo entre dos modelos; un sesgo
+compartido por ambos sería invisible.
+
+La muestra se recortó de 1.303 a 193 filas (`TOPE_MUESTRA`), sorteando **municipios
+enteros** para no dejarla dominada por los que más prensa tienen.
+
+| | |
+|---|---|
+| Acierto en `pertenece` | **0,951** |
+| Precisión / recall | 0,84 / 0,84 |
+| Decir "sí" a todo acertaría | 0,154 |
+| Acierto de `tema` | 0,92 |
+
+**El dato que cambia cómo se lee la capa:** solo el **13,5 %** de los titulares que GDELT
+atribuye a un municipio hablan de él. En nueve de los 25 municipios muestreados —Garde,
+Jaurrieta, Larraga, Legarda, Leitza, Luquin, Peralta, Sangüesa, Tirapu— **ninguno** de los
+ocho titulares era del municipio. El filtrado del LLM no es un preproceso: es la mitad del
+trabajo. Y para los pueblos pequeños, después de filtrar puede no quedar casi nada, que es
+lo que anticipaba la predicción registrada en el ADR.
 
 ### Página de metodología en la interfaz
 
@@ -211,7 +237,7 @@ el **criterio de aceptación de la ablación**, escrito antes de ver ningún res
 | Ingesta GDELT (migración 0029, adaptador, loader, asset, targets) | ✅ |
 | Cliente LLM + extracción de etiquetas | ✅ ejecutado (Gemini 3.1 Flash Lite) |
 | Panel de noticias en la ficha + endpoint | ✅ |
-| Golden set (exportación + métricas) | ✅ herramientas; falta etiquetar el golden set |
+| Golden set (exportación + métricas) | ✅ etiquetado y medido: 95,1% de acierto |
 | Observabilidad de la ingesta | ✅ |
 | Piloto + puerta de decisión | ⏳ etiquetado corriendo (11.056/34.126, 32,4%) |
 | Features de noticias (migración 0030, `features_noticias.py`) | ✅ código + 23 tests |

@@ -132,6 +132,21 @@ towns at risk, which is what the green/amber/red UI uses. Reading the percentage
 literal frequency is what does not hold. An earlier version of this README claimed
 "70% actually means 70%"; that claim came from calibrating and scoring on the same rows.
 
+**The LLM layer is measured before it is used.** A separate experiment labels local-news
+headlines per municipality. Before building any feature on that, its quality is measured
+against a 193-headline stratified golden set: **95.1% accuracy** on "is this headline
+really about this municipality", precision and recall 0.84, against a 15.4% base rate for
+saying yes to everything.
+
+That base rate is the finding. **Only 13.5% of the headlines GDELT attributes to a
+municipality are actually about it** — for nine of the 25 sampled towns, *none* of the
+eight sampled headlines were. "Garde" matches as a common word, "Peralta" and "Legarda" as
+surnames. Disambiguation is not preprocessing here; it is half the job.
+
+The golden set was labelled by a model (a more capable one), **not by a human**, and that
+is stated wherever the number appears — it measures agreement between two models, so a
+bias shared by both would be invisible.
+
 **Explainability without overclaiming.** Permutation importance globally; per-municipality
 "drivers" derived from importance × correlation sign × deviation from the median. The code
 labels this an *honest heuristic, not causal* — because it is.

@@ -195,3 +195,49 @@ La corrección se hace **con el etiquetado al 38 % y sin haber ejecutado la abla
 todavía**: no se ha visto ningún resultado al decidirla. Ese es justamente el punto — un
 criterio ajustado después de ver el número no es un criterio, y un criterio que el código
 no aplica tampoco lo es.
+
+## Golden set — quién lo etiquetó y qué salió (2026-09-06)
+
+**Advertencia que hay que leer antes que el número: la referencia la etiquetó un modelo,
+no una persona.** Concretamente Claude Opus 5, con el criterio escrito en el propio
+fichero de generación. Es una referencia *cuidadosa* frente a un *clasificador barato*
+(Gemini 3.1 Flash Lite), no una verdad humana. Todo lo que sigue hereda ese límite: mide
+acuerdo entre dos modelos, y un sesgo compartido por ambos sería invisible aquí.
+
+La muestra pasó de 1.303 filas a **193**. La estratificación se pensó con ~20 municipios
+cubiertos (8 × 20 ≈ 160); con 189 cubiertos se disparó a un tamaño que nadie puede
+etiquetar con cuidado. El recorte sortea **municipios enteros**, no filas: recortar filas
+habría dejado la muestra dominada por los municipios con más prensa, que son los grandes,
+justo el sesgo que la estratificación existe para evitar.
+
+Criterio de anotación, uniforme: `pertenece` es verdadero solo si el titular habla del
+municipio concreto o de una entidad que lo contiene de forma estrecha y nombrada (su
+comarca, su mancomunidad, un concejo suyo). **Una noticia de alcance navarro que no lo
+menciona no pertenece**: si perteneciera, la feature de prensa mediría cobertura regional,
+no local.
+
+### Resultado
+
+| | |
+|---|---|
+| Titulares comparados | 162 (de 193; 31 aún sin etiquetar por el modelo) |
+| Acierto en `pertenece` | **0,951** |
+| Precisión / recall | 0,84 / 0,84 |
+| Matriz de confusión | VP 21 · FP 4 · FN 4 · VN 133 |
+| Decir "sí" a todo acertaría | 0,154 |
+| Acierto de `tema` | 0,92 |
+
+**El eslabón se sostiene.** El clasificador barato hace bien la desambiguación, que era la
+duda: con una tasa base del 15 %, un 95 % de acierto no se consigue asintiendo.
+
+### El dato que cambia cómo hay que leer la capa
+
+Solo el **13,5 %** de los titulares que GDELT atribuye a un municipio hablan de verdad de
+él. La homonimia no es un detalle: en Garde, Jaurrieta, Larraga, Legarda, Leitza, Luquin,
+Peralta, Sangüesa y Tirapu, **ninguno** de los ocho titulares muestreados era del
+municipio. "Garde" cuela como palabra suelta, "Peralta" y "Legarda" como apellidos,
+"Jaurrieta" arrastra ruido de cartelera de cine.
+
+Consecuencia para la ablación: el filtrado del LLM no es un preproceso opcional, es la
+mitad del trabajo. Y para los municipios pequeños, después de filtrar puede no quedar
+casi nada — que es exactamente lo que anticipaba la predicción registrada más arriba.
