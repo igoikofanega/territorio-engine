@@ -277,7 +277,7 @@ el **criterio de aceptación de la ablación**, escrito antes de ver ningún res
 | Piloto + puerta de decisión | ✅ 34.126/34.126 etiquetados; 160 municipios cubiertos |
 | Features de noticias (migración 0030, `features_noticias.py`) | ✅ código + 23 tests |
 | Ablación de tres brazos (`ablacion.py`) | ✅ **ejecutada: rechazar** |
-| Informe narrativo (migración 0031, `narrativa.py`, endpoint) | ✅ código + 17 tests |
+| Informe narrativo (migración 0031, `narrativa.py`, endpoint) | ✅ consumido en la ficha; 10/272 generadas (cuota) |
 | Agregación noticias_anual | ✅ 507 filas, 160 municipios |
 
 **Fase 3 cerrada.** El etiquetado terminó (34.126 titulares con Gemini 3.1 Flash Lite),
@@ -299,7 +299,25 @@ el golden set explica por qué: solo el 13,5 % de los titulares que GDELT atribu
 municipio hablan de él. **El MAE de la ablación (4,07) no es comparable con el del modelo
 bandera (5,74)**: horizonte 3, solo Navarra, otra ventana.
 
-Queda pendiente generar las narrativas.
+### Narrativas: conectadas, generadas a medias
+
+El panel **En pocas palabras** ya sale en la ficha, con el modelo a la vista y la nota de
+que el texto está verificado automáticamente. Sólo hay **10 de 272**: el etiquetado masivo
+agotó la cuota del proveedor y la generación murió con un 429.
+
+Dos arreglos que deja ese tropiezo:
+
+1. **`load_narrativa` ya no revienta con la cuota agotada.** Para limpio, informa de
+   cuántas quedan y, como se salta lo que ya tiene el mismo `hash_datos`, relanzarlo
+   continúa. Es la misma lección que el proyecto ya había aprendido con GDELT y que aquí
+   no se había aplicado.
+2. **La narrativa daba por bueno un dato incompleto.** Decía "en 2026 una tasa de paro del
+   5,0 por ciento" y 2026 es justo el año cuya media es de **un solo mes**. Ahora el paro
+   no entra en el informe si el año no tiene los doce. Lo detectó la bandera `paro_meses`
+   recién añadida, leyendo el texto generado.
+
+**Para completarlas**: `make narrativa` cuando la cuota se reponga. Las 10 existentes se
+regenerarán solas, porque el cambio de datos de entrada cambia su `hash_datos`.
 
 #### Lo que se aprendió midiendo, y que cambia el plan
 

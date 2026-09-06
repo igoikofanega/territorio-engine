@@ -1180,7 +1180,7 @@ def load_narrativa(limite: int | None = None) -> dict:
 
     municipios = pd.read_sql(
         "SELECT d.cod_municipio AS cod, d.nombre, "
-        "f.poblacion_total AS poblacion, f.paro_media_anual AS paro, "
+        "f.poblacion_total AS poblacion, f.paro_media_anual AS paro, f.paro_meses, "
         "f.renta_neta_media_persona AS renta, f.anio, "
         "p.cambio_pct, p.cambio_inf, p.cambio_sup, p.drivers, p.anio_horizonte, "
         "r.prob AS prob_riesgo, r.nivel AS nivel_riesgo, "
@@ -1203,6 +1203,13 @@ def load_narrativa(limite: int | None = None) -> dict:
     generados = rechazados = sin_cambio = 0
     for _, row in municipios.iterrows():
         datos = {k: v for k, v in row.to_dict().items() if pd.notna(v)}
+        # El último año de la matriz suele ser el año en curso, cuya media de paro está
+        # calculada sobre los meses que hayan salido: para Abáigar en 2026, uno. El
+        # informe lo redactaba como "una tasa de paro del 5,0 por ciento en 2026", sin
+        # matiz. Si el año no está completo, el dato no entra: es la misma trampa que
+        # `calendario.py` resuelve al elegir años, aplicada a la redacción.
+        if datos.pop("paro_meses", 12) < 12:
+            datos.pop("paro", None)
         h = narrativa.hash_datos(datos)
         existente = pd.read_sql(
             "SELECT hash_datos FROM narrativa_municipio WHERE cod_municipio = %(cod)s",
@@ -1217,7 +1224,23 @@ def load_narrativa(limite: int | None = None) -> dict:
         if "drivers" in datos:
             pass
 
-        result = narrativa.generar(client, cfg["modelo"], datos, nombres_ok, todos_los_nombres)
+        try:
+            result = narrativa.generar(client, cfg["modelo"], datos, nombres_ok, todos_los_nombres)
+        except Exception as e:  # noqa: BLE001
+            # La cuota del proveedor se agota de verdad: el etiquetado masivo la consume y
+            # esto muere a mitad. Antes reventaba la materialización entera y perdía la
+            # cuenta de por dónde iba. Ahora para limpio: como se salta lo que ya tiene el
+            # mismo `hash_datos`, relanzarlo continúa donde se quedó.
+            if "429" in str(e) or "quota" in str(e).lower() or "rate" in str(e).lower():
+                return {
+                    "generados": generados,
+                    "rechazados": rechazados,
+                    "sin_cambio": sin_cambio,
+                    "pendientes": len(municipios) - generados - rechazados - sin_cambio,
+                    "parado_por": "cuota del proveedor agotada; relanza para continuar",
+                    "modelo": cfg["modelo"],
+                }
+            raise
         with engine.begin() as conn:
             conn.execute(
                 _UPSERT_NARRATIVA,
@@ -1240,5 +1263,6 @@ def load_narrativa(limite: int | None = None) -> dict:
         "generados": generados,
         "rechazados": rechazados,
         "sin_cambio": sin_cambio,
+        "pendientes": 0,
         "modelo": cfg["modelo"],
     }

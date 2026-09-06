@@ -14,7 +14,7 @@ import Recomendador from "./components/Recomendador";
 import Sidebar from "./components/Sidebar";
 import TopBar from "./components/TopBar";
 import { color, combinaCustom, DEMOGRAFIA_COLORES, DEMOGRAFIA_LEYENDA, ESCALAS, INFLEXION_COLORES, INFLEXION_LEYENDA, LISA_COLORES, LISA_LEYENDA, PALETA_CAT, PESOS_DEFECTO, tooltip } from "./escalas";
-import { CLAVES_INDICE, type FichaData, type Modo, type NoticiasData, type Pesos, type Prov, type Vista } from "./types";
+import { CLAVES_INDICE, type FichaData, type Modo, type NoticiasData, type NarrativaData, type Pesos, type Prov, type Vista } from "./types";
 
 const API = "/api"; // proxy de Vite → contenedor api (ver vite.config.ts)
 
@@ -51,6 +51,7 @@ export default function App() {
   const [codSel, setCodSel] = useState<string | null>(null);
   const [ficha, setFicha] = useState<FichaData | null>(null);
   const [noticias, setNoticias] = useState<NoticiasData | null>(null);
+  const [narrativa, setNarrativa] = useState<NarrativaData | null>(null);
   const [pesos, setPesos] = useState<Pesos>(PESOS_DEFECTO);
   const [sidebarAbierta, setSidebarAbierta] = useState(true);
   const [recomendadorAbierto, setRecomendadorAbierto] = useState(false);
@@ -82,6 +83,17 @@ export default function App() {
       .then((r) => r.json())
       .then(setNoticias)
       .catch(() => setNoticias(null));
+  }, [codSel]);
+
+  // La narrativa va en su propia petición por lo mismo que las noticias: es opcional y
+  // puede no existir para un municipio, así que su fallo no debe dejar la ficha sin datos.
+  useEffect(() => {
+    if (!codSel) { setNarrativa(null); return; }
+    setNarrativa(null);
+    fetch(`${API}/municipio/${codSel}/narrativa`)
+      .then((r) => r.json())
+      .then(setNarrativa)
+      .catch(() => setNarrativa(null));
   }, [codSel]);
 
   useEffect(() => {
@@ -258,6 +270,7 @@ export default function App() {
           <Ficha
             ficha={ficha}
             noticias={noticias}
+            narrativa={narrativa}
             onClose={() => setCodSel(null)}
             onSelect={(c) => setCodSel(c)}
           />

@@ -151,3 +151,12 @@ export type NoticiasData = {
 export const CLAVES_INDICE = ["renta", "paro", "alquiler", "envejecimiento", "servicios"] as const;
 export type ClaveIndice = (typeof CLAVES_INDICE)[number];
 export type Pesos = Record<ClaveIndice, number>;
+
+/** Informe narrativo generado por un LLM y verificado con candados deterministas:
+ *  las cifras tienen que estar en los datos de origen y los topónimos, permitidos.
+ *  Si no pasa, se descarta y aquí llega `disponible: false`. */
+export type NarrativaData = {
+  disponible: boolean;
+  texto?: string;
+  modelo?: string;
+};

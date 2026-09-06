@@ -14,7 +14,7 @@ import {
   X,
 } from "lucide-react";
 
-import type { FichaData, NoticiasData, SerieRow } from "../types";
+import type { FichaData, NarrativaData, NoticiasData, SerieRow } from "../types";
 import Sparkline from "./Sparkline";
 
 /** Último valor no nulo de un campo de la serie + el anterior (para el delta). */
@@ -115,6 +115,28 @@ function Componente({ nombre, valor }: { nombre: string; valor: number | null })
  * titulares. Un municipio de Cuenca no es un municipio del que no se habla: es uno que
  * esta capa no cubre. Ver docs/adr/0005-capa-de-noticias-y-llm.md.
  */
+/**
+ * Informe narrativo generado por un LLM.
+ *
+ * Va marcado como generado y con el modelo a la vista, no camuflado como texto redactado
+ * por alguien. Antes de guardarse pasa tres candados deterministas: cada cifra del texto
+ * tiene que aparecer en los datos de origen, cada topónimo tiene que estar permitido, y
+ * si tras un reintento sigue fallando se descarta. Por eso puede no haber informe.
+ */
+function Narrativa({ narrativa }: { narrativa: NarrativaData | null }) {
+  if (!narrativa?.disponible || !narrativa.texto) return null;
+  return (
+    <>
+      <div className="label-caps" style={{ marginTop: 16 }}>En pocas palabras</div>
+      <p style={{ fontSize: 13, lineHeight: 1.65, margin: "6px 0 4px" }}>{narrativa.texto}</p>
+      <div style={{ fontSize: 10.5, color: "var(--text-2)" }}>
+        Texto generado con {narrativa.modelo ?? "un modelo de lenguaje"} y verificado
+        automáticamente: sus cifras salen de los datos de esta ficha.
+      </div>
+    </>
+  );
+}
+
 function Noticias({ noticias, nombre }: { noticias: NoticiasData | null; nombre: string }) {
   if (!noticias) return null;
 
@@ -183,7 +205,7 @@ function Noticias({ noticias, nombre }: { noticias: NoticiasData | null; nombre:
   );
 }
 
-export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: FichaData | null; noticias: NoticiasData | null; onClose: () => void; onSelect: (cod: string) => void }) {
+export default function Ficha({ ficha, noticias, narrativa, onClose, onSelect }: { ficha: FichaData | null; noticias: NoticiasData | null; narrativa: NarrativaData | null; onClose: () => void; onSelect: (cod: string) => void }) {
   if (!ficha) {
     return (
       <div className="ficha" style={{ padding: 16 }}>
@@ -498,6 +520,8 @@ export default function Ficha({ ficha, noticias, onClose, onSelect }: { ficha: F
             </span>
           </div>
         )}
+
+        <Narrativa narrativa={narrativa} />
 
         <Noticias noticias={noticias} nombre={ficha.nombre} />
 
