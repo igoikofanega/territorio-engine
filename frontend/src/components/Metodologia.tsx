@@ -207,6 +207,24 @@ export default function Metodologia() {
         </ul>
       </Seccion>
 
+      <Seccion icono={BookOpen} titulo="Un experimento que salió que no">
+        <p style={{ margin: "0 0 8px" }}>
+          Antes de construir la capa de prensa se escribió el criterio para aceptarla —tres
+          condiciones con sus umbrales— y una predicción: lo más probable era que{" "}
+          <em>no</em> mejorase nada. Las dos cosas, antes de tener un solo dato.
+        </p>
+        <p style={{ margin: "0 0 8px" }}>
+          Con los 34.126 titulares etiquetados, la mejora fue de <strong>0,029 puntos</strong>{" "}
+          frente a un umbral de 0,20, y su intervalo de confianza contiene el cero.{" "}
+          <strong>Rechazado</strong>: las noticias no entran en el modelo.
+        </p>
+        <Aviso>
+          La capa se queda como producto —el panel de prensa de la ficha— pero{" "}
+          <strong>no predice nada</strong>. El criterio no se tocó después de ver el
+          resultado; comprobarlo es justo para lo que sirve escribirlo antes.
+        </Aviso>
+      </Seccion>
+
       <Seccion icono={Scale} titulo="Fuentes y licencias">
         <p style={{ margin: "0 0 10px" }}>
           El código es Apache-2.0. Los datos son de quien los produce, con sus propias

@@ -274,15 +274,32 @@ el **criterio de aceptación de la ablación**, escrito antes de ver ningún res
 | Panel de noticias en la ficha + endpoint | ✅ |
 | Golden set (exportación + métricas) | ✅ etiquetado y medido: 95,1% de acierto |
 | Observabilidad de la ingesta | ✅ |
-| Piloto + puerta de decisión | ⏳ etiquetado corriendo (11.056/34.126, 32,4%) |
+| Piloto + puerta de decisión | ✅ 34.126/34.126 etiquetados; 160 municipios cubiertos |
 | Features de noticias (migración 0030, `features_noticias.py`) | ✅ código + 23 tests |
-| Ablación de tres brazos (`ablacion.py`) | ✅ código; pendiente ejecución con datos |
+| Ablación de tres brazos (`ablacion.py`) | ✅ **ejecutada: rechazar** |
 | Informe narrativo (migración 0031, `narrativa.py`, endpoint) | ✅ código + 17 tests |
-| Agregación noticias_anual | ✅ parcial (57 filas, 15 municipios) |
+| Agregación noticias_anual | ✅ 507 filas, 160 municipios |
 
-**En progreso:** el etiquetado masivo de ~30k artículos se ejecuta en background
-(Gemini 3.1 Flash Lite via API de Google). Una vez completo, hay que re-agregar
-`noticias_anual`, ejecutar la ablación, y generar las narrativas.
+**Fase 3 cerrada.** El etiquetado terminó (34.126 titulares con Gemini 3.1 Flash Lite),
+se re-agregó `noticias_anual` y la ablación se ejecutó con el criterio preinscrito
+**sin tocarlo**. Veredicto: **rechazar**.
+
+| Brazo | MAE (pp) |
+|---|---|
+| sin noticias | 4,097 |
+| con noticias | 4,068 |
+| permutadas (placebo) | 4,157 |
+
+Δ_real = 0,029 pp, siete veces por debajo del umbral de 0,20; el IC 95 % por bootstrap es
+[−0,040 · 0,099] y contiene el cero. **Las features de prensa no entran en el modelo.**
+La capa se queda como producto (panel en la ficha), no como predictor.
+
+Esto es lo que la predicción registrada en el ADR anticipaba antes de ver ningún dato, y
+el golden set explica por qué: solo el 13,5 % de los titulares que GDELT atribuye a un
+municipio hablan de él. **El MAE de la ablación (4,07) no es comparable con el del modelo
+bandera (5,74)**: horizonte 3, solo Navarra, otra ventana.
+
+Queda pendiente generar las narrativas.
 
 #### Lo que se aprendió midiendo, y que cambia el plan
 

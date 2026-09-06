@@ -147,6 +147,26 @@ The golden set was labelled by a model (a more capable one), **not by a human**,
 is stated wherever the number appears — it measures agreement between two models, so a
 bias shared by both would be invisible.
 
+**A pre-registered experiment that said no.** Before building the news layer, ADR 0005
+wrote down the acceptance criterion — three conditions, thresholds and all — and a
+prediction that the news would probably *not* help. Both were written before any data
+existed. Run with the full 34,126 labelled headlines:
+
+| Arm | MAE (pp) |
+|---|---|
+| A · without news | 4.097 |
+| B · with news | 4.068 |
+| C · news shuffled between municipalities (placebo) | 4.157 |
+
+The improvement is **0.029 pp against a 0.20 pp threshold**, and its bootstrap 95% CI
+`[-0.040, 0.099]` contains zero. **Verdict: rejected.** The news features do not enter the
+production model. The layer survives as a product — a local-press panel in the dossier —
+not as a predictor. *(This MAE is not comparable to the 5.74 above: 3-year horizon, Navarre
+only, different window.)*
+
+The criterion was not touched after seeing the result. Verifying that is the point of
+writing it down first.
+
 **Missing data is flagged, and the flag was measured before being trusted.** INE publishes
 the income row for a municipality-year with an *empty* value when it is protected by
 statistical secrecy. The adapter used to drop those rows, so a `NULL` was indistinguishable

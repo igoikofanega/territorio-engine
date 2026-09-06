@@ -241,3 +241,56 @@ municipio. "Garde" cuela como palabra suelta, "Peralta" y "Legarda" como apellid
 Consecuencia para la ablación: el filtrado del LLM no es un preproceso opcional, es la
 mitad del trabajo. Y para los municipios pequeños, después de filtrar puede no quedar
 casi nada — que es exactamente lo que anticipaba la predicción registrada más arriba.
+
+## Veredicto de la ablación — 2026-09-06
+
+Ejecutada con el etiquetado completo (34.126 titulares) y 160 municipios con cobertura,
+por encima del mínimo de 60 de la sección 6. El criterio aplicado es el de la sección 8,
+sin tocar.
+
+> **Este MAE no es comparable con el 5,74 pp del modelo bandera.** Horizonte 3 en vez de
+> 5, solo Navarra en vez de España, y otra ventana de años. Sección 7.
+
+| Brazo | MAE (pp) |
+|---|---|
+| **A · sin** noticias | 4,097 |
+| **B · con** noticias | 4,068 |
+| **C · permutadas** (placebo) | 4,157 |
+
+| Condición | Umbral | Medido | ¿Se cumple? |
+|---|---|---|---|
+| 1 · Δ_real ≥ 0,20 pp | 0,20 | **0,029** | ❌ |
+| 2 · Δ_placebo < Δ_real/2 | 0,015 | −0,060 | ✅ |
+| 3 · IC 95 % excluye el 0 | — | **[−0,040 · 0,099]** | ❌ |
+
+**Decisión: rechazar.** Las features de prensa **no entran** en el modelo de producción.
+
+La condición 2 se cumple, pero sola no dice nada: que el placebo salga *peor* que la base
+(−0,060) significa que añadir cuatro columnas de ruido empeora el ajuste, que es lo
+esperable. Lo que decide es que la mejora real, 0,029 pp, es siete veces menor que el
+umbral mínimo de interés, y que su intervalo de confianza contiene el cero con holgura.
+
+La ablación descartó `alquiler` del conjunto base: SERPAVI no cubre el ámbito en 2018-2019
+y una columna entera a NaN degenera el modelo. Se aplica igual a los tres brazos, así que
+la diferencia entre ellos sigue siendo solo la prensa.
+
+### Lo que esto confirma
+
+La **predicción registrada** más arriba —escrita antes de ver ningún dato— decía que lo
+más probable era que las noticias no mejorasen el MAE, por tres razones estructurales. Las
+tres se sostienen, y el golden set añadió la cuarta y más contundente: **solo el 13,5 % de
+los titulares que GDELT atribuye a un municipio hablan de él**. Después de filtrar la
+homonimia, a los pueblos pequeños —que son el objeto del proyecto— no les queda casi nada.
+
+El desglose por estrato lo enseña: la mejora es mayor en los municipios de 2.000-10.000
+habitantes (1,994 → 1,923) que en los de menos de 500 (5,574 → 5,551), justo al revés de
+lo que haría falta.
+
+### Qué se queda y qué no
+
+- **La capa se queda como producto**: el panel de prensa en la ficha, marcado como capa
+  regional. Es útil para leer un municipio aunque no prediga su población.
+- **Las features no entran en `FEATURES`.** Siguen existiendo en `features_noticias.py`,
+  consumidas solo por la ablación, que es quien tenía que decidir.
+- El valor de esta fase no estaba en que saliera que sí, sino en medirlo de forma que el
+  "no" también fuese publicable. Está publicado.

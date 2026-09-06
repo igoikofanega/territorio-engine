@@ -165,11 +165,18 @@ def ablacion(engine: Engine) -> dict:
     feats = calcular_noticias(engine, ANIOS_BASE, pob, anios_train=ANIOS_TRAIN)
     df = df.merge(feats, on=["cod", "anio_base"], how="left")
 
-    cols_a = FEATURES
-    cols_b = FEATURES + FEATURES_NOTICIAS
     tr, va = df[df["anio_base"].isin(ANIOS_TRAIN)], df[df["anio_base"].isin(ANIOS_VAL)]
     if tr.empty or va.empty:
         raise RuntimeError(f"partición vacía: train={len(tr)}, val={len(va)}")
+
+    # Una feature entera a NaN en entrenamiento hace degenerar el binning del modelo.
+    # Pasa de verdad: `alquiler` (SERPAVI) no cubre el ámbito de la ablación en 2018-2019.
+    # Se descarta y se informa. No sesga la comparación: los tres brazos parten de la
+    # misma base de features, así que la diferencia entre ellos sigue siendo solo la
+    # prensa. Lo que sí hace es recordar que el MAE de aquí no es el del modelo titular.
+    descartadas = [c for c in FEATURES if tr[c].isna().all()]
+    cols_a = [c for c in FEATURES if c not in descartadas]
+    cols_b = cols_a + FEATURES_NOTICIAS
 
     mae_a, err_a = _mae_por_semilla(tr, va, cols_a)
     mae_b, err_b = _mae_por_semilla(tr, va, cols_b)
@@ -204,6 +211,7 @@ def ablacion(engine: Engine) -> dict:
         "n_train": len(tr),
         "n_val": len(va),
         "n_municipios": int(df["cod"].nunique()),
+        "features_descartadas": ", ".join(descartadas) or "ninguna",
         "n_municipios_con_cobertura": n_cobertura,
         "cond_mejora_minima": bool(cond_mejora),
         "cond_placebo_no_reproduce": bool(cond_placebo),
