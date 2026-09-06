@@ -13,10 +13,10 @@ El repositorio está **publicado y verde**: <https://github.com/igoikofanega/ter
 
 | | |
 |---|---|
-| Commits | 54, todos atribuidos a `igoikofanega <i.goikofanega@gmail.com>` |
+| Commits | 72, todos atribuidos a `igoikofanega <i.goikofanega@gmail.com>` |
 | CI | 7 jobs, todos en verde |
 | Imágenes | `api`, `orchestrator`, `frontend` en GHCR (amd64 + arm64) |
-| Tests | 337 (110 API · 211 orchestrator · 16 frontend) |
+| Tests | 437 (110 API · 311 orchestrator · 16 frontend) |
 | Licencia | Apache-2.0, con `NOTICE` de las 14 fuentes |
 | Secretos | 0 filtraciones (gitleaks + trufflehog sobre todo el historial) |
 | Protecciones | Escaneo de secretos, push protection, sin force-push en `main` |
