@@ -90,6 +90,28 @@ body {
   box-shadow: var(--shadow);
 }
 
+/* indicador de carga del mapa (App.tsx): un aro que gira, sin animación de entrada —
+   eso llega con `motion` en el siguiente bloque. */
+.spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  flex-shrink: 0;
+  animation: spinner-gira 0.7s linear infinite;
+}
+@keyframes spinner-gira {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
+  }
+}
+
 .input {
   width: 100%;
   padding: 8px 10px;
@@ -387,7 +409,7 @@ body {
   top: 0;
   right: 0;
   bottom: 0;
-  width: 400px;
+  width: min(440px, 100vw); /* 400px se quedaba justo para el cono de Trayectoria */
   z-index: 1100;
   background: var(--panel);
   border-left: 1px solid var(--border);
@@ -396,17 +418,9 @@ body {
   display: flex;
   flex-direction: column;
   font-size: 14px;
-  animation: ficha-entra 0.22s ease-out;
-}
-@keyframes ficha-entra {
-  from {
-    transform: translateX(24px);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
+  /* La entrada Y la salida las anima `motion` (Ficha.tsx envuelto en <m.div> dentro de
+     <AnimatePresence> en App.tsx): un @keyframes de CSS solo puede animar la entrada,
+     nunca la salida de un componente que React desmonta al instante. */
 }
 
 /* cabeceras de sección de la ficha: overline Geist con separador inferior */
@@ -420,6 +434,51 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--text-2);
+}
+
+/* bloques desplegables de la ficha (Seccion.tsx): <details> nativo, mismo overline
+   que .ficha h3 pero como <summary> en fila, con el resumen a la derecha. */
+.ficha-seccion {
+  border-bottom: 1px solid var(--border);
+}
+.ficha-seccion summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 0;
+  cursor: pointer;
+  list-style: none;
+}
+.ficha-seccion summary::-webkit-details-marker {
+  display: none;
+}
+.ficha-seccion summary::marker {
+  content: "";
+}
+.ficha-seccion-flecha {
+  display: inline-block;
+  color: var(--text-2);
+  font-size: 10px;
+  transition: transform 0.15s ease;
+  flex-shrink: 0;
+}
+.ficha-seccion[open] .ficha-seccion-flecha {
+  transform: rotate(90deg);
+}
+.ficha-seccion-resumen {
+  margin-left: auto;
+  font-family: "Hanken Grotesk", sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-2);
+}
+.ficha-seccion-cuerpo {
+  padding-bottom: 16px;
+}
+.ficha-seccion-cuerpo h3:first-child {
+  margin-top: 0;
 }
 
 /* tooltips de leaflet acordes al tema */

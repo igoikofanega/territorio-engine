@@ -36,6 +36,9 @@ typecheck: ## Comprobación de tipos (mypy) de los servicios Python
 	cd services/api && uv run mypy
 	cd services/orchestrator && uv run mypy
 
+front-build: ## Build de producción (temporal, para medir tamaño de bundle)
+	$(NODE_RUN) sh -c "npm ci --silent && npx vite build"
+
 front-lint: ## Lint + tipos del frontend (en contenedor)
 	$(NODE_RUN) sh -c "npm ci --silent && npx tsc --noEmit && npx eslint ."
 
@@ -115,9 +118,9 @@ ablacion-noticias: ## Ablación de tres brazos: ¿las noticias mejoran el modelo
 narrativa: ## Genera informes narrativos anclados por municipio → narrativa_municipio
 	docker compose run --rm orchestrator uv run dagster asset materialize --select narrativa -m territorio_pipelines.definitions
 
-noticias-progreso: ## Estado de la ingesta de noticias (municipios cubiertos, artículos, huecos)
-	@docker compose exec -T db psql -U $${POSTGRES_USER:-territorio} -d $${POSTGRES_DB:-territorio} -c "SELECT count(*) AS articulos, count(DISTINCT cod_municipio) AS con_noticias, (SELECT count(*) FROM dim_municipio WHERE cod_provincia = '31') AS ambito, count(*) FILTER (WHERE modelo IS NOT NULL) AS etiquetados, min(fecha) AS desde, max(fecha) AS hasta FROM noticia_municipio;"
-	@echo "consultas resueltas (crudos): $$(find raw/gdelt -name '*.json' 2>/dev/null | wc -l) de $$(( $$(docker compose exec -T db psql -U $${POSTGRES_USER:-territorio} -d $${POSTGRES_DB:-territorio} -tAc "SELECT count(*) FROM dim_municipio WHERE cod_provincia = '31'") * 2 ))"
+noticias-progreso: ## Estado de la ingesta y del etiquetado de noticias
+	@docker compose exec -T db psql -U $${POSTGRES_USER:-territorio} -d $${POSTGRES_DB:-territorio} -c "SELECT count(*) AS articulos, count(DISTINCT cod_municipio) AS con_noticias, (SELECT count(*) FROM dim_municipio WHERE cod_provincia = '31') AS ambito, count(*) FILTER (WHERE modelo IS NOT NULL) AS etiquetados, count(*) FILTER (WHERE modelo IS NULL) AS pendientes, count(*) FILTER (WHERE pertenece) AS pertenecen, count(DISTINCT cod_municipio) FILTER (WHERE pertenece) AS con_noticias_propias FROM noticia_municipio;"
+	@echo "consultas GDELT resueltas (crudos): $$(find raw/gdelt -name '*.json' 2>/dev/null | wc -l) de $$(( $$(docker compose exec -T db psql -U $${POSTGRES_USER:-territorio} -d $${POSTGRES_DB:-territorio} -tAc "SELECT count(*) FROM dim_municipio WHERE cod_provincia = '31'") * 2 ))"
 
 comprobar: ## Comprobaciones de calidad de la matriz (asset checks de Dagster)
 	docker compose run --rm orchestrator uv run dagster job execute -j comprobaciones -m territorio_pipelines.definitions

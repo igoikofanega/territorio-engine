@@ -1,4 +1,5 @@
 import { Wand2, X } from "lucide-react";
+import { m } from "motion/react";
 import { useState } from "react";
 
 import { CLAVES_INDICE, type Pesos } from "../types";
@@ -88,9 +89,13 @@ export default function Recomendador({
   );
 
   return (
-    <div
+    <m.div
       className="panel"
       style={{ position: "absolute", top: 12, left: 12, zIndex: 1150, width: 340, maxHeight: "calc(100% - 24px)", overflowY: "auto", padding: 16 }}
+      initial={{ opacity: 0, y: -8, scale: 0.98 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      exit={{ opacity: 0, y: -8, scale: 0.98 }}
+      transition={{ duration: 0.18, ease: "easeOut" }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <Wand2 size={16} strokeWidth={1.75} style={{ color: "var(--accent)" }} />
@@ -160,6 +165,6 @@ export default function Recomendador({
           ))}
         </div>
       )}
-    </div>
+    </m.div>
   );
 }

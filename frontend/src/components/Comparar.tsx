@@ -1,4 +1,5 @@
 import { X } from "lucide-react";
+import { m } from "motion/react";
 import type { CSSProperties } from "react";
 import { useEffect, useState } from "react";
 
@@ -92,8 +93,21 @@ export default function Comparar({ codA, codB, onClose }: { codA: string | null;
   const pct = (v: number | null) => (v == null ? "—" : `${v}%`);
 
   return (
-    <div style={{ position: "absolute", inset: 0, zIndex: 1300, background: "rgba(15,23,42,.35)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
-      <div className="panel" style={{ width: "100%", maxWidth: 720, maxHeight: "100%", overflowY: "auto", padding: 20, boxShadow: "var(--shadow-lg)" }}>
+    <m.div
+      style={{ position: "absolute", inset: 0, zIndex: 1300, background: "rgba(15,23,42,.35)", display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      exit={{ opacity: 0 }}
+      transition={{ duration: 0.15 }}
+    >
+      <m.div
+        className="panel"
+        style={{ width: "100%", maxWidth: 720, maxHeight: "100%", overflowY: "auto", padding: 20, boxShadow: "var(--shadow-lg)" }}
+        initial={{ opacity: 0, scale: 0.97 }}
+        animate={{ opacity: 1, scale: 1 }}
+        exit={{ opacity: 0, scale: 0.97 }}
+        transition={{ duration: 0.18, ease: "easeOut" }}
+      >
         <div style={{ display: "flex", alignItems: "center", marginBottom: 12 }}>
           <strong style={{ fontSize: 15 }}>Comparar municipios</strong>
           <button className="btn-ghost" onClick={onClose} style={{ marginLeft: "auto" }}><X size={16} /></button>
@@ -124,7 +138,7 @@ export default function Comparar({ codA, codB, onClose }: { codA: string | null;
             </div>
           </div>
         )}
-      </div>
-    </div>
+      </m.div>
+    </m.div>
   );
 }

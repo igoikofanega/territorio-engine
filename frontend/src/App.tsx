@@ -2,6 +2,7 @@ import "leaflet/dist/leaflet.css";
 
 import type { Feature, FeatureCollection, GeoJsonProperties } from "geojson";
 import L, { type Layer, type PathOptions } from "leaflet";
+import { AnimatePresence, m } from "motion/react";
 import { useEffect, useState } from "react";
 import { GeoJSON, MapContainer, ScaleControl, TileLayer, useMap, ZoomControl } from "react-leaflet";
 
@@ -29,6 +30,17 @@ const TILES_ATTR =
   '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors';
 const TILES_OPACIDAD = Number(import.meta.env.VITE_TILES_OPACIDAD ?? 0.45);
 
+// Transición entre vistas (mapa, resumen, metodología): un cross-fade corto, no un espectáculo. `mode="wait"` en el
+// <AnimatePresence> evita que Leaflet (MapContainer) y Dashboard coincidan visibles a la
+// vez ni un instante, aunque ambos ya se montaban/desmontaban del todo antes de esto —
+// solo se le pone una transición a lo que ya pasaba.
+const CROSSFADE = {
+  initial: { opacity: 0 },
+  animate: { opacity: 1 },
+  exit: { opacity: 0 },
+  transition: { duration: 0.15 },
+} as const;
+
 function FitBounds({ geo }: { geo: FeatureCollection | null }) {
   const map = useMap();
   useEffect(() => {
@@ -48,6 +60,7 @@ export default function App() {
   const [anioSel, setAnioSel] = useState<number | null>(null);
   const [geo, setGeo] = useState<FeatureCollection | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [cargando, setCargando] = useState(false);
   const [codSel, setCodSel] = useState<string | null>(null);
   const [ficha, setFicha] = useState<FichaData | null>(null);
   const [noticias, setNoticias] = useState<NoticiasData | null>(null);
@@ -117,12 +130,14 @@ export default function App() {
   useEffect(() => {
     if (esc.anios && anioSel == null) return; // esperando a tener año
     setError(null);
+    setCargando(true);
     const sep = esc.endpoint.includes("?") ? "&" : "?";
     const q = esc.anios ? `${sep}prov=${prov}&anio=${anioSel}` : `${sep}prov=${prov}`;
     fetch(`${API}/${esc.endpoint}${q}`)
       .then((r) => r.json())
       .then(setGeo)
-      .catch(() => setError(`No se pudo cargar /${esc.endpoint}`));
+      .catch(() => setError(`No se pudo cargar /${esc.endpoint}`))
+      .finally(() => setCargando(false));
   }, [prov, modo, anioSel, esc.endpoint, esc.anios]);
 
   const categorias = modo.startsWith("lisa_")
@@ -210,15 +225,21 @@ export default function App() {
           onExport={exportar}
         />
         <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
+        <AnimatePresence mode="wait" initial={false}>
         {vista === "metodologia" ? (
+          <m.div key="metodologia" style={{ position: "absolute", inset: 0 }} {...CROSSFADE}>
           <Metodologia />
+          </m.div>
         ) : vista === "resumen" ? (
+          <m.div key="resumen" style={{ position: "absolute", inset: 0 }} {...CROSSFADE}>
           <Dashboard
             prov={prov}
             ambitoNombre={provincias.find((p) => p.cod === prov)?.nombre ?? "España"}
             onSelect={(c) => { setVista("mapa"); setCodSel(c); }}
           />
+          </m.div>
         ) : (
+        <m.div key="mapa" style={{ position: "absolute", inset: 0 }} {...CROSSFADE}>
         <MapContainer center={[42.0, -4.5]} zoom={9} style={{ height: "100%" }} zoomControl={false}>
           {/* El fondo va atenuado a propósito: el mapa base es contexto, y el estilo
               estándar de OSM (verdes, carreteras rojas) compite con los azules del
@@ -251,23 +272,41 @@ export default function App() {
           <Leyenda
             titulo={esc.titulo}
             buckets={esc.buckets}
+            sufijo={esc.sufijo}
             categorias={categorias}
+            lectura={esc.lectura}
             nota={modo === "indice" && pesosDirty ? "pesos ajustados" : null}
           />
         </MapContainer>
+        </m.div>
         )}
+        </AnimatePresence>
+        {vista === "mapa" && cargando && (
+          <div className="panel" style={{ position: "absolute", top: 14, left: 14, zIndex: 1000, padding: "6px 12px", fontSize: 12, color: "var(--text-2)", display: "flex", alignItems: "center", gap: 8 }}>
+            <span className="spinner" aria-hidden="true" />
+            Cargando {esc.etiqueta.toLowerCase()}…
+          </div>
+        )}
+        {vista === "mapa" && !cargando && !error && geo && geo.features.length === 0 && (
+          <div className="panel" style={{ position: "absolute", top: "50%", left: "50%", transform: "translate(-50%, -50%)", zIndex: 1000, padding: "14px 18px", fontSize: 13, color: "var(--text-2)", textAlign: "center", maxWidth: 260 }}>
+            Sin datos de «{esc.etiqueta}» para esta provincia{esc.anios && anioSel ? ` en ${anioSel}` : ""}.
+          </div>
+        )}
+        <AnimatePresence>
         {recomendadorAbierto && (
           <Recomendador
+            key="recomendador"
             pesos={pesos}
             onSelect={(c) => setCodSel(c)}
             onClose={() => setRecomendadorAbierto(false)}
           />
         )}
         {compararAbierto && (
-          <Comparar codA={codSel} codB={null} onClose={() => setCompararAbierto(false)} />
+          <Comparar key="comparar" codA={codSel} codB={null} onClose={() => setCompararAbierto(false)} />
         )}
         {codSel && (
           <Ficha
+            key="ficha"
             ficha={ficha}
             noticias={noticias}
             narrativa={narrativa}
@@ -275,6 +314,7 @@ export default function App() {
             onSelect={(c) => setCodSel(c)}
           />
         )}
+        </AnimatePresence>
         </div>
       </div>
     </div>

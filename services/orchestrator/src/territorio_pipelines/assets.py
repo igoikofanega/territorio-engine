@@ -254,17 +254,57 @@ def noticias_etiquetadas(context: AssetExecutionContext) -> int:
     Lo que decide es sobre todo la **pertenencia**: la consulta a GDELT es por nombre, y
     "Tudela" trae noticias de Tudela de Duero. Ver ADR 0005.
 
-    Incremental: solo toca lo que aún no tiene modelo, así que se puede ir por tandas.
-    `LLM_LIMITE` acota cuántos titulares se etiquetan en una ejecución.
+    Diseñado para la **tanda diaria** que dispara el schedule `etiquetado_noticias`: es
+    incremental, así que cada ejecución continúa donde quedó la anterior y no hace nada
+    cuando ya no quedan pendientes. `LLM_LIMITE` acota el gasto de cada tanda al tamaño
+    de la cuota del proveedor.
+
+    Agotar la cuota **no es un fallo**: la ejecución termina bien y lo dice en
+    `parado_por_cuota`. Marcarla en rojo dejaría el panel en rojo todos los días por
+    funcionar como estaba previsto, y entonces el rojo dejaría de significar nada.
+
+    No se etiqueta el corpus entero: `NOTICIAS_MIN_TITULARES` descarta los municipios con
+    muy pocos titulares (validez) y `NOTICIAS_TOPE_ANIO` topa cuántos se etiquetan por
+    municipio y año (coste).
     """
     import os
 
-    from .loaders import load_extraccion_noticias
+    from .loaders import (
+        MIN_TITULARES,
+        TOPE_POR_ANIO,
+        load_extraccion_noticias,
+        pendientes_de_etiquetar,
+    )
+
+    min_tit = int(os.environ.get("NOTICIAS_MIN_TITULARES", "0")) or MIN_TITULARES
+    tope = int(os.environ.get("NOTICIAS_TOPE_ANIO", "0")) or TOPE_POR_ANIO
+
+    pendientes = pendientes_de_etiquetar(min_tit, tope)
+    if not pendientes:
+        context.log.info("noticias_etiquetadas: no hay titulares pendientes")
+        context.add_output_metadata({"pendientes_restantes": 0, "titulares_etiquetados": 0})
+        return 0
 
     limite = int(os.environ.get("LLM_LIMITE", "0")) or None
-    result = load_extraccion_noticias(limite=limite)
+    lote = int(os.environ.get("LLM_LOTE", "0")) or None
+    context.log.info(
+        f"noticias_etiquetadas: {pendientes} pendientes (umbral {min_tit}, tope {tope}/año), "
+        f"límite de tanda {limite}"
+    )
+    result = load_extraccion_noticias(
+        limite=limite,
+        lote=lote,
+        progreso=lambda e: context.log.info(f"etiquetado: {e}"),
+        min_titulares=min_tit,
+        tope_anio=tope,
+    )
     context.add_output_metadata(result)
     context.log.info(f"noticias_etiquetadas: {result}")
+    if result["parado_por_cuota"]:
+        context.log.warning(
+            "Cuota del proveedor agotada: quedan "
+            f"{result['pendientes_restantes']} titulares para la siguiente tanda."
+        )
     return result["titulares_etiquetados"]
 
 
