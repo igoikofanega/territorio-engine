@@ -49,6 +49,13 @@ updates:
         patterns: ["*"]
     commit-message:
       prefix: "chore(deps)"
+    ignore:
+      # Los majors del frontend NO vienen por aquí. Agrupados salía un PR que subía a la
+      # vez React 19, TypeScript 7, Vite 8, ESLint 10, react-leaflet 5 y vitest 5: un
+      # cambio imposible de revisar, que además rompía el CI sin decir cuál de los seis
+      # lo rompía. Las migraciones de major se hacen a mano y por bloques.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: "github-actions"
     directory: "/"
@@ -79,5 +86,11 @@ updates:
       # entorno de build y el de CI desalineados, que es peor que ir un poco por detrás.
       - dependency-name: "node"
         update-types: ["version-update:semver-major"]
+      # Ojo con el esquema de versiones: en `python:3.14-slim` el major es el 3, así que
+      # 3.12 → 3.14 cuenta como *minor* y se colaba pese a ser justo lo que esta regla
+      # quería evitar (PR #14). Medido: con 3.14 la imagen ni se construye — mlflow 2.x
+      # arrastra pyarrow, que aún no publica rueda para 3.14 e intenta compilarla sin
+      # cmake. Se sube cuando suban también CI, Dockerfiles y requires-python.
       - dependency-name: "python"
-        update-types: ["version-update:semver-major"]
+        update-types:
+          ["version-update:semver-major", "version-update:semver-minor"]

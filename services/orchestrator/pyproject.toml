@@ -51,10 +51,15 @@ testpaths = ["tests"]
 
 # Umbral de cobertura. Se recogía desde el principio pero no bloqueaba nada: el CI
 # subía el informe a Codecov con `continue-on-error`, así que bajar la cobertura no
-# rompía ningún job. El listón está justo por debajo del 82% actual: no obliga a
-# subirlo, impide bajarlo sin darse cuenta. Súbelo cuando la cobertura suba.
+# rompía ningún job. El listón va justo por debajo de la cobertura real: no obliga a
+# subirla, impide bajarla sin darse cuenta. Súbelo cuando la cobertura suba.
+#
+# Se fijó primero en 80 diciendo que la cobertura era del 82%. No lo era: `uv run pytest
+# --cov` da 71%. La cifra del 82 salió de una medición que no es la que corre el CI, y
+# como aquel commit no llegó a subirse, el fallo solo apareció al empujarlo. El listón
+# queda ahora en la medida de verdad, que es lo único que puede protegerse.
 [tool.coverage.report]
-fail_under = 80
+fail_under = 70
 exclude_also = ["if TYPE_CHECKING:", "raise NotImplementedError"]
 
 # Arranque deliberadamente permisivo: mypy entra como red de seguridad contra
