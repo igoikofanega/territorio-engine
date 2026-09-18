@@ -19,6 +19,8 @@ import re
 import time
 from typing import Any
 
+from .config import numero_env
+
 # El SDK se importa dentro de `cliente()` a propósito: así el módulo se puede importar
 # (y testear el parseo) sin tener el paquete instalado ni una clave configurada.
 
@@ -29,7 +31,7 @@ _VALLA = re.compile(r"```(?:json)?\s*(.*?)```", re.DOTALL)
 
 #: Segundos entre peticiones. Los proveedores gratuitos limitan por minuto: Gemini en AI
 #: Studio va por decenas de peticiones/minuto según el modelo. 4 s ≈ 15/min, conservador.
-THROTTLE_S = float(os.environ.get("LLM_THROTTLE_S", "4"))
+THROTTLE_S = numero_env("LLM_THROTTLE_S", 4.0)
 #: Reintentos ante un 429 antes de dar la cuota por agotada y parar limpiamente.
 REINTENTOS_LIMITE = 3
 #: Espera tras un 429. Si es límite por minuto, con esto se pasa; si es por día, no hay

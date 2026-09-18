@@ -267,8 +267,7 @@ def noticias_etiquetadas(context: AssetExecutionContext) -> int:
     muy pocos titulares (validez) y `NOTICIAS_TOPE_ANIO` topa cuántos se etiquetan por
     municipio y año (coste).
     """
-    import os
-
+    from .config import numero_env
     from .loaders import (
         MIN_TITULARES,
         TOPE_POR_ANIO,
@@ -276,8 +275,8 @@ def noticias_etiquetadas(context: AssetExecutionContext) -> int:
         pendientes_de_etiquetar,
     )
 
-    min_tit = int(os.environ.get("NOTICIAS_MIN_TITULARES", "0")) or MIN_TITULARES
-    tope = int(os.environ.get("NOTICIAS_TOPE_ANIO", "0")) or TOPE_POR_ANIO
+    min_tit = numero_env("NOTICIAS_MIN_TITULARES", 0) or MIN_TITULARES
+    tope = numero_env("NOTICIAS_TOPE_ANIO", 0) or TOPE_POR_ANIO
 
     pendientes = pendientes_de_etiquetar(min_tit, tope)
     if not pendientes:
@@ -285,8 +284,8 @@ def noticias_etiquetadas(context: AssetExecutionContext) -> int:
         context.add_output_metadata({"pendientes_restantes": 0, "titulares_etiquetados": 0})
         return 0
 
-    limite = int(os.environ.get("LLM_LIMITE", "0")) or None
-    lote = int(os.environ.get("LLM_LOTE", "0")) or None
+    limite = numero_env("LLM_LIMITE", 0) or None
+    lote = numero_env("LLM_LOTE", 0) or None
     context.log.info(
         f"noticias_etiquetadas: {pendientes} pendientes (umbral {min_tit}, tope {tope}/año), "
         f"límite de tanda {limite}"
@@ -363,11 +362,10 @@ def ablacion_noticias(context: AssetExecutionContext) -> int:
 @asset(group_name="modelo", deps=[prediccion_ml])
 def narrativa(context: AssetExecutionContext) -> int:
     """Informe narrativo anclado por municipio → narrativa_municipio. Requiere 0031."""
-    import os
-
+    from .config import numero_env
     from .loaders import load_narrativa
 
-    limite = int(os.environ.get("LLM_LIMITE", "0")) or None
+    limite = numero_env("LLM_LIMITE", 0) or None
     result = load_narrativa(limite=limite)
     context.add_output_metadata(result)
     context.log.info(f"narrativa: {result}")
