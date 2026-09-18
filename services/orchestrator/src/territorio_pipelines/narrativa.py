@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
+from collections.abc import Callable, Iterable, Mapping
 from typing import Any
 
 from . import llm
@@ -31,8 +32,15 @@ Reglas estrictas:
   cifras que no estén en la entrada. Si un dato no está, no lo menciones.
 - Solo puedes nombrar los municipios que aparecen en los datos (el propio, sus similares y
   su gemelo). NO cites ningún otro municipio.
+- Los campos con "previsto" o "proyeccion" son lo que el modelo espera que ocurra,
+  no un hecho: redáctalos en futuro o condicional y di entre qué años (proyeccion_desde
+  y proyeccion_hasta). El mínimo y el máximo previstos son la banda de esa proyección.
+- parados_media_anual es un número de personas, no una tasa: escribe "N personas en
+  paro", nunca "una tasa del N por ciento".
+- Cada cifra de la situación actual lleva su propio año (anio_poblacion, anio_paro,
+  anio_renta): cítala con ese año, no con otro.
 - Escribe en español, en tercera persona, tono informativo y conciso.
-- Estructura: situación actual → tendencia reciente → proyección → factores clave.
+- Estructura: situación actual → proyección → factores clave.
 - NO uses comillas, ni listas con viñetas, ni cabeceras. Es un párrafo continuo.
 - Si la proyección es negativa, no la suavices. Si es positiva, no la exageres."""
 
@@ -40,20 +48,6 @@ Reglas estrictas:
 def _prompt_datos(datos: dict) -> str:
     """Serializa los datos de la ficha como contexto para el LLM."""
     return f"Datos del municipio:\n```json\n{json.dumps(datos, ensure_ascii=False, indent=2)}\n```"
-
-
-def _extraer_numeros(texto: str) -> list[float]:
-    """Extrae números del texto en formato español (1.234,5 → 1234.5)."""
-    patron = re.compile(r"-?\d[\d.]*,?\d*%?")
-    nums = []
-    for m in patron.finditer(texto):
-        s = m.group().rstrip("%")
-        s = s.replace(".", "").replace(",", ".")
-        try:
-            nums.append(float(s))
-        except ValueError:
-            continue
-    return nums
 
 
 def _numeros_del_contexto(datos: dict) -> set[float]:
@@ -84,13 +78,38 @@ def _numeros_del_contexto(datos: dict) -> set[float]:
     return nums
 
 
+def _lecturas(token: str) -> set[float]:
+    """Todas las lecturas razonables de una cifra tal como aparece en el texto.
+
+    Con coma solo cabe la española (1.234,5 → 1234.5). Con punto y sin coma hay dos: la
+    española, donde el punto separa miles (18.318 → 18318), y la del propio JSON, donde es
+    el decimal (8.7 → 8.7). El modelo copia los números de los datos tal cual, así que la
+    segunda es la habitual. Solo con la primera, el candado rechazaba las cifras exactas.
+    """
+    s = token.rstrip("%")
+    lecturas = set()
+    for candidato in (s.replace(".", "").replace(",", "."), s if "," not in s else None):
+        if candidato is None:
+            continue
+        try:
+            lecturas.add(float(candidato))
+        except ValueError:
+            continue
+    return lecturas
+
+
 def verificar_cifras(texto: str, datos: dict) -> list[str]:
-    """Devuelve las cifras del texto que no aparecen en los datos."""
+    """Devuelve las cifras del texto que no aparecen en los datos.
+
+    Una cifra vale si **alguna** de sus lecturas (ver `_lecturas`) está en los datos. Una
+    inventada no está en ninguna: 9.3 no es ni 93 ni 9,3 si el dato es 8,7.
+    """
     permitidos = _numeros_del_contexto(datos)
     violaciones = []
-    for n in _extraer_numeros(texto):
-        if n not in permitidos:
-            violaciones.append(str(n))
+    for m in re.finditer(r"-?\d[\d.]*,?\d*%?", texto):
+        lecturas = _lecturas(m.group())
+        if lecturas and not lecturas & permitidos:
+            violaciones.append(m.group())
     return violaciones
 
 
@@ -153,4 +172,58 @@ def generar(
         "aceptado": aceptado,
         "violaciones_cifras": cifras_malas,
         "violaciones_nombres": nombres_malos,
+    }
+
+
+def recorrer(
+    candidatos: Iterable[tuple[str, dict]],
+    hashes_previos: Mapping[str, str],
+    generar: Callable[[dict], dict],
+    guardar: Callable[[str, str, dict], None],
+    limite: int | None = None,
+) -> dict:
+    """Recorre los municipios y genera el informe de los que lo necesitan.
+
+    Separado de la base de datos y del LLM (`generar` y `guardar` los pone quien llama)
+    para poder probar las decisiones, que es donde estaban los fallos:
+
+    - **Incremental.** Un municipio cuyos datos no han cambiado (mismo `hash_datos`) no
+      se vuelve a pedir. Eso vale también para los rechazados: se guardan, y no se paga
+      otra vez por ellos hasta que cambien sus datos.
+    - **`limite` cuenta informes nuevos, no candidatos.** Aplicado a la lista, cada tanda
+      miraba siempre los mismos primeros municipios —ya hechos— y no avanzaba nunca.
+    - **Cuota agotada → para limpio.** Solo `llm.CuotaAgotada`, no cualquier error cuyo
+      mensaje contenga "rate": eso también está en "generate". Lo generado hasta ahí ya
+      está guardado, y la siguiente tanda continúa donde quedó esta.
+
+    Los municipios que quedan sin hacer se siguen recorriendo, sin llamar al modelo,
+    para que `pendientes` sea la cuenta exacta y no una estimación.
+    """
+    generados = rechazados = sin_cambio = pendientes = 0
+    parado = False
+    for cod, datos in candidatos:
+        h = hash_datos(datos)
+        if hashes_previos.get(cod) == h:
+            sin_cambio += 1
+            continue
+        if parado or (limite and generados + rechazados >= limite):
+            pendientes += 1
+            continue
+        try:
+            resultado = generar(datos)
+        except llm.CuotaAgotada:
+            parado = True
+            pendientes += 1
+            continue
+        guardar(cod, h, resultado)
+        if resultado["aceptado"]:
+            generados += 1
+        else:
+            rechazados += 1
+    return {
+        "generados": generados,
+        "rechazados": rechazados,
+        "sin_cambio": sin_cambio,
+        "pendientes": pendientes,
+        "parado_por_cuota": parado,
     }

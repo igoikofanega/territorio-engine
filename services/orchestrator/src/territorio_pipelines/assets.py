@@ -369,6 +369,11 @@ def narrativa(context: AssetExecutionContext) -> int:
     result = load_narrativa(limite=limite)
     context.add_output_metadata(result)
     context.log.info(f"narrativa: {result}")
+    if result["parado_por_cuota"]:
+        context.log.warning(
+            f"Cuota del proveedor agotada: quedan {result['pendientes']} informes "
+            "para la siguiente ejecución."
+        )
     return result["generados"]
 
 

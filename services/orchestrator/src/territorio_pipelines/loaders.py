@@ -1268,6 +1268,61 @@ ON CONFLICT (cod_municipio) DO UPDATE SET
 """)
 
 
+#: Datos que alimentan el informe narrativo, **cada uno en su último año con valor**.
+#:
+#: No vale "la última fila de la matriz": esa es el año en curso, que solo tiene el paro
+#: de los meses publicados y ni población ni renta. Así estuvo, y el informe se quedaba
+#: sin esas dos cifras sin que nada fallara. Se leen como las lee la ficha (último valor
+#: no nulo), porque el informe dice que sus cifras salen de ella.
+#:
+#: El paro exige además **año completo**: una media sobre un mes no es comparable con la
+#: de un año, y el informe la redactaba como "la tasa de paro de 2026" para Abáigar con
+#: un único mes publicado. Cada cifra lleva su año, porque población, paro y renta no
+#: llegan al mismo (hoy 2025, 2025 y 2023).
+#:
+#: Los alias son largos a propósito: son lo único que el modelo tiene para saber qué es
+#: cada número, y el candado de cifras no lo comprueba (solo mira que la cifra exista).
+#: Con `paro` escribía "una tasa de paro del 15 por ciento" por 15 personas, y con
+#: `cambio_pct` hablaba de "tendencia reciente" de lo que es una proyección.
+_SQL_NARRATIVA = text("""
+SELECT d.cod_municipio AS cod, d.nombre,
+       pob.poblacion_total AS habitantes, pob.anio AS anio_poblacion,
+       par.paro_media_anual AS parados_media_anual, par.anio AS anio_paro,
+       round(ren.renta_neta_media_persona)::int AS renta_neta_media_por_persona_eur,
+       ren.anio AS anio_renta,
+       p.anio_base AS proyeccion_desde, p.anio_horizonte AS proyeccion_hasta,
+       p.cambio_pct AS cambio_poblacion_previsto_pct,
+       p.cambio_inf AS cambio_previsto_minimo_pct,
+       p.cambio_sup AS cambio_previsto_maximo_pct,
+       p.drivers AS factores_de_la_proyeccion,
+       round((r.prob * 100)::numeric, 1)::float AS probabilidad_riesgo_pct,
+       r.nivel AS nivel_riesgo,
+       dem.dominante AS motor_demografico, dem.tipo AS tipo_demo
+FROM dim_municipio d
+LEFT JOIN LATERAL (
+    SELECT poblacion_total, anio FROM fact_municipio_anual
+    WHERE cod_municipio = d.cod_municipio AND poblacion_total IS NOT NULL
+    ORDER BY anio DESC LIMIT 1
+) pob ON true
+LEFT JOIN LATERAL (
+    SELECT paro_media_anual, anio FROM fact_municipio_anual
+    WHERE cod_municipio = d.cod_municipio AND paro_media_anual IS NOT NULL
+      AND paro_meses >= 12
+    ORDER BY anio DESC LIMIT 1
+) par ON true
+LEFT JOIN LATERAL (
+    SELECT renta_neta_media_persona, anio FROM fact_municipio_anual
+    WHERE cod_municipio = d.cod_municipio AND renta_neta_media_persona IS NOT NULL
+    ORDER BY anio DESC LIMIT 1
+) ren ON true
+LEFT JOIN prediccion_ml p ON p.cod_municipio = d.cod_municipio
+LEFT JOIN riesgo_municipio r ON r.cod_municipio = d.cod_municipio
+LEFT JOIN demografia_municipio dem ON dem.cod_municipio = d.cod_municipio
+WHERE d.cod_provincia = '31'
+ORDER BY d.cod_municipio
+""")
+
+
 def load_narrativa(limite: int | None = None) -> dict:
     """Genera informes narrativos para municipios con datos suficientes."""
     from . import narrativa
@@ -1275,91 +1330,35 @@ def load_narrativa(limite: int | None = None) -> dict:
     cfg = llm.config()
     client = llm.cliente(cfg)
 
-    municipios = pd.read_sql(
-        "SELECT d.cod_municipio AS cod, d.nombre, "
-        "f.poblacion_total AS poblacion, f.paro_media_anual AS paro, f.paro_meses, "
-        "f.renta_neta_media_persona AS renta, f.anio, "
-        "p.cambio_pct, p.cambio_inf, p.cambio_sup, p.drivers, p.anio_horizonte, "
-        "r.prob AS prob_riesgo, r.nivel AS nivel_riesgo, "
-        "dem.dominante AS motor_demografico, dem.tipo AS tipo_demo "
-        "FROM dim_municipio d "
-        "LEFT JOIN LATERAL ("
-        "  SELECT * FROM fact_municipio_anual "
-        "  WHERE cod_municipio = d.cod_municipio ORDER BY anio DESC LIMIT 1"
-        ") f ON true "
-        "LEFT JOIN prediccion_ml p ON p.cod_municipio = d.cod_municipio "
-        "LEFT JOIN riesgo_municipio r ON r.cod_municipio = d.cod_municipio "
-        "LEFT JOIN demografia_municipio dem ON dem.cod_municipio = d.cod_municipio "
-        "WHERE d.cod_provincia = '31'",
-        engine,
-    )
-    if limite:
-        municipios = municipios.head(limite)
-
+    municipios = pd.read_sql(_SQL_NARRATIVA, engine)
     todos_los_nombres = set(pd.read_sql("SELECT nombre FROM dim_municipio", engine)["nombre"])
-    generados = rechazados = sin_cambio = 0
+    previos = pd.read_sql("SELECT cod_municipio, hash_datos FROM narrativa_municipio", engine)
+    hashes_previos = dict(zip(previos["cod_municipio"], previos["hash_datos"], strict=True))
+
+    candidatos = []
     for _, row in municipios.iterrows():
         datos = {k: v for k, v in row.to_dict().items() if pd.notna(v)}
-        # El último año de la matriz suele ser el año en curso, cuya media de paro está
-        # calculada sobre los meses que hayan salido: para Abáigar en 2026, uno. El
-        # informe lo redactaba como "una tasa de paro del 5,0 por ciento en 2026", sin
-        # matiz. Si el año no está completo, el dato no entra: es la misma trampa que
-        # `calendario.py` resuelve al elegir años, aplicada a la redacción.
-        if datos.pop("paro_meses", 12) < 12:
-            datos.pop("paro", None)
-        h = narrativa.hash_datos(datos)
-        existente = pd.read_sql(
-            "SELECT hash_datos FROM narrativa_municipio WHERE cod_municipio = %(cod)s",
-            engine,
-            params={"cod": row["cod"]},
-        )
-        if not existente.empty and existente.iloc[0]["hash_datos"] == h:
-            sin_cambio += 1
-            continue
+        candidatos.append((row["cod"], datos))
 
-        nombres_ok = {row["nombre"]}
-        if "drivers" in datos:
-            pass
+    def generar(datos: dict) -> dict:
+        return narrativa.generar(client, cfg["modelo"], datos, {datos["nombre"]}, todos_los_nombres)
 
-        try:
-            result = narrativa.generar(client, cfg["modelo"], datos, nombres_ok, todos_los_nombres)
-        except Exception as e:  # noqa: BLE001
-            # La cuota del proveedor se agota de verdad: el etiquetado masivo la consume y
-            # esto muere a mitad. Antes reventaba la materialización entera y perdía la
-            # cuenta de por dónde iba. Ahora para limpio: como se salta lo que ya tiene el
-            # mismo `hash_datos`, relanzarlo continúa donde se quedó.
-            if "429" in str(e) or "quota" in str(e).lower() or "rate" in str(e).lower():
-                return {
-                    "generados": generados,
-                    "rechazados": rechazados,
-                    "sin_cambio": sin_cambio,
-                    "pendientes": len(municipios) - generados - rechazados - sin_cambio,
-                    "parado_por": "cuota del proveedor agotada; relanza para continuar",
-                    "modelo": cfg["modelo"],
-                }
-            raise
+    def guardar(cod: str, h: str, resultado: dict) -> None:
         with engine.begin() as conn:
             conn.execute(
                 _UPSERT_NARRATIVA,
                 [
                     {
-                        "cod": row["cod"],
-                        "texto": result["texto"],
+                        "cod": cod,
+                        "texto": resultado["texto"],
                         "hash_datos": h,
                         "modelo": cfg["modelo"][:80],
-                        "aceptado": result["aceptado"],
+                        "aceptado": resultado["aceptado"],
                     }
                 ],
             )
-        if result["aceptado"]:
-            generados += 1
-        else:
-            rechazados += 1
 
     return {
-        "generados": generados,
-        "rechazados": rechazados,
-        "sin_cambio": sin_cambio,
-        "pendientes": 0,
+        **narrativa.recorrer(candidatos, hashes_previos, generar, guardar, limite),
         "modelo": cfg["modelo"],
     }
