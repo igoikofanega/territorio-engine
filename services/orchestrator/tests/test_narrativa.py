@@ -303,3 +303,40 @@ class TestPrompt:
 
     def test_advierte_que_los_parados_son_personas(self):
         assert "personas, no una tasa" in SISTEMA
+
+
+class TestNombresQueContienenOtros:
+    """El candado buscaba cada municipio de España como subcadena del texto, y el propio
+    nombre del municipio siempre aparece. Los 24 rechazados de la primera tanda completa
+    lo eran por esto y por nada más: "Ares" dentro de "Areso", "Arcos" en "Los Arcos"."""
+
+    TODOS = {
+        "Areso",
+        "Ares",
+        "Los Arcos",
+        "Arcos",
+        "Oroz-Betelu",
+        "Betelu",
+        "Mira",
+        "Miranda de Arga",
+        "Puente la Reina",
+        "Reina",
+        "Tafalla",
+    }
+
+    @pytest.mark.parametrize(
+        "propio",
+        ["Areso", "Los Arcos", "Oroz-Betelu", "Miranda de Arga", "Puente la Reina"],
+    )
+    def test_el_nombre_propio_no_dispara_el_candado(self, propio):
+        texto = f"{propio} cuenta con una población de 100 habitantes. En {propio} se prevé…"
+        assert verificar_nombres(texto, {propio}, self.TODOS) == []
+
+    def test_citar_de_verdad_otro_municipio_sigue_siendo_violacion(self):
+        """Tapar el nombre propio no puede tapar también una mención real a otro."""
+        texto = "Los Arcos crece más que Arcos y que Tafalla."
+        assert sorted(verificar_nombres(texto, {"Los Arcos"}, self.TODOS)) == ["Arcos", "Tafalla"]
+
+    def test_un_nombre_corto_dentro_de_otra_palabra_no_cuenta(self):
+        texto = "Areso mira al futuro con una renta de 20000 euros."
+        assert verificar_nombres(texto, {"Areso"}, self.TODOS) == []

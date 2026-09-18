@@ -16,6 +16,7 @@ plantilla determinista del frontend.
 
 from __future__ import annotations
 
+import functools
 import hashlib
 import json
 import re
@@ -113,17 +114,37 @@ def verificar_cifras(texto: str, datos: dict) -> list[str]:
     return violaciones
 
 
+@functools.cache
+def _como_palabra(nombre: str) -> re.Pattern[str]:
+    """El nombre como palabra completa: "Ares" no está dentro de "Areso"."""
+    return re.compile(rf"(?<!\w){re.escape(nombre)}(?!\w)")
+
+
 def verificar_nombres(
     texto: str,
     nombres_permitidos: set[str],
     todos_los_municipios: set[str],
 ) -> list[str]:
-    """Nombres de municipios que aparecen en el texto sin estar en el contexto."""
-    violaciones = []
-    for nombre in todos_los_municipios:
-        if nombre in texto and nombre not in nombres_permitidos:
-            violaciones.append(nombre)
-    return violaciones
+    """Nombres de municipios que aparecen en el texto sin estar en el contexto.
+
+    Antes se buscaba cada municipio como subcadena, y el nombre propio aparece siempre en
+    el texto: "Areso" contiene "Ares", "Los Arcos" contiene "Arcos", "Oroz-Betelu"
+    contiene "Betelu". Los 24 rechazados de la primera tanda completa lo eran por esto, y
+    por nada más: el candado bloqueaba textos correctos.
+
+    Dos pasos. Se tapan primero los nombres permitidos, de más largo a más corto, para
+    que "Arcos" no se vea dentro de "Los Arcos". Después se buscan los demás como palabra
+    completa. Una mención real a otro municipio sigue saltando: "Arcos" suelto no lo
+    tapa nada.
+    """
+    tapado = texto
+    for nombre in sorted(nombres_permitidos, key=len, reverse=True):
+        tapado = _como_palabra(nombre).sub(" ", tapado)
+    return [
+        nombre
+        for nombre in todos_los_municipios
+        if nombre not in nombres_permitidos and _como_palabra(nombre).search(tapado)
+    ]
 
 
 def hash_datos(datos: dict) -> str:
