@@ -34,4 +34,22 @@ etiquetado_noticias = ScheduleDefinition(
     ),
 )
 
-SCHEDULES = [etiquetado_noticias]
+#: Tanda diaria de informes narrativos, una hora después del etiquetado: los dos gastan
+#: la misma cuota diaria del proveedor y, arrancando a la vez, cada uno se comería la
+#: mitad de la del otro. Mismo principio que el etiquetado: incremental (salta los
+#: municipios cuyos datos no han cambiado), para limpio al agotarse la cuota y se
+#: convierte en un no-op cuando no queda nada. Si cambian los datos de un municipio —un
+#: reentrenamiento, un año nuevo del Padrón—, su informe se rehace solo.
+narrativa_diaria = ScheduleDefinition(
+    name="narrativa_diaria",
+    cron_schedule="0 10 * * *",
+    execution_timezone="Europe/Madrid",
+    target=AssetSelection.assets("narrativa"),
+    default_status=DefaultScheduleStatus.RUNNING,
+    description=(
+        "Genera los informes narrativos pendientes o desactualizados. Incremental: salta "
+        "los municipios cuyos datos no han cambiado y para limpio si se agota la cuota."
+    ),
+)
+
+SCHEDULES = [etiquetado_noticias, narrativa_diaria]
