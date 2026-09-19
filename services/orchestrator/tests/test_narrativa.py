@@ -14,6 +14,7 @@ from territorio_pipelines.narrativa import (
     _lecturas,
     _numeros_del_contexto,
     hash_datos,
+    normalizar,
     recorrer,
     verificar_cifras,
     verificar_nombres,
@@ -225,6 +226,12 @@ class TestConsultaNarrativa:
     def test_cada_dato_sale_de_su_ultimo_anio_con_valor(self, sql, columna):
         assert f"{columna} IS NOT NULL" in sql
 
+    def test_la_renta_asignada_por_el_ine_no_se_presenta_como_propia(self, sql):
+        """A los municipios de menos de 100 habitantes el INE les asigna la media de su
+        comarca. El informe decía "la renta neta media por persona se situó en 18.318
+        euros" de 22 municipios distintos a la vez."""
+        assert "NOT flag_renta_asignada" in sql
+
     def test_el_paro_exige_un_anio_completo(self, sql):
         """Una media de paro sobre un mes no es comparable con la de un año: en 2026 la
         de Abáigar salía de un solo mes y el informe la daba como la tasa del año."""
@@ -340,3 +347,34 @@ class TestNombresQueContienenOtros:
     def test_un_nombre_corto_dentro_de_otra_palabra_no_cuenta(self):
         texto = "Areso mira al futuro con una renta de 20000 euros."
         assert verificar_nombres(texto, {"Areso"}, self.TODOS) == []
+
+
+class TestNormalizar:
+    """Una columna de enteros con un solo hueco pasa a float en pandas: 18949 llega como
+    18949.0. El hash cambiaba para los 272 municipios en cuanto cambiaban los huecos de
+    cualquier columna, y se regeneraban todos los informes; y el modelo escribía "18949.0
+    euros"."""
+
+    def test_un_decimal_sin_parte_decimal_pasa_a_entero(self):
+        import numpy as np
+
+        valor = normalizar({"renta": np.float64(18949.0)})["renta"]
+        assert valor == 18949 and type(valor) is int
+
+    def test_un_decimal_de_verdad_se_queda_como_esta(self):
+        assert normalizar({"cambio": 8.7}) == {"cambio": 8.7}
+
+    def test_los_tipos_de_numpy_pasan_a_tipos_de_python(self):
+        import numpy as np
+
+        assert type(normalizar({"parados": np.int64(5)})["parados"]) is int
+
+    def test_el_texto_no_se_toca(self):
+        assert normalizar({"nivel": "verde"}) == {"nivel": "verde"}
+
+    def test_el_hash_no_depende_de_como_llegue_el_entero(self):
+        import numpy as np
+
+        assert hash_datos(normalizar({"r": np.float64(18949.0)})) == hash_datos(
+            normalizar({"r": 18949})
+        )

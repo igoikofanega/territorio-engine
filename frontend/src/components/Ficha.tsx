@@ -15,6 +15,7 @@ import {
 import { m } from "motion/react";
 
 import { COLOR_CRECE, COLOR_DECAE, RIESGO_COLORES } from "../escalas";
+import { notaRenta } from "../calidad";
 import { etiquetaArquetipo, parsearDrivers } from "../motivos";
 import type { FichaData, NarrativaData, NoticiasData, SerieRow } from "../types";
 import { veredicto } from "../veredicto";
@@ -244,6 +245,7 @@ export default function Ficha({ ficha, noticias, narrativa, onClose, onSelect }:
   // Banderas de calidad. Un hueco enmascarado por secreto estadístico no es lo mismo que
   // un dato que la fuente no publica, y hasta ahora los dos se veían igual: sin tarjeta.
   const rentaEnmascarada = ficha.serie.some((r) => r.renta_secreto);
+  const calidadRenta = notaRenta(ficha.serie);
   const anioParo = paro?.anio;
   const mesesParo = anioParo
     ? (ficha.serie.find((r) => r.anio === anioParo)?.paro_meses ?? null)
@@ -434,8 +436,8 @@ export default function Ficha({ ficha, noticias, narrativa, onClose, onSelect }:
                 <StatCard
                   icono={Wallet} label="Renta" anio={renta.anio}
                   valor={Math.round(renta.valor).toLocaleString("es")} unidad="€/pers"
-                  delta={deltaPct(renta)}
-                  nota={rentaEnmascarada ? "algún año va sin publicar por secreto estadístico" : undefined}
+                  delta={calidadRenta?.mostrarDelta ? deltaPct(renta) : null}
+                  nota={calidadRenta?.nota}
                 />
               ) : rentaEnmascarada ? (
                 <StatCard

@@ -78,7 +78,7 @@ describe("veredicto: la banda que cruza cero nunca es direccional", () => {
 
 describe("veredicto: sin predicción", () => {
   it("explica el motivo en vez de dejar un hueco", () => {
-    const f = baseFicha({ serie: [{ anio: 2023, poblacion: 500, paro: null, renta: 20000, alquiler: null, temp: null, precip: null, pct_extranjeros: null, renta_secreto: null, paro_meses: null }] });
+    const f = baseFicha({ serie: [{ anio: 2023, poblacion: 500, paro: null, renta: 20000, alquiler: null, temp: null, precip: null, pct_extranjeros: null, renta_secreto: null, renta_asignada: null, paro_meses: null }] });
     const v = veredicto(f);
     expect(v.tono).toBe("sin-datos");
     expect(v.titular).toContain("paro");
@@ -97,7 +97,7 @@ describe("veredicto: sin predicción", () => {
     // la serie —temp/precip de AEMET— pero población, paro y renta a null: es una
     // entidad geográfica sin población propia, no un hueco de carga.
     const f = baseFicha({
-      serie: [{ anio: 2022, poblacion: null, paro: null, renta: null, alquiler: null, temp: 12.5, precip: 473, pct_extranjeros: null, renta_secreto: null, paro_meses: null }],
+      serie: [{ anio: 2022, poblacion: null, paro: null, renta: null, alquiler: null, temp: 12.5, precip: 473, pct_extranjeros: null, renta_secreto: null, renta_asignada: null, paro_meses: null }],
     });
     const v = veredicto(f);
     expect(v.titular).toContain("población, paro y renta");

@@ -1284,6 +1284,10 @@ ON CONFLICT (cod_municipio) DO UPDATE SET
 #: cada número, y el candado de cifras no lo comprueba (solo mira que la cifra exista).
 #: Con `paro` escribía "una tasa de paro del 15 por ciento" por 15 personas, y con
 #: `cambio_pct` hablaba de "tendencia reciente" de lo que es una proyección.
+#:
+#: La renta que el INE **asigna** a los municipios de menos de 100 habitantes (la media
+#: de su comarca agraria, ver migración 0033) no entra: el informe la daba como la renta
+#: del municipio, y 22 municipios de Tierra Estella "ganaban" los mismos 18.318 €.
 _SQL_NARRATIVA = text("""
 SELECT d.cod_municipio AS cod, d.nombre,
        pob.poblacion_total AS habitantes, pob.anio AS anio_poblacion,
@@ -1313,6 +1317,7 @@ LEFT JOIN LATERAL (
 LEFT JOIN LATERAL (
     SELECT renta_neta_media_persona, anio FROM fact_municipio_anual
     WHERE cod_municipio = d.cod_municipio AND renta_neta_media_persona IS NOT NULL
+      AND NOT flag_renta_asignada
     ORDER BY anio DESC LIMIT 1
 ) ren ON true
 LEFT JOIN prediccion_ml p ON p.cod_municipio = d.cod_municipio
@@ -1337,7 +1342,7 @@ def load_narrativa(limite: int | None = None) -> dict:
 
     candidatos = []
     for _, row in municipios.iterrows():
-        datos = {k: v for k, v in row.to_dict().items() if pd.notna(v)}
+        datos = narrativa.normalizar({k: v for k, v in row.to_dict().items() if pd.notna(v)})
         candidatos.append((row["cod"], datos))
 
     def generar(datos: dict) -> dict:

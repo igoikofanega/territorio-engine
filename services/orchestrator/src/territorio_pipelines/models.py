@@ -1,5 +1,5 @@
 from geoalchemy2 import Geometry
-from sqlalchemy import Boolean, Column, Date, Float, Integer, SmallInteger, String
+from sqlalchemy import Boolean, Column, Computed, Date, Float, Integer, SmallInteger, String
 
 from .db import Base
 
@@ -62,6 +62,18 @@ class FactMunicipioAnual(Base):
     # enmascarado por secreto estadístico, o cargado a medias. Estas columnas las separan.
     flag_renta_secreto = Column(Boolean)
     paro_meses = Column(SmallInteger)
+    # 0033 — renta asignada por el INE. Desde 2020, a los municipios de menos de 100
+    # habitantes se les da la media de su provincia (2020-2021) o comarca agraria (2022→)
+    # en vez de ocultarla. Calculada por la base: población y renta se cargan por
+    # separado y en cualquier orden.
+    flag_renta_asignada = Column(
+        Boolean,
+        Computed(
+            "COALESCE(renta_neta_media_persona IS NOT NULL AND anio >= 2020 "
+            "AND poblacion_total < 100, false)",
+            persisted=True,
+        ),
+    )
 
 
 class FactPiramide(Base):

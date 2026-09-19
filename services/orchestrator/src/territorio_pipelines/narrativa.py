@@ -147,6 +147,24 @@ def verificar_nombres(
     ]
 
 
+def normalizar(datos: dict) -> dict:
+    """Los valores tal como los diría una persona: 18949, no `np.float64(18949.0)`.
+
+    Una columna de enteros con un solo hueco pasa a float en pandas, así que la renta de
+    todos los municipios llegaba como 18949.0 en cuanto a uno le faltaba. Eso cambiaba el
+    hash de los 272 —y se regeneraban todos los informes aunque nada hubiese cambiado— y
+    el modelo escribía "18949.0 euros". Se normaliza antes del hash y antes del prompt.
+    """
+    salida = {}
+    for clave, valor in datos.items():
+        if hasattr(valor, "item"):  # escalar de numpy
+            valor = valor.item()
+        if isinstance(valor, float) and valor.is_integer():
+            valor = int(valor)
+        salida[clave] = valor
+    return salida
+
+
 def hash_datos(datos: dict) -> str:
     """SHA1 del JSON de entrada, para saber si hay que regenerar."""
     return hashlib.sha1(json.dumps(datos, sort_keys=True, ensure_ascii=False).encode()).hexdigest()

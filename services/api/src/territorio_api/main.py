@@ -519,8 +519,10 @@ async def municipio_ficha(cod: str) -> dict:
                            pct_extranjeros,
                            -- Banderas de calidad: un hueco enmascarado por secreto
                            -- estadístico no es lo mismo que un dato no publicado, y la
-                           -- media anual de paro sobre 7 meses no es la de 12.
-                           flag_renta_secreto, paro_meses
+                           -- media anual de paro sobre 7 meses no es la de 12. Y la
+                           -- renta de un municipio de menos de 100 habitantes es, desde
+                           -- 2020, la media de su comarca que asigna el INE.
+                           flag_renta_secreto, flag_renta_asignada, paro_meses
                     FROM fact_municipio_anual
                     WHERE cod_municipio = :cod
                     ORDER BY anio
@@ -754,6 +756,7 @@ async def municipio_ficha(cod: str) -> dict:
                 "precip": r.precip,
                 "pct_extranjeros": r.pct_extranjeros,
                 "renta_secreto": r.flag_renta_secreto,
+                "renta_asignada": r.flag_renta_asignada,
                 "paro_meses": r.paro_meses,
             }
             for r in serie

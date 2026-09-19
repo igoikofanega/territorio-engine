@@ -44,6 +44,9 @@ export type SerieRow = {
   /** El INE enmascara la renta de los municipios pequeños por secreto estadístico. Un
    *  hueco enmascarado no es lo mismo que un dato que la fuente no publica. */
   renta_secreto: boolean | null;
+  /** Desde 2020, la renta de un municipio de menos de 100 habitantes no es suya: el INE
+   *  le asigna la media de su provincia (2020-2021) o de su comarca agraria (2022→). */
+  renta_asignada: boolean | null;
   /** Meses realmente promediados en la media anual de paro. En 2020 ningún municipio
    *  tiene los 12, así que esa media no es comparable con la de otros años. */
   paro_meses: number | null;
