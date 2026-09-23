@@ -30,8 +30,8 @@
         ],
         "n_train": 40619,
         "n_val": 8131,
-        "mae": 5.94,
-        "r2": 0.309,
+        "mae": 5.789,
+        "r2": 0.33,
         "mae_persistencia": 7.632,
         "mae_tendencia": 9.844
       }
@@ -50,17 +50,17 @@
         "motivo": "sin dato en entrenamiento para crec_prev3"
       }
     ],
-    "mae_media": 5.744,
-    "mae_desviacion": 0.278,
+    "mae_media": 5.668,
+    "mae_desviacion": 0.171,
     "mae_min": 5.547,
-    "mae_max": 5.94
+    "mae_max": 5.789
   },
   "sensibilidad_al_embargo": [
     {
       "embargo": 2,
       "factible": true,
       "n_pliegues": 1,
-      "mae_media": 6.157,
+      "mae_media": 6.038,
       "motivo": null
     },
     {
@@ -89,8 +89,8 @@
     {
       "estrato": "<500",
       "n": 4001,
-      "mae": 8.507,
-      "sesgo": -0.307,
+      "mae": 8.199,
+      "sesgo": 1.329,
       "mae_persistencia": 9.831
     },
     {
@@ -152,126 +152,126 @@
       {
         "cod_provincia": "19",
         "n": 288,
-        "mae": 14.482,
-        "sesgo": -1.821
-      },
-      {
-        "cod_provincia": "42",
-        "n": 183,
-        "mae": 10.318,
-        "sesgo": -3.748
+        "mae": 13.621,
+        "sesgo": 1.05
       },
       {
         "cod_provincia": "16",
         "n": 238,
-        "mae": 9.733,
-        "sesgo": 1.771
+        "mae": 9.64,
+        "sesgo": 3.005
+      },
+      {
+        "cod_provincia": "44",
+        "n": 236,
+        "mae": 9.521,
+        "sesgo": 4.222
       },
       {
         "cod_provincia": "26",
         "n": 174,
-        "mae": 9.533,
-        "sesgo": -0.733
+        "mae": 9.189,
+        "sesgo": 1.136
       },
       {
-        "cod_provincia": "40",
-        "n": 209,
-        "mae": 9.452,
-        "sesgo": 2.637
+        "cod_provincia": "42",
+        "n": 183,
+        "mae": 9.067,
+        "sesgo": -0.859
       }
     ]
   },
   "moran_residuos": {
     "n": 8131,
     "k_vecinos": 8,
-    "moran_i": 0.1038,
+    "moran_i": 0.0984,
     "esperado_bajo_azar": -0.0001,
     "p": 0.001
   },
   "importancia": [
     {
       "feature": "log_pob",
-      "importancia": 0.1715,
-      "desviacion": 0.0031
-    },
-    {
-      "feature": "alquiler",
-      "importancia": 0.085,
-      "desviacion": 0.0068
-    },
-    {
-      "feature": "km_capital",
-      "importancia": 0.085,
-      "desviacion": 0.0018
-    },
-    {
-      "feature": "paro_1000",
-      "importancia": 0.0815,
-      "desviacion": 0.0035
-    },
-    {
-      "feature": "crec_prev3",
-      "importancia": 0.0638,
-      "desviacion": 0.0035
-    },
-    {
-      "feature": "temp_min_media",
-      "importancia": 0.0627,
-      "desviacion": 0.0031
-    },
-    {
-      "feature": "tasa_natalidad",
-      "importancia": 0.058,
+      "importancia": 0.206,
       "desviacion": 0.0033
     },
     {
-      "feature": "densidad",
-      "importancia": 0.0562,
-      "desviacion": 0.0045
+      "feature": "km_capital",
+      "importancia": 0.0785,
+      "desviacion": 0.002
     },
     {
-      "feature": "precip",
-      "importancia": 0.0526,
+      "feature": "paro_1000",
+      "importancia": 0.0775,
       "desviacion": 0.0036
     },
     {
-      "feature": "km_salud",
-      "importancia": 0.0381,
-      "desviacion": 0.0025
+      "feature": "crec_prev3",
+      "importancia": 0.0705,
+      "desviacion": 0.0033
     },
     {
-      "feature": "pct_fibra",
-      "importancia": 0.0377,
-      "desviacion": 0.0044
+      "feature": "alquiler",
+      "importancia": 0.0669,
+      "desviacion": 0.0065
     },
     {
-      "feature": "temp",
-      "importancia": 0.0374,
-      "desviacion": 0.0035
+      "feature": "densidad",
+      "importancia": 0.06,
+      "desviacion": 0.0047
     },
     {
-      "feature": "dias_despejados",
-      "importancia": 0.0341,
-      "desviacion": 0.0029
+      "feature": "precip",
+      "importancia": 0.0547,
+      "desviacion": 0.0038
     },
     {
-      "feature": "pct_extranjeros",
-      "importancia": 0.0334,
-      "desviacion": 0.0022
+      "feature": "temp_min_media",
+      "importancia": 0.0545,
+      "desviacion": 0.0041
+    },
+    {
+      "feature": "tasa_natalidad",
+      "importancia": 0.0474,
+      "desviacion": 0.002
     },
     {
       "feature": "renta",
-      "importancia": 0.0226,
-      "desviacion": 0.0023
+      "importancia": 0.0447,
+      "desviacion": 0.0021
+    },
+    {
+      "feature": "km_salud",
+      "importancia": 0.0368,
+      "desviacion": 0.0027
+    },
+    {
+      "feature": "pct_extranjeros",
+      "importancia": 0.0367,
+      "desviacion": 0.0018
+    },
+    {
+      "feature": "dias_despejados",
+      "importancia": 0.0367,
+      "desviacion": 0.0031
+    },
+    {
+      "feature": "temp",
+      "importancia": 0.0353,
+      "desviacion": 0.0038
+    },
+    {
+      "feature": "pct_fibra",
+      "importancia": 0.0344,
+      "desviacion": 0.0049
     },
     {
       "feature": "tasa_mortalidad",
-      "importancia": 0.0165,
-      "desviacion": 0.004
+      "importancia": 0.0117,
+      "desviacion": 0.0043
     },
     {
       "feature": "envejecimiento",
-      "importancia": 0.006,
+      "importancia": 0.0045,
       "desviacion": 0.0004
     }
   ],
@@ -286,51 +286,51 @@
     "anio_test": 2020,
     "n_test": 8131,
     "tasa_evento_test": 0.098,
-    "auc": 0.8439,
-    "brier_sin_calibrar": 0.07534,
-    "brier_calibrado": 0.07596,
+    "auc": 0.8677,
+    "brier_sin_calibrar": 0.07262,
+    "brier_calibrado": 0.07439,
     "fiabilidad": [
       {
         "bin": "0.0-0.1",
-        "n": 5355,
-        "prob_media": 0.0181,
-        "frec_observada": 0.0252
+        "n": 4959,
+        "prob_media": 0.0154,
+        "frec_observada": 0.0133
       },
       {
         "bin": "0.1-0.2",
-        "n": 1666,
-        "prob_media": 0.1575,
-        "frec_observada": 0.1867
+        "n": 1414,
+        "prob_media": 0.1611,
+        "frec_observada": 0.1322
       },
       {
         "bin": "0.2-0.3",
-        "n": 262,
-        "prob_media": 0.251,
-        "frec_observada": 0.2557
+        "n": 303,
+        "prob_media": 0.2531,
+        "frec_observada": 0.2013
       },
       {
         "bin": "0.3-0.4",
-        "n": 509,
-        "prob_media": 0.3405,
-        "frec_observada": 0.2809
+        "n": 746,
+        "prob_media": 0.3439,
+        "frec_observada": 0.2493
       },
       {
         "bin": "0.4-0.5",
-        "n": 152,
-        "prob_media": 0.45,
-        "frec_observada": 0.3289
+        "n": 269,
+        "prob_media": 0.4484,
+        "frec_observada": 0.342
       },
       {
         "bin": "0.5-0.6",
-        "n": 68,
-        "prob_media": 0.5469,
-        "frec_observada": 0.4559
+        "n": 141,
+        "prob_media": 0.5468,
+        "frec_observada": 0.4255
       },
       {
         "bin": "0.6-0.7",
-        "n": 108,
-        "prob_media": 0.6323,
-        "frec_observada": 0.4907
+        "n": 267,
+        "prob_media": 0.6338,
+        "frec_observada": 0.4794
       },
       {
         "bin": "0.7-0.8",
@@ -340,9 +340,9 @@
       },
       {
         "bin": "0.8-0.9",
-        "n": 10,
-        "prob_media": 0.8,
-        "frec_observada": 0.6
+        "n": 31,
+        "prob_media": 0.8021,
+        "frec_observada": 0.5161
       }
     ]
   }

@@ -70,9 +70,9 @@ more precise than it is:
 |---|---|---|
 | Persistence (assume no change) | 7.65 | — |
 | Trend (extrapolate recent growth) | 10.02 | — |
-| **HistGradientBoosting** | **5.74 ± 0.28** | **0.36** |
+| **HistGradientBoosting** | **5.67 ± 0.17** | **0.37** |
 
-The model beats persistence by 24% and naive trend extrapolation by 42%. Note that
+The model beats persistence by 26% and naive trend extrapolation by 43%. Note that
 extrapolating the trend is *worse* than assuming nothing changes — a useful reminder about
 small-population noise.
 
@@ -91,7 +91,7 @@ the honest number is the one published now.
 
 **Overlapping windows are priced, not hidden.** The target looks 5 years ahead, so with
 contiguous folds the training and validation windows share trajectory over the same
-municipalities. With a 2-year embargo the MAE rises to 6.16. A full embargo (= the horizon)
+municipalities. With a 2-year embargo the MAE rises to 6.04. A full embargo (= the horizon)
 is **not feasible**: population data starts in 2015 and there are not enough base years
 left. That is a limit of the data, and it is stated rather than quietly skipped.
 
@@ -102,12 +102,12 @@ villages, and that is exactly where the model is weakest:
 
 | Size | n | MAE | If nothing changed |
 |---|---|---|---|
-| <500 | 4,001 | **8.53** | 9.83 |
+| <500 | 4,001 | **8.20** | 9.83 |
 | 500-2,000 | 1,871 | 4.24 | 5.88 |
 | 2,000-10,000 | 1,500 | 3.04 | 5.47 |
 | >10,000 | 759 | **2.33** | 4.63 |
 
-A factor of 3.7 between the extremes. The model still wins in every stratum, but by much
+A factor of 3.5 between the extremes. The model still wins in every stratum, but by much
 less than the aggregate suggests.
 
 **The residuals are spatially autocorrelated.** Moran's I on the error = **0.104**
@@ -127,7 +127,7 @@ separate temporal blocks), it **does not improve** the Brier score: 0.0760 calib
 
 ![Reliability diagram](docs/evaluacion/fiabilidad.png)
 
-So the traffic light **ranks well but does not quantify well** — AUC 0.84 separates the
+So the traffic light **ranks well but does not quantify well** — AUC 0.87 separates the
 towns at risk, which is what the green/amber/red UI uses. Reading the percentage as a
 literal frequency is what does not hold. An earlier version of this README claimed
 "70% actually means 70%"; that claim came from calibrating and scoring on the same rows.
@@ -161,7 +161,7 @@ existed. Run with the full 34,126 labelled headlines:
 The improvement is **0.029 pp against a 0.20 pp threshold**, and its bootstrap 95% CI
 `[-0.040, 0.099]` contains zero. **Verdict: rejected.** The news features do not enter the
 production model. The layer survives as a product — a local-press panel in the dossier —
-not as a predictor. *(This MAE is not comparable to the 5.74 above: 3-year horizon, Navarre
+not as a predictor. *(This MAE is not comparable to the 5.67 above: 3-year horizon, Navarre
 only, different window.)*
 
 The criterion was not touched after seeing the result. Verifying that is the point of
@@ -180,10 +180,27 @@ twelve** (7–11). 2020 is a validation base year.
 
 Both flags are now columns (`flag_renta_secreto`, `paro_meses`). Neither goes into the
 model: measured over the same folds, adding them changes the MAE by nothing at all
-(5.743336 in every variant, to six decimals). `renta` already carries the information as a
+(5.743336 in every variant, to six decimals). `renta` already carried the information as a
 NaN that the gradient booster exploits natively, and `paro_meses` is constant within every
 training window. They are there for the reader and the data contract, not the predictor —
 which is why it was worth measuring rather than assuming.
+
+**That last argument stopped holding, and measuring caught it.** From the ADRH 2020
+edition the INE no longer masks the income of municipalities under 100 inhabitants: it
+*assigns* them the average of the under-100 municipalities of their province (2020-2021)
+or of their **agrarian comarca** (2022 onwards). So 22 villages in Tierra Estella all
+"earn" exactly €18,318 in 2023. It is one in six municipalities with income data, and
+precisely the small ones this project is about — and the regime changes mid-series: masked
+until 2019, filled in from 2020. The model learned with holes and predicted with comarca
+averages.
+
+A third column (`flag_renta_asignada`, migration 0033) marks it, and unlike the other two
+this one **does** go into the model, as a hole rather than a number. Measured on the same
+rolling backtest (validation fold 2020, the only one with both assigned income and a known
+target): MAE for municipalities under 100 inhabitants drops from 12.52 to 11.62, while
+those of 100 or more stay identical to three decimals (4.605), and the 2019 fold — which
+has no assigned income — does not move either (5.547). The published headline went from
+5.74 ± 0.28 to 5.67 ± 0.17.
 
 **Explainability without overclaiming.** Permutation importance globally; per-municipality
 "drivers" derived from importance × correlation sign × deviation from the median. The code
@@ -412,10 +429,10 @@ Stated plainly, because a model of rural decline that oversells itself is worse 
   are where that approximation hurts most.
 - **Correlation, not causation.** The per-municipality "drivers" are a ranking heuristic to
   guide investigation. Nothing here identifies a causal effect.
-- **Small populations are noisy — and now measured.** MAE is 8.53 pp for municipalities
-  under 500 inhabitants versus 2.36 for those over 10,000. The aggregate 5.80 is an average
+- **Small populations are noisy — and now measured.** MAE is 8.20 pp for municipalities
+  under 500 inhabitants versus 2.33 for those over 10,000. The aggregate 5.67 is an average
   over a very uneven surface, and the weak half is the half this project exists for.
-- **The residuals are spatially autocorrelated** (Moran's I = 0.114, p = 0.001), so the
+- **The residuals are spatially autocorrelated** (Moran's I = 0.098, p = 0.001), so the
   model is missing regional structure. Known, measured, unfixed.
 - **The risk percentage is not a calibrated frequency.** Isotonic calibration does not
   improve the Brier score out of sample. Use the green/amber/red level, not the number.

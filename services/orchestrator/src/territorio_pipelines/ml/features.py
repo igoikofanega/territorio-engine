@@ -39,13 +39,30 @@ TARGET = "target"
 HORIZONTE = 5
 
 
+#: Lo que el modelo lee de la matriz. La renta **asignada** por el INE a los municipios
+#: de menos de 100 habitantes (la media de los de ese tamaño de su comarca agraria, ver
+#: migración 0033) entra como hueco, no como dato.
+#:
+#: El motivo es que el régimen cambia a mitad de la serie: hasta 2019 esos municipios
+#: llegaban vacíos por secreto estadístico y desde 2020 llegan rellenos con una media.
+#: El modelo aprendía con huecos y predecía con medias comarcales, que es otra cosa.
+#: Medido en el backtest rodante (pliegue de validación 2020, único con renta asignada y
+#: objetivo conocido): el MAE de los municipios de menos de 100 habitantes baja de 12,518
+#: a 11,622 tratándola como hueco. En los de 100 o más queda idéntico (4,605), y el
+#: pliegue de 2019, que no tiene renta asignada, tampoco se mueve (5,547).
+#:
+#: HistGradientBoosting trata los NaN de forma nativa: el hueco es información, la media
+#: de otros municipios no.
+_SQL_FMA = """
+SELECT cod_municipio AS cod, anio, poblacion_total AS pob, paro_media_anual AS paro,
+       CASE WHEN flag_renta_asignada THEN NULL ELSE renta_neta_media_persona END AS renta,
+       alquiler_eur_m2 AS alquiler
+FROM fact_municipio_anual
+"""
+
+
 def _leer(engine: Engine) -> dict[str, pd.DataFrame]:
-    fma = pd.read_sql(
-        "SELECT cod_municipio AS cod, anio, poblacion_total AS pob, paro_media_anual AS paro, "
-        "renta_neta_media_persona AS renta, alquiler_eur_m2 AS alquiler "
-        "FROM fact_municipio_anual",
-        engine,
-    )
+    fma = pd.read_sql(_SQL_FMA, engine)
     dim = pd.read_sql(
         "SELECT cod_municipio AS cod, cod_provincia, superficie_km2 FROM dim_municipio", engine
     )

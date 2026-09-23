@@ -163,3 +163,29 @@ class TestAntiFuga:
         # 2012 no existe en la serie sintética (empieza en 2015) → sin tendencia previa
         assert df["crec_prev3"].isna().all()
         assert not np.isfinite(df["crec_prev3"].to_numpy(dtype=float)).any()
+
+
+class TestRentaAsignada:
+    """La renta que el INE asigna a los municipios de menos de 100 habitantes (la media de
+    su comarca, ver migración 0033) no es un dato del municipio, y el modelo la recibía
+    como si lo fuera.
+
+    Importa porque el régimen cambia a mitad de la serie: hasta 2019 esos municipios
+    llegaban vacíos (secreto estadístico) y desde 2020 llegan rellenos. El modelo aprendió
+    con huecos y predice con medias comarcales. Medido en el backtest rodante: tratarla
+    como hueco baja el MAE de los municipios de menos de 100 habitantes de 12,518 a 11,622
+    en el pliegue de 2020, y deja intacto el resto (4,605 en los de 100 o más, y 5,547 en
+    el pliegue de 2019, que no tiene renta asignada).
+    """
+
+    def test_la_consulta_descarta_la_renta_asignada(self):
+        from territorio_pipelines.ml import features
+
+        sql = " ".join(features._SQL_FMA.split())
+        assert "flag_renta_asignada" in sql
+        assert "THEN NULL" in sql
+
+    def test_sigue_leyendo_la_renta_normal(self):
+        from territorio_pipelines.ml import features
+
+        assert "renta_neta_media_persona" in features._SQL_FMA
