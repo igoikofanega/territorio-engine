@@ -71,7 +71,7 @@ jobs:
         # Los tests no tienen red: todo lo externo va con fixtures grabadas.
         run: uv run pytest -q --cov --cov-report=xml --cov-report=term-missing
       - name: Subir cobertura
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: services/${{ matrix.service }}/coverage.xml
           flags: ${{ matrix.service }}
@@ -145,7 +145,7 @@ jobs:
     needs: [lint, test]
     steps:
       - uses: actions/checkout@v7
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@v4
       # Comprobación de integración de la topología completa: que los 5 servicios
       # del compose construyen juntos. El cacheado fino vive en `publish`, que es
       # donde se paga de verdad (multi-arch).
@@ -171,8 +171,8 @@ jobs:
             context: frontend
     steps:
       - uses: actions/checkout@v7
-      - uses: docker/setup-qemu-action@v3
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-qemu-action@v4
+      - uses: docker/setup-buildx-action@v4
       - uses: docker/login-action@v4
         with:
           registry: ghcr.io
@@ -185,7 +185,7 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha,format=long
-      - uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v7
         with:
           context: ${{ matrix.context }}
           # arm64 incluido: el proyecto se desarrolla en ARM y ya arrastra
